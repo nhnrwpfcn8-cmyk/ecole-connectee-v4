@@ -28,6 +28,7 @@ function StatCard({ icon, label, value, onClick }) {
   return (
     <button className="admin-stat-card" onClick={onClick} type="button">
       <div className="admin-stat-icon">{icon}</div>
+
       <div>
         <span>{label}</span>
         <strong>{value}</strong>
@@ -52,6 +53,7 @@ function AdminDashboard({ profile, onLogout }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+
   const [schools, setSchools] = useState([])
   const [teachers, setTeachers] = useState([])
   const [students, setStudents] = useState([])
@@ -59,16 +61,21 @@ function AdminDashboard({ profile, onLogout }) {
   const [admins, setAdmins] = useState([])
   const [classes, setClasses] = useState([])
   const [subjects, setSubjects] = useState([])
-  const [documents, setDocuments] = useState([])
 
   const isSuperAdmin = profile?.role === 'super_admin'
 
   async function countTable(table) {
     const { count, error } = await supabase
       .from(table)
-      .select('*', { count: 'exact', head: true })
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
 
-    if (error) throw error
+    if (error) {
+      throw error
+    }
+
     return count || 0
   }
 
@@ -91,10 +98,19 @@ function AdminDashboard({ profile, onLogout }) {
 
     const { count: adminsCount, error: adminsError } = await supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .in('role', ['admin', 'school_admin', 'super_admin'])
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
+      .in('role', [
+        'admin',
+        'school_admin',
+        'super_admin',
+      ])
 
-    if (adminsError) throw adminsError
+    if (adminsError) {
+      throw adminsError
+    }
 
     setStats({
       schools: schoolsCount,
@@ -112,8 +128,12 @@ function AdminDashboard({ profile, onLogout }) {
     const results = await Promise.allSettled([
       supabase
         .from('schools')
-        .select('id, name, address, city, phone, email, created_at')
-        .order('created_at', { ascending: false })
+        .select(
+          'id, name, address, city, phone, email, created_at'
+        )
+        .order('created_at', {
+          ascending: false,
+        })
         .limit(100),
 
       supabase
@@ -127,26 +147,40 @@ function AdminDashboard({ profile, onLogout }) {
         .select(
           'id, school_id, class_id, first_name, last_name, student_code, active, created_at'
         )
-        .order('created_at', { ascending: false })
+        .order('created_at', {
+          ascending: false,
+        })
         .limit(100),
 
       supabase
         .from('parents')
-        .select('id, school_id, profile_id, active')
+        .select(
+          'id, school_id, profile_id, active'
+        )
         .order('id')
         .limit(100),
 
       supabase
         .from('profiles')
-        .select('id, full_name, phone, role, school_id, active')
-        .in('role', ['admin', 'school_admin', 'super_admin'])
+        .select(
+          'id, full_name, phone, role, school_id, active'
+        )
+        .in('role', [
+          'admin',
+          'school_admin',
+          'super_admin',
+        ])
         .order('full_name')
         .limit(100),
 
       supabase
         .from('classes')
-        .select('id, school_id, name, level, created_at')
-        .order('created_at', { ascending: false })
+        .select(
+          'id, school_id, name, level, created_at'
+        )
+        .order('created_at', {
+          ascending: false,
+        })
         .limit(100),
 
       supabase
@@ -157,7 +191,10 @@ function AdminDashboard({ profile, onLogout }) {
     ])
 
     const values = results.map((result) => {
-      if (result.status === 'fulfilled' && !result.value.error) {
+      if (
+        result.status === 'fulfilled' &&
+        !result.value.error
+      ) {
         return result.value.data || []
       }
 
@@ -171,9 +208,6 @@ function AdminDashboard({ profile, onLogout }) {
     setAdmins(values[4])
     setClasses(values[5])
     setSubjects(values[6])
-
-    // La table documents sera intégrée plus tard.
-    setDocuments([])
   }
 
   async function loadDashboard(showRefresh = false) {
@@ -186,7 +220,10 @@ function AdminDashboard({ profile, onLogout }) {
     }
 
     try {
-      await Promise.all([loadStats(), loadLists()])
+      await Promise.all([
+        loadStats(),
+        loadLists(),
+      ])
     } catch (err) {
       console.error(
         'Erreur tableau de bord administrateur :',
@@ -194,7 +231,7 @@ function AdminDashboard({ profile, onLogout }) {
       )
 
       setError(
-        err.message ||
+        err?.message ||
           'Impossible de charger les données administrateur.'
       )
     } finally {
@@ -207,21 +244,23 @@ function AdminDashboard({ profile, onLogout }) {
     loadDashboard()
   }, [])
 
-  const schoolNameById = useMemo(
-    () =>
-      Object.fromEntries(
-        schools.map((school) => [school.id, school.name])
-      ),
-    [schools]
-  )
+  const schoolNameById = useMemo(() => {
+    return Object.fromEntries(
+      schools.map((school) => [
+        school.id,
+        school.name,
+      ])
+    )
+  }, [schools])
 
-  const classNameById = useMemo(
-    () =>
-      Object.fromEntries(
-        classes.map((item) => [item.id, item.name])
-      ),
-    [classes]
-  )
+  const classNameById = useMemo(() => {
+    return Object.fromEntries(
+      classes.map((item) => [
+        item.id,
+        item.name,
+      ])
+    )
+  }, [classes])
 
   function renderOverview() {
     return (
@@ -231,56 +270,72 @@ function AdminDashboard({ profile, onLogout }) {
             icon="🏫"
             label="Écoles"
             value={stats.schools}
-            onClick={() => setActiveMenu('schools')}
+            onClick={() =>
+              setActiveMenu('schools')
+            }
           />
 
           <StatCard
             icon="👨‍🏫"
             label="Enseignants"
             value={stats.teachers}
-            onClick={() => setActiveMenu('teachers')}
+            onClick={() =>
+              setActiveMenu('teachers')
+            }
           />
 
           <StatCard
             icon="👨‍🎓"
             label="Élèves"
             value={stats.students}
-            onClick={() => setActiveMenu('students')}
+            onClick={() =>
+              setActiveMenu('students')
+            }
           />
 
           <StatCard
             icon="👪"
             label="Parents"
             value={stats.parents}
-            onClick={() => setActiveMenu('parents')}
+            onClick={() =>
+              setActiveMenu('parents')
+            }
           />
 
           <StatCard
             icon="🛡️"
             label="Administrateurs"
             value={stats.admins}
-            onClick={() => setActiveMenu('admins')}
+            onClick={() =>
+              setActiveMenu('admins')
+            }
           />
 
           <StatCard
             icon="📚"
             label="Classes"
             value={stats.classes}
-            onClick={() => setActiveMenu('classes')}
+            onClick={() =>
+              setActiveMenu('classes')
+            }
           />
 
           <StatCard
             icon="📖"
             label="Matières"
             value={stats.subjects}
-            onClick={() => setActiveMenu('subjects')}
+            onClick={() =>
+              setActiveMenu('subjects')
+            }
           />
 
           <StatCard
             icon="📄"
             label="Documents"
             value={stats.documents}
-            onClick={() => setActiveMenu('documents')}
+            onClick={() =>
+              setActiveMenu('documents')
+            }
           />
         </div>
 
@@ -288,37 +343,62 @@ function AdminDashboard({ profile, onLogout }) {
           <section className="admin-panel">
             <div className="admin-panel-header">
               <div>
-                <h3>Résumé de la plateforme</h3>
+                <h3>
+                  Résumé de la plateforme
+                </h3>
+
                 <p>
-                  Vue générale des données actuellement disponibles.
+                  Vue générale des données actuellement
+                  disponibles.
                 </p>
               </div>
             </div>
 
             <div className="admin-summary-list">
               <div>
-                <span>Écoles enregistrées</span>
-                <strong>{stats.schools}</strong>
+                <span>
+                  Écoles enregistrées
+                </span>
+
+                <strong>
+                  {stats.schools}
+                </strong>
               </div>
 
               <div>
-                <span>Personnel enseignant</span>
-                <strong>{stats.teachers}</strong>
+                <span>
+                  Personnel enseignant
+                </span>
+
+                <strong>
+                  {stats.teachers}
+                </strong>
               </div>
 
               <div>
-                <span>Élèves enregistrés</span>
-                <strong>{stats.students}</strong>
+                <span>
+                  Élèves enregistrés
+                </span>
+
+                <strong>
+                  {stats.students}
+                </strong>
               </div>
 
               <div>
                 <span>Parents</span>
-                <strong>{stats.parents}</strong>
+
+                <strong>
+                  {stats.parents}
+                </strong>
               </div>
 
               <div>
                 <span>Documents</span>
-                <strong>{stats.documents}</strong>
+
+                <strong>
+                  {stats.documents}
+                </strong>
               </div>
             </div>
           </section>
@@ -327,35 +407,46 @@ function AdminDashboard({ profile, onLogout }) {
             <div className="admin-panel-header">
               <div>
                 <h3>Accès rapides</h3>
-                <p>Ouvrir directement une section.</p>
+
+                <p>
+                  Ouvrir directement une section.
+                </p>
               </div>
             </div>
 
             <div className="admin-quick-grid">
               <button
                 type="button"
-                onClick={() => setActiveMenu('schools')}
+                onClick={() =>
+                  setActiveMenu('schools')
+                }
               >
                 🏫 Gérer les écoles
               </button>
 
               <button
                 type="button"
-                onClick={() => setActiveMenu('teachers')}
+                onClick={() =>
+                  setActiveMenu('teachers')
+                }
               >
                 👨‍🏫 Gérer les enseignants
               </button>
 
               <button
                 type="button"
-                onClick={() => setActiveMenu('students')}
+                onClick={() =>
+                  setActiveMenu('students')
+                }
               >
                 👨‍🎓 Gérer les élèves
               </button>
 
               <button
                 type="button"
-                onClick={() => setActiveMenu('admins')}
+                onClick={() =>
+                  setActiveMenu('admins')
+                }
               >
                 🛡️ Gérer les administrateurs
               </button>
@@ -372,7 +463,10 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>🏫 Écoles</h3>
-            <p>{schools.length} école(s) affichée(s).</p>
+
+            <p>
+              {schools.length} école(s) affichée(s).
+            </p>
           </div>
         </div>
 
@@ -398,13 +492,22 @@ function AdminDashboard({ profile, onLogout }) {
                   <tr key={school.id}>
                     <td>
                       <strong>
-                        {school.name || 'Sans nom'}
+                        {school.name ||
+                          'Sans nom'}
                       </strong>
                     </td>
 
-                    <td>{school.city || '—'}</td>
-                    <td>{school.phone || '—'}</td>
-                    <td>{school.email || '—'}</td>
+                    <td>
+                      {school.city || '—'}
+                    </td>
+
+                    <td>
+                      {school.phone || '—'}
+                    </td>
+
+                    <td>
+                      {school.email || '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -421,8 +524,10 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>👨‍🏫 Enseignants</h3>
+
             <p>
-              {teachers.length} enseignant(s) affiché(s).
+              {teachers.length} enseignant(s)
+              affiché(s).
             </p>
           </div>
         </div>
@@ -447,11 +552,15 @@ function AdminDashboard({ profile, onLogout }) {
                 {teachers.map((teacher) => (
                   <tr key={teacher.id}>
                     <td>
-                      <code>{teacher.id}</code>
+                      <code>
+                        {teacher.id}
+                      </code>
                     </td>
 
                     <td>
-                      {schoolNameById[teacher.school_id] || '—'}
+                      {schoolNameById[
+                        teacher.school_id
+                      ] || '—'}
                     </td>
 
                     <td>
@@ -462,7 +571,9 @@ function AdminDashboard({ profile, onLogout }) {
                             : 'status-inactive'
                         }
                       >
-                        {teacher.active ? 'Actif' : 'Inactif'}
+                        {teacher.active
+                          ? 'Actif'
+                          : 'Inactif'}
                       </span>
                     </td>
                   </tr>
@@ -481,8 +592,10 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>👨‍🎓 Élèves</h3>
+
             <p>
-              {students.length} élève(s) affiché(s).
+              {students.length} élève(s)
+              affiché(s).
             </p>
           </div>
         </div>
@@ -512,18 +625,26 @@ function AdminDashboard({ profile, onLogout }) {
                       <strong>
                         {`${student.first_name || ''} ${
                           student.last_name || ''
-                        }`.trim() || 'Sans nom'}
+                        }`.trim() ||
+                          'Sans nom'}
                       </strong>
                     </td>
 
-                    <td>{student.student_code || '—'}</td>
-
                     <td>
-                      {classNameById[student.class_id] || '—'}
+                      {student.student_code ||
+                        '—'}
                     </td>
 
                     <td>
-                      {schoolNameById[student.school_id] || '—'}
+                      {classNameById[
+                        student.class_id
+                      ] || '—'}
+                    </td>
+
+                    <td>
+                      {schoolNameById[
+                        student.school_id
+                      ] || '—'}
                     </td>
 
                     <td>
@@ -534,7 +655,9 @@ function AdminDashboard({ profile, onLogout }) {
                             : 'status-inactive'
                         }
                       >
-                        {student.active ? 'Actif' : 'Inactif'}
+                        {student.active
+                          ? 'Actif'
+                          : 'Inactif'}
                       </span>
                     </td>
                   </tr>
@@ -553,7 +676,11 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>👪 Parents</h3>
-            <p>{parents.length} parent(s) affiché(s).</p>
+
+            <p>
+              {parents.length} parent(s)
+              affiché(s).
+            </p>
           </div>
         </div>
 
@@ -578,16 +705,21 @@ function AdminDashboard({ profile, onLogout }) {
                 {parents.map((parent) => (
                   <tr key={parent.id}>
                     <td>
-                      <code>{parent.id}</code>
+                      <code>
+                        {parent.id}
+                      </code>
                     </td>
 
                     <td>
-                      {schoolNameById[parent.school_id] || '—'}
+                      {schoolNameById[
+                        parent.school_id
+                      ] || '—'}
                     </td>
 
                     <td>
                       <code>
-                        {parent.profile_id || '—'}
+                        {parent.profile_id ||
+                          '—'}
                       </code>
                     </td>
 
@@ -599,9 +731,11 @@ function AdminDashboard({ profile, onLogout }) {
                             : 'status-inactive'
                         }
                       >
-                        {parent.active ? 'Actif' : 'Inactif'}
+                        {parent.active
+                          ? 'Actif'
+                          : 'Inactif'}
                       </span>
-                    </t >
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -618,8 +752,10 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>🛡️ Administrateurs</h3>
+
             <p>
-              {admins.length} compte(s) administrateur(s) affiché(s).
+              {admins.length} compte(s)
+              administrateur(s) affiché(s).
             </p>
           </div>
         </div>
@@ -646,13 +782,15 @@ function AdminDashboard({ profile, onLogout }) {
                   <tr key={admin.id}>
                     <td>
                       <strong>
-                        {admin.full_name || 'Sans nom'}
+                        {admin.full_name ||
+                          'Sans nom'}
                       </strong>
                     </td>
 
                     <td>
                       <span className="role-badge">
-                        {admin.role === 'super_admin'
+                        {admin.role ===
+                        'super_admin'
                           ? 'Super administrateur'
                           : 'Administrateur'}
                       </span>
@@ -660,7 +798,9 @@ function AdminDashboard({ profile, onLogout }) {
 
                     <td>
                       {admin.school_id
-                        ? schoolNameById[admin.school_id] ||
+                        ? schoolNameById[
+                            admin.school_id
+                          ] ||
                           admin.school_id
                         : 'Toutes les écoles'}
                     </td>
@@ -673,7 +813,9 @@ function AdminDashboard({ profile, onLogout }) {
                             : 'status-inactive'
                         }
                       >
-                        {admin.active ? 'Actif' : 'Inactif'}
+                        {admin.active
+                          ? 'Actif'
+                          : 'Inactif'}
                       </span>
                     </td>
                   </tr>
@@ -692,7 +834,11 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>📚 Classes</h3>
-            <p>{classes.length} classe(s) affichée(s).</p>
+
+            <p>
+              {classes.length} classe(s)
+              affichée(s).
+            </p>
           </div>
         </div>
 
@@ -717,14 +863,19 @@ function AdminDashboard({ profile, onLogout }) {
                   <tr key={item.id}>
                     <td>
                       <strong>
-                        {item.name || 'Sans nom'}
+                        {item.name ||
+                          'Sans nom'}
                       </strong>
                     </td>
 
-                    <td>{item.level || '—'}</td>
+                    <td>
+                      {item.level || '—'}
+                    </td>
 
                     <td>
-                      {schoolNameById[item.school_id] || '—'}
+                      {schoolNameById[
+                        item.school_id
+                      ] || '—'}
                     </td>
                   </tr>
                 ))}
@@ -742,8 +893,10 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>📖 Matières</h3>
+
             <p>
-              {subjects.length} matière(s) affichée(s).
+              {subjects.length} matière(s)
+              affichée(s).
             </p>
           </div>
         </div>
@@ -761,7 +914,9 @@ function AdminDashboard({ profile, onLogout }) {
                 key={subject.id}
               >
                 <span>📖</span>
-                <strong>{subject.name}</strong>
+                <strong>
+                  {subject.name}
+                </strong>
               </div>
             ))}
           </div>
@@ -776,8 +931,9 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-panel-header">
           <div>
             <h3>📄 Documents</h3>
+
             <p>
-              {documents.length} document(s) affiché(s).
+              Fonctionnalité en préparation.
             </p>
           </div>
         </div>
@@ -795,7 +951,10 @@ function AdminDashboard({ profile, onLogout }) {
       return (
         <div className="admin-loading">
           <div className="admin-spinner" />
-          <p>Chargement du tableau de bord...</p>
+
+          <p>
+            Chargement du tableau de bord...
+          </p>
         </div>
       )
     }
@@ -831,18 +990,27 @@ function AdminDashboard({ profile, onLogout }) {
   }
 
   const pageTitle =
-    MENU.find((item) => item.id === activeMenu)?.label ||
+    MENU.find(
+      (item) => item.id === activeMenu
+    )?.label ||
     'Tableau de bord'
 
   return (
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <div className="admin-logo">EC</div>
+          <div className="admin-logo">
+            EC
+          </div>
 
           <div>
-            <strong>École Connectée</strong>
-            <span>Administration</span>
+            <strong>
+              École Connectée
+            </strong>
+
+            <span>
+              Administration
+            </span>
           </div>
         </div>
 
@@ -856,7 +1024,9 @@ function AdminDashboard({ profile, onLogout }) {
                   ? 'admin-nav-item active'
                   : 'admin-nav-item'
               }
-              onClick={() => setActiveMenu(item.id)}
+              onClick={() =>
+                setActiveMenu(item.id)
+              }
             >
               <span>{item.icon}</span>
               {item.label}
@@ -867,14 +1037,16 @@ function AdminDashboard({ profile, onLogout }) {
         <div className="admin-sidebar-footer">
           <div className="admin-user-mini">
             <div className="admin-avatar">
-              {(profile?.full_name || 'A')
+              {(profile?.full_name ||
+                'A')
                 .charAt(0)
                 .toUpperCase()}
             </div>
 
             <div>
               <strong>
-                {profile?.full_name || 'Administrateur'}
+                {profile?.full_name ||
+                  'Administrateur'}
               </strong>
 
               <span>
@@ -909,7 +1081,9 @@ function AdminDashboard({ profile, onLogout }) {
             <button
               type="button"
               className="admin-refresh"
-              onClick={() => loadDashboard(true)}
+              onClick={() =>
+                loadDashboard(true)
+              }
               disabled={refreshing}
             >
               {refreshing
@@ -921,7 +1095,10 @@ function AdminDashboard({ profile, onLogout }) {
 
         {error && (
           <div className="admin-alert">
-            <strong>⚠️ Erreur de chargement</strong>
+            <strong>
+              ⚠️ Erreur de chargement
+            </strong>
+
             <span>{error}</span>
           </div>
         )}
