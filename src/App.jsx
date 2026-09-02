@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import AdminDashboard from './AdminDashboard'
 import './App.css'
 
 function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [message, setMessage] = useState('')
@@ -176,9 +175,17 @@ function App() {
               autoComplete="current-password"
             />
 
-            {error && <div className="error-message">{error}</div>}
+            {error && (
+              <div className="error-message">
+                {error}
+              </div>
+            )}
 
-            {message && <div className="success-message">{message}</div>}
+            {message && (
+              <div className="success-message">
+                {message}
+              </div>
+            )}
 
             <button type="submit" disabled={connecting}>
               {connecting ? 'Connexion...' : 'Se connecter'}
@@ -195,16 +202,35 @@ function App() {
 
   const role = profile?.role || 'non configuré'
 
+  const isAdmin =
+    role === 'admin' ||
+    role === 'school_admin' ||
+    role === 'super_admin'
+
+  if (isAdmin) {
+    return (
+      <AdminDashboard
+        profile={profile}
+        session={session}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
   return (
     <div className="app-container">
       <div className="dashboard-card">
+
         <div className="dashboard-header">
           <div>
             <div className="small-logo">EC</div>
             <h1>École Connectée</h1>
           </div>
 
-          <button className="logout-button" onClick={handleLogout}>
+          <button
+            className="logout-button"
+            onClick={handleLogout}
+          >
             Se déconnecter
           </button>
         </div>
@@ -212,7 +238,9 @@ function App() {
         <div className="welcome-section">
           <h2>
             Bienvenue
-            {profile?.full_name ? `, ${profile.full_name}` : ''} 👋
+            {profile?.full_name
+              ? `, ${profile.full_name}`
+              : ''} 👋
           </h2>
 
           <p>
@@ -221,106 +249,29 @@ function App() {
         </div>
 
         <div className="role-card">
-          <span className="role-label">Votre rôle</span>
+          <span className="role-label">
+            Votre rôle
+          </span>
 
           <strong>
-            {role === 'admin'
-              ? 'Administrateur'
-              : role === 'teacher'
-                ? 'Enseignant'
-                : role === 'parent'
-                  ? 'Parent'
-                  : role === 'student'
-                    ? 'Élève'
-                    : role}
+            {role === 'teacher'
+              ? 'Enseignant'
+              : role === 'parent'
+                ? 'Parent'
+                : role === 'student'
+                  ? 'Élève'
+                  : role}
           </strong>
         </div>
 
-        {role === 'admin' && (
-          <div className="feature-card">
-            <h3>👨‍💼 Espace Administrateur</h3>
-            <p>
-              Le tableau de bord administrateur sera disponible ici.
-            </p>
+        <div className="feature-card">
+          <h3>Bienvenue dans École Connectée</h3>
 
-            <div className="feature-grid">
-              <div>👨‍🏫 Enseignants</div>
-              <div>👨‍🎓 Élèves</div>
-              <div>👪 Parents</div>
-              <div>🏫 Écoles</div>
-              <div>📚 Classes</div>
-              <div>📖 Matières</div>
-            </div>
-          </div>
-        )}
+          <p>
+            Votre espace est en cours de préparation.
+          </p>
+        </div>
 
-        {role === 'teacher' && (
-          <div className="feature-card">
-            <h3>👨‍🏫 Espace Enseignant</h3>
-            <p>
-              Votre tableau de bord enseignant sera disponible ici.
-            </p>
-
-            <div className="feature-grid">
-              <div>📚 Mes cours</div>
-              <div>📝 Exercices</div>
-              <div>⭐ Évaluations</div>
-              <div>🎥 Vidéos</div>
-              <div>📄 Documents</div>
-              <div>👨‍🎓 Mes élèves</div>
-            </div>
-          </div>
-        )}
-
-        {role === 'parent' && (
-          <div className="feature-card">
-            <h3>👪 Espace Parent</h3>
-            <p>
-              Votre espace parent sera disponible ici.
-            </p>
-
-            <div className="feature-grid">
-              <div>👨‍🎓 Mes enfants</div>
-              <div>📚 Cours</div>
-              <div>📝 Exercices</div>
-              <div>⭐ Évaluations</div>
-              <div>📊 Notes</div>
-              <div>🔔 Notifications</div>
-            </div>
-          </div>
-        )}
-
-        {role === 'student' && (
-          <div className="feature-card">
-            <h3>👨‍🎓 Espace Élève</h3>
-            <p>
-              Votre espace élève sera disponible ici.
-            </p>
-
-            <div className="feature-grid">
-              <div>📚 Mes cours</div>
-              <div>📝 Mes exercices</div>
-              <div>⭐ Mes évaluations</div>
-              <div>📊 Mes notes</div>
-              <div>🎥 Mes vidéos</div>
-              <div>🔔 Notifications</div>
-            </div>
-          </div>
-        )}
-
-        {!['admin', 'teacher', 'parent', 'student'].includes(role) && (
-          <div className="feature-card warning-card">
-            <h3>⚠️ Rôle non configuré</h3>
-            <p>
-              Votre compte est bien connecté, mais aucun rôle
-              valide n'est encore associé à votre profil.
-            </p>
-
-            <p>
-              Rôle détecté : <strong>{role}</strong>
-            </p>
-          </div>
-        )}
       </div>
     </div>
   )
