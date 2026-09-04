@@ -1077,3 +1077,728 @@ button:disabled {
     font-size: 24px;
   }
 }
+/* =========================================================
+   ADMIN ÉCOLE — DESIGN RESPONSIVE
+   ========================================================= */
+
+.school-admin-layout {
+  min-height: 100vh;
+  display: flex;
+  background: #f5f7fb;
+  color: #172033;
+}
+
+/* =========================
+   SIDEBAR
+   ========================= */
+
+.school-admin-sidebar {
+  width: 270px;
+  min-width: 270px;
+  min-height: 100vh;
+  background: #ffffff;
+  border-right: 1px solid #e7eaf0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 100;
+}
+
+.school-admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 20px;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.school-admin-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 15px;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.2);
+}
+
+.school-admin-brand strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.school-admin-brand span {
+  display: block;
+  margin-top: 3px;
+  color: #7a8498;
+  font-size: 12px;
+}
+
+.school-admin-school {
+  margin: 18px 16px 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f5f8ff;
+}
+
+.school-admin-school span {
+  display: block;
+  margin-bottom: 5px;
+  color: #7a8498;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.school-admin-school strong {
+  display: block;
+  color: #1d4ed8;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.school-admin-nav {
+  flex: 1;
+  padding: 8px 12px;
+  overflow-y: auto;
+}
+
+.school-admin-nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  margin-bottom: 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #596579;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.school-admin-nav-item:hover {
+  background: #f4f7fb;
+  color: #1d4ed8;
+}
+
+.school-admin-nav-item.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.school-admin-nav-icon {
+  width: 22px;
+  min-width: 22px;
+  text-align: center;
+  font-size: 17px;
+}
+
+.school-admin-sidebar-bottom {
+  padding: 14px 12px;
+  border-top: 1px solid #eef0f4;
+}
+
+.school-admin-logout {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 13px;
+  border: none;
+  border-radius: 10px;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.school-admin-logout:hover {
+  background: #ffe4e6;
+}
+
+/* =========================
+   CONTENU PRINCIPAL
+   ========================= */
+
+.school-admin-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.school-admin-topbar {
+  height: 82px;
+  padding: 0 32px;
+  background: #ffffff;
+  border-bottom: 1px solid #e7eaf0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.school-admin-page-title span {
+  display: block;
+  margin-bottom: 3px;
+  color: #8992a4;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.school-admin-page-title h1 {
+  margin: 0;
+  color: #172033;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.school-admin-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.school-admin-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 800;
+}
+
+.school-admin-user-info strong {
+  display: block;
+  font-size: 13px;
+}
+
+.school-admin-user-info span {
+  display: block;
+  margin-top: 2px;
+  color: #7a8498;
+  font-size: 11px;
+}
+
+.school-admin-mobile-button {
+  display: none;
+  border: none;
+  background: transparent;
+  font-size: 25px;
+  cursor: pointer;
+}
+
+/* =========================
+   CONTENU
+   ========================= */
+
+.school-admin-content {
+  padding: 30px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* =========================
+   BLOC BIENVENUE
+   ========================= */
+
+.school-admin-welcome {
+  min-height: 155px;
+  padding: 28px 30px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 15px 35px rgba(37, 99, 235, 0.16);
+}
+
+.school-admin-welcome span {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.school-admin-welcome h2 {
+  margin: 6px 0;
+  font-size: 27px;
+}
+
+.school-admin-welcome p {
+  margin: 0;
+  max-width: 550px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.school-admin-welcome-icon {
+  width: 82px;
+  height: 82px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 40px;
+}
+
+/* =========================
+   STATISTIQUES
+   ========================= */
+
+.school-admin-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.school-admin-stat-card {
+  padding: 20px;
+  border: 1px solid #e7eaf0;
+  border-radius: 15px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  box-shadow: 0 5px 18px rgba(20, 30, 50, 0.04);
+}
+
+.school-admin-stat-icon {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 13px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.school-admin-stat-card span {
+  display: block;
+  color: #7a8498;
+  font-size: 12px;
+}
+
+.school-admin-stat-card strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 25px;
+}
+
+/* =========================
+   SECTIONS
+   ========================= */
+
+.school-admin-section-header {
+  margin-top: 30px;
+  margin-bottom: 14px;
+}
+
+.school-admin-section-header span,
+.school-admin-panel-header span {
+  color: #8a94a7;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.school-admin-section-header h2,
+.school-admin-panel-header h2 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+/* =========================
+   ACTIONS RAPIDES
+   ========================= */
+
+.school-admin-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+
+.school-admin-quick-grid button {
+  min-height: 130px;
+  padding: 20px;
+  border: 1px solid #e7eaf0;
+  border-radius: 15px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 5px 18px rgba(20, 30, 50, 0.035);
+}
+
+.school-admin-quick-grid button:hover {
+  transform: translateY(-2px);
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 25px rgba(20, 30, 50, 0.07);
+}
+
+.school-admin-quick-grid button > span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 27px;
+}
+
+.school-admin-quick-grid button strong {
+  display: block;
+  color: #172033;
+  font-size: 14px;
+}
+
+.school-admin-quick-grid button small {
+  display: block;
+  margin-top: 5px;
+  color: #7a8498;
+  font-size: 11px;
+}
+
+/* =========================
+   PANELS
+   ========================= */
+
+.school-admin-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.school-admin-panel {
+  min-height: 280px;
+  padding: 22px;
+  border: 1px solid #e7eaf0;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(20, 30, 50, 0.035);
+}
+
+.school-admin-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.school-admin-status {
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* =========================
+   ÉTAT VIDE
+   ========================= */
+
+.school-admin-empty {
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.school-admin-empty > div {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.school-admin-empty h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.school-admin-empty p {
+  max-width: 330px;
+  margin: 7px 0 0;
+  color: #8992a4;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* =========================
+   INFORMATIONS
+   ========================= */
+
+.school-admin-info-list {
+  margin-top: 18px;
+}
+
+.school-admin-info-list > div {
+  padding: 14px 0;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.school-admin-info-list > div:last-child {
+  border-bottom: none;
+}
+
+.school-admin-info-list span {
+  display: block;
+  color: #8992a4;
+  font-size: 11px;
+}
+
+.school-admin-info-list strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+/* =========================
+   PAGES EN CONSTRUCTION
+   ========================= */
+
+.school-admin-placeholder {
+  min-height: 500px;
+  padding: 40px 20px;
+  border: 1px solid #e7eaf0;
+  border-radius: 18px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-shadow: 0 5px 18px rgba(20, 30, 50, 0.035);
+}
+
+.school-admin-placeholder > div {
+  font-size: 50px;
+  margin-bottom: 15px;
+}
+
+.school-admin-placeholder h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.school-admin-placeholder p {
+  margin: 8px 0 20px;
+  color: #7a8498;
+  font-size: 13px;
+}
+
+.school-admin-placeholder button {
+  padding: 11px 18px;
+  border: none;
+  border-radius: 9px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* =========================================================
+   TABLETTE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .school-admin-sidebar {
+    width: 235px;
+    min-width: 235px;
+  }
+
+  .school-admin-content {
+    padding: 22px;
+  }
+
+  .school-admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .school-admin-quick-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .school-admin-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================================
+   TELEPHONE
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .school-admin-sidebar {
+    position: fixed;
+    left: -290px;
+    top: 0;
+    width: 270px;
+    min-width: 270px;
+    transition: left 0.25s ease;
+    box-shadow: 12px 0 35px rgba(0, 0, 0, 0.12);
+  }
+
+  .school-admin-sidebar.open {
+    left: 0;
+  }
+
+  .school-admin-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    z-index: 90;
+  }
+
+  .school-admin-topbar {
+    height: 70px;
+    padding: 0 16px;
+    gap: 12px;
+  }
+
+  .school-admin-mobile-button {
+    display: block;
+  }
+
+  .school-admin-page-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .school-admin-page-title span {
+    font-size: 9px;
+  }
+
+  .school-admin-page-title h1 {
+    font-size: 17px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .school-admin-user-info {
+    display: none;
+  }
+
+  .school-admin-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .school-admin-content {
+    padding: 16px;
+  }
+
+  .school-admin-welcome {
+    min-height: auto;
+    padding: 22px;
+    border-radius: 15px;
+  }
+
+  .school-admin-welcome h2 {
+    font-size: 21px;
+  }
+
+  .school-admin-welcome p {
+    font-size: 12px;
+  }
+
+  .school-admin-welcome-icon {
+    width: 55px;
+    height: 55px;
+    min-width: 55px;
+    border-radius: 15px;
+    font-size: 27px;
+  }
+
+  .school-admin-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .school-admin-stat-card {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .school-admin-stat-icon {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    font-size: 18px;
+  }
+
+  .school-admin-stat-card span {
+    font-size: 10px;
+  }
+
+  .school-admin-stat-card strong {
+    font-size: 20px;
+  }
+
+  .school-admin-quick-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .school-admin-quick-grid button {
+    min-height: 105px;
+    padding: 16px;
+  }
+
+  .school-admin-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .school-admin-panel {
+    padding: 17px;
+  }
+}
+
+/* =========================================================
+   PETIT TÉLÉPHONE
+   ========================================================= */
+
+@media (max-width: 420px) {
+  .school-admin-content {
+    padding: 12px;
+  }
+
+  .school-admin-welcome {
+    padding: 18px;
+  }
+
+  .school-admin-welcome-icon {
+    display: none;
+  }
+
+  .school-admin-stats {
+    gap: 8px;
+  }
+
+  .school-admin-stat-card {
+    padding: 12px;
+  }
+
+  .school-admin-stat-icon {
+    display: none;
+  }
+
+  .school-admin-page-title h1 {
+    font-size: 15px;
+  }
+}
