@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AdminDashboard from './AdminDashboard'
+import AdminEcoleDashboard from './AdminEcoleDashboard'
 import './App.css'
 
 function App() {
@@ -207,15 +208,25 @@ function App() {
     role === 'school_admin' ||
     role === 'super_admin'
 
-  if (isAdmin) {
-    return (
-      <AdminDashboard
-        profile={profile}
-        session={session}
-        onLogout={handleLogout}
-      />
-    )
-  }
+  if (role === 'super_admin') {
+  return (
+    <AdminDashboard
+      profile={profile}
+      session={session}
+      onLogout={handleLogout}
+    />
+  )
+}
+
+if (role === 'school_admin') {
+  return (
+    <AdminEcoleDashboard
+      profile={profile}
+      session={session}
+      onLogout={handleLogout}
+    />
+  )
+}
 
   return (
     <div className="app-container">
