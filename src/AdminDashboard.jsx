@@ -3,1552 +3,1352 @@ import { supabase } from './lib/supabase'
 
 const EMPTY_STATS = {
   schools: 0,
-  schoolAdmins: 0,
   teachers: 0,
   students: 0,
   parents: 0,
+  admins: 0,
   classes: 0,
   subjects: 0,
   documents: 0,
 }
 
 const MENU = [
-  { id: 'overview', label: 'Vue générale', icon: '⌂' },
-  { id: 'schools', label: 'Écoles', icon: '▣' },
-  { id: 'admins', label: 'Admins École', icon: '♙' },
-  { id: 'teachers', label: 'Enseignants', icon: '♟' },
-  { id: 'students', label: 'Élèves', icon: '◉' },
-  { id: 'parents', label: 'Parents', icon: '♧' },
-  { id: 'classes', label: 'Classes', icon: '▤' },
-  { id: 'subjects', label: 'Matières', icon: '▥' },
-  { id: 'documents', label: 'Documents', icon: '▧' },
+  { id: 'overview', label: 'Tableau de bord', icon: '📊' },
+  { id: 'schools', label: 'Écoles', icon: '🏫' },
+  { id: 'teachers', label: 'Enseignants', icon: '👨‍🏫' },
+  { id: 'students', label: 'Élèves', icon: '👨‍🎓' },
+  { id: 'parents', label: 'Parents', icon: '👪' },
+  { id: 'admins', label: 'Administrateurs', icon: '🛡️' },
+  { id: 'classes', label: 'Classes', icon: '📚' },
+  { id: 'subjects', label: 'Matières', icon: '📖' },
+  { id: 'documents', label: 'Documents', icon: '📄' },
 ]
 
-function StatCard({ label, value, icon }) {
+const EMPTY_SCHOOL_FORM = {
+  name: '',
+  address: '',
+  city: '',
+  phone: '',
+  email: '',
+  admin_full_name: '',
+  admin_username: '',
+  admin_email: '',
+  admin_phone: '',
+  admin_password: '',
+  admin_password_confirmation: '',
+}
+
+function StatCard({ icon, label, value, onClick }) {
   return (
-    <div className="admin-stat-card">
+    <button
+      className="admin-stat-card"
+      onClick={onClick}
+      type="button"
+    >
       <div className="admin-stat-icon">{icon}</div>
 
-      <div className="admin-stat-content">
+      <div>
         <span>{label}</span>
         <strong>{value}</strong>
       </div>
-    </div>
+    </button>
   )
 }
 
 function EmptyState({ title, text }) {
   return (
     <div className="admin-empty">
-      <div className="admin-empty-icon">○</div>
+      <div>📭</div>
       <h3>{title}</h3>
       <p>{text}</p>
     </div>
   )
 }
 
-function Modal({ title, subtitle, onClose, children, wide = false }) {
-  return (
-    <div className="admin-modal-backdrop">
-      <div className={`admin-modal ${wide ? 'admin-modal-wide' : ''}`}>
-        <div className="admin-modal-header">
-          <div>
-            <h2>{title}</h2>
-            {subtitle && <p>{subtitle}</p>}
-          </div>
-
-          <button
-            type="button"
-            className="admin-modal-close"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="admin-modal-body">
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function FormField({ label, required = false, children }) {
+function FormField({
+  label,
+  required = false,
+  type = 'text',
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+}) {
   return (
     <label className="admin-form-field">
       <span>
-        {label}
-        {required && <b> *</b>}
+        {label} {required && <b>*</b>}
       </span>
 
-      {children}
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        required={required}
+      />
     </label>
   )
 }
 
-function Input({
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-  disabled = false,
-}) {
-  return (
-    <input
-      className="admin-input"
-      type={type}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-    />
-  )
-}
-
-function Select({
-  value,
-  onChange,
-  children,
-  disabled = false,
-}) {
-  return (
-    <select
-      className="admin-input"
-      value={value}
-      onChange={onChange}
-      disabled={disabled}
-    >
-      {children}
-    </select>
-  )
-}
-
-function ActionButton({
-  children,
-  onClick,
-  type = 'button',
-  variant = 'primary',
-  disabled = false,
-}) {
-  return (
-    <button
-      type={type}
-      className={`admin-action-button admin-action-${variant}`}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {children}
-    </button>
-  )
-}
-
-export default function AdminDashboard({
-  profile,
-  session,
-  onLogout,
-}) {
+function AdminDashboard({ profile, onLogout }) {
   const [activeMenu, setActiveMenu] = useState('overview')
 
   const [stats, setStats] = useState(EMPTY_STATS)
 
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
   const [schools, setSchools] = useState([])
-  const [schoolAdmins, setSchoolAdmins] = useState([])
   const [teachers, setTeachers] = useState([])
   const [students, setStudents] = useState([])
   const [parents, setParents] = useState([])
+  const [admins, setAdmins] = useState([])
   const [classes, setClasses] = useState([])
   const [subjects, setSubjects] = useState([])
   const [documents, setDocuments] = useState([])
 
-  const [loading, setLoading] = useState(true)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  const [showSchoolForm, setShowSchoolForm] = useState(false)
+  const [schoolSaving, setSchoolSaving] = useState(false)
 
-  const [schoolModalOpen, setSchoolModalOpen] = useState(false)
-  const [savingSchool, setSavingSchool] = useState(false)
-  const [editingSchool, setEditingSchool] = useState(null)
+  const [schoolForm, setSchoolForm] = useState(
+    EMPTY_SCHOOL_FORM
+  )
 
-  const [schoolForm, setSchoolForm] = useState({
-    name: '',
-    address: '',
-    city: 'Dakar',
-    phone: '',
-    email: '',
-  })
+  const isSuperAdmin =
+    profile?.role === 'super_admin'
 
-  const [adminForm, setAdminForm] = useState({
-    full_name: '',
-    username: '',
-    email: '',
-    phone: '',
-  })
+  // =========================================================
+  // OUTILS
+  // =========================================================
 
-  const [subjectModalOpen, setSubjectModalOpen] = useState(false)
-  const [editingSubject, setEditingSubject] = useState(null)
-  const [savingSubject, setSavingSubject] = useState(false)
+  function showError(title, err) {
+    console.error(title, err)
 
-  const [subjectForm, setSubjectForm] = useState({
-    name: '',
-  })
+    setError(
+      `${title} : ${
+        err?.message ||
+        'Une erreur inattendue est survenue.'
+      }`
+    )
+  }
 
-  const currentUserName =
-    profile?.full_name ||
-    session?.user?.email ||
-    'Super Administrateur'
+  function resetSchoolForm() {
+    setSchoolForm(EMPTY_SCHOOL_FORM)
+    setShowSchoolForm(false)
+  }
 
-  const schoolNameById = useMemo(() => {
-    const map = {}
+  function updateSchoolField(field, value) {
+    setSchoolForm((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
 
-    schools.forEach((school) => {
-      map[school.id] = school.name
+  // =========================================================
+  // STATISTIQUES
+  // =========================================================
+
+  async function countTable(table) {
+    const { count, error } = await supabase
+      .from(table)
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
+
+    if (error) {
+      throw error
+    }
+
+    return count || 0
+  }
+
+  async function loadStats() {
+    const [
+      schoolsCount,
+      teachersCount,
+      studentsCount,
+      parentsCount,
+      classesCount,
+      subjectsCount,
+      documentsCount,
+    ] = await Promise.all([
+      countTable('schools'),
+      countTable('teachers'),
+      countTable('students'),
+      countTable('parents'),
+      countTable('classes'),
+      countTable('subjects'),
+      countTable('documents'),
+    ])
+
+    const {
+      count: adminsCount,
+      error: adminsError,
+    } = await supabase
+      .from('profiles')
+      .select('*', {
+        count: 'exact',
+        head: true,
+      })
+      .in('role', [
+        'admin',
+        'school_admin',
+        'super_admin',
+      ])
+
+    if (adminsError) {
+      throw adminsError
+    }
+
+    setStats({
+      schools: schoolsCount,
+      teachers: teachersCount,
+      students: studentsCount,
+      parents: parentsCount,
+      admins: adminsCount || 0,
+      classes: classesCount,
+      subjects: subjectsCount,
+      documents: documentsCount,
+    })
+  }
+
+  // =========================================================
+  // LISTES
+  // =========================================================
+
+  async function loadLists() {
+    const results = await Promise.allSettled([
+      supabase
+        .from('schools')
+        .select(
+          'id, name, address, city, phone, email, created_at'
+        )
+        .order('created_at', {
+          ascending: false,
+        })
+        .limit(100),
+
+      supabase
+        .from('teachers')
+        .select(
+          'id, school_id, active'
+        )
+        .order('id')
+        .limit(100),
+
+      supabase
+        .from('students')
+        .select(
+          'id, school_id, class_id, first_name, last_name, student_code, active, created_at'
+        )
+        .order('created_at', {
+          ascending: false,
+        })
+        .limit(100),
+
+      supabase
+        .from('parents')
+        .select(
+          'id, school_id, profile_id, active'
+        )
+        .order('id')
+        .limit(100),
+
+      supabase
+        .from('profiles')
+        .select(
+          'id, full_name, phone, role, school_id, active'
+        )
+        .in('role', [
+          'admin',
+          'school_admin',
+          'super_admin',
+        ])
+        .order('full_name')
+        .limit(100),
+
+      supabase
+        .from('classes')
+        .select(
+          'id, school_id, name, level, created_at'
+        )
+        .order('created_at', {
+          ascending: false,
+        })
+        .limit(100),
+
+      supabase
+        .from('subjects')
+        .select('id, name')
+        .order('name')
+        .limit(100),
+
+      supabase
+        .from('documents')
+        .select(
+          'id, teacher_id, class_id, subject_id, title, description, document_type, file_url, created_at'
+        )
+        .order('created_at', {
+          ascending: false,
+        })
+        .limit(100),
+    ])
+
+    const values = results.map((result) => {
+      if (
+        result.status === 'fulfilled' &&
+        !result.value.error
+      ) {
+        return result.value.data || []
+      }
+
+      return []
     })
 
-    return map
-  }, [schools])
+    setSchools(values[0])
+    setTeachers(values[1])
+    setStudents(values[2])
+    setParents(values[3])
+    setAdmins(values[4])
+    setClasses(values[5])
+    setSubjects(values[6])
+    setDocuments(values[7])
+  }
 
-  const classNameById = useMemo(() => {
-    const map = {}
+  async function loadDashboard(showRefresh = false) {
+    setError('')
 
-    classes.forEach((item) => {
-      map[item.id] = item.name
-    })
+    if (showRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
 
-    return map
-  }, [classes])
+    try {
+      await Promise.all([
+        loadStats(),
+        loadLists(),
+      ])
+    } catch (err) {
+      showError(
+        'Erreur du tableau de bord administrateur',
+        err
+      )
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     loadDashboard()
   }, [])
 
-  async function loadDashboard() {
-    setLoading(true)
-    setErrorMessage('')
+  // =========================================================
+  // CRÉATION ÉCOLE + ADMIN
+  // =========================================================
 
-    try {
-      const [
-        schoolsResult,
-        profilesResult,
-        teachersResult,
-        studentsResult,
-        parentsResult,
-        classesResult,
-        subjectsResult,
-        documentsResult,
-      ] = await Promise.all([
-        supabase
-          .from('schools')
-          .select('*')
-          .order('created_at', { ascending: false }),
+  async function saveSchool(e) {
+    e.preventDefault()
 
-        supabase
-          .from('profiles')
-          .select('id, full_name, phone, role, school_id, active, username')
-          .in('role', ['school_admin', 'admin'])
-          .order('created_at', { ascending: false }),
+    setError('')
+    setMessage('')
 
-        supabase
-          .from('teachers')
-          .select('*')
-          .order('created_at', { ascending: false }),
+    const schoolName =
+      schoolForm.name.trim()
 
-        supabase
-          .from('students')
-          .select('*')
-          .order('created_at', { ascending: false }),
+    const adminFullName =
+      schoolForm.admin_full_name.trim()
 
-        supabase
-          .from('parents')
-          .select('*')
-          .order('created_at', { ascending: false }),
+    const adminUsername =
+      schoolForm.admin_username.trim()
 
-        supabase
-          .from('classes')
-          .select('*')
-          .order('created_at', { ascending: false }),
+    const adminEmail =
+      schoolForm.admin_email
+        .trim()
+        .toLowerCase()
 
-        supabase
-          .from('subjects')
-          .select('*')
-          .order('name', { ascending: true }),
+    const adminPassword =
+      schoolForm.admin_password
 
-        supabase
-          .from('documents')
-          .select('*')
-          .order('created_at', { ascending: false }),
-      ])
-
-      const results = [
-        schoolsResult,
-        profilesResult,
-        teachersResult,
-        studentsResult,
-        parentsResult,
-        classesResult,
-        subjectsResult,
-        documentsResult,
-      ]
-
-      const failed = results.find((result) => result.error)
-
-      if (failed?.error) {
-        console.error('Erreur chargement dashboard:', failed.error)
-        setErrorMessage(
-          failed.error.message ||
-            'Impossible de charger les données du tableau de bord.'
-        )
-      }
-
-      const schoolsData = schoolsResult.data || []
-      const profilesData = profilesResult.data || []
-      const teachersData = teachersResult.data || []
-      const studentsData = studentsResult.data || []
-      const parentsData = parentsResult.data || []
-      const classesData = classesResult.data || []
-      const subjectsData = subjectsResult.data || []
-      const documentsData = documentsResult.data || []
-
-      setSchools(schoolsData)
-      setSchoolAdmins(profilesData)
-      setTeachers(teachersData)
-      setStudents(studentsData)
-      setParents(parentsData)
-      setClasses(classesData)
-      setSubjects(subjectsData)
-      setDocuments(documentsData)
-
-      setStats({
-        schools: schoolsData.length,
-        schoolAdmins: profilesData.length,
-        teachers: teachersData.length,
-        students: studentsData.length,
-        parents: parentsData.length,
-        classes: classesData.length,
-        subjects: subjectsData.length,
-        documents: documentsData.length,
-      })
-    } catch (error) {
-      console.error('Erreur dashboard:', error)
-
-      setErrorMessage(
-        error?.message ||
-          'Une erreur est survenue pendant le chargement.'
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  function resetSchoolForm() {
-    setEditingSchool(null)
-
-    setSchoolForm({
-      name: '',
-      address: '',
-      city: 'Dakar',
-      phone: '',
-      email: '',
-    })
-
-    setAdminForm({
-      full_name: '',
-      username: '',
-      email: '',
-      phone: '',
-    })
-  }
-
-  function openCreateSchool() {
-    resetSchoolForm()
-    setSchoolModalOpen(true)
-  }
-
-  function openEditSchool(school) {
-    setEditingSchool(school)
-
-    setSchoolForm({
-      name: school.name || '',
-      address: school.address || '',
-      city: school.city || '',
-      phone: school.phone || '',
-      email: school.email || '',
-    })
-
-    setAdminForm({
-      full_name: '',
-      username: '',
-      email: '',
-      phone: '',
-    })
-
-    setSchoolModalOpen(true)
-  }
-
-  function closeSchoolModal() {
-    if (savingSchool) return
-
-    setSchoolModalOpen(false)
-    resetSchoolForm()
-  }
-
-  async function saveSchool(event) {
-    event.preventDefault()
-
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    const schoolName = schoolForm.name.trim()
+    const confirmation =
+      schoolForm.admin_password_confirmation
 
     if (!schoolName) {
-      setErrorMessage('Le nom de l’école est obligatoire.')
-      return
-    }
-
-    if (editingSchool) {
-      setSavingSchool(true)
-
-      try {
-        const { error } = await supabase
-          .from('schools')
-          .update({
-            name: schoolName,
-            address: schoolForm.address.trim() || null,
-            city: schoolForm.city.trim() || null,
-            phone: schoolForm.phone.trim() || null,
-            email: schoolForm.email.trim() || null,
-          })
-          .eq('id', editingSchool.id)
-
-        if (error) throw error
-
-        setSuccessMessage('École mise à jour avec succès.')
-        setSchoolModalOpen(false)
-        resetSchoolForm()
-
-        await loadDashboard()
-      } catch (error) {
-        console.error('Erreur modification école:', error)
-
-        setErrorMessage(
-          error?.message ||
-            'Impossible de modifier cette école.'
-        )
-      } finally {
-        setSavingSchool(false)
-      }
-
-      return
-    }
-
-    const adminName = adminForm.full_name.trim()
-    const username = adminForm.username.trim()
-    const adminEmail = adminForm.email.trim().toLowerCase()
-
-    if (!adminName) {
-      setErrorMessage(
-        'Le nom complet de l’Admin École est obligatoire.'
+      setError(
+        "Le nom de l'école est obligatoire."
       )
       return
     }
 
-    if (!username) {
-      setErrorMessage(
-        'Le nom d’utilisateur de l’Admin École est obligatoire.'
+    if (!adminFullName) {
+      setError(
+        "Le nom complet de l'Admin École est obligatoire."
+      )
+      return
+    }
+
+    if (!adminUsername) {
+      setError(
+        "Le nom d'utilisateur est obligatoire."
       )
       return
     }
 
     if (!adminEmail) {
-      setErrorMessage(
-        'L’adresse email de l’Admin École est obligatoire.'
+      setError(
+        "L'email de l'Admin École est obligatoire."
       )
       return
     }
 
-    setSavingSchool(true)
+    if (!adminPassword) {
+      setError(
+        "Le mot de passe est obligatoire."
+      )
+      return
+    }
+
+    if (adminPassword.length < 6) {
+      setError(
+        'Le mot de passe doit contenir au moins 6 caractères.'
+      )
+      return
+    }
+
+    if (adminPassword !== confirmation) {
+      setError(
+        'Les deux mots de passe ne correspondent pas.'
+      )
+      return
+    }
+
+    setSchoolSaving(true)
 
     try {
-      const { data, error } = await supabase.functions.invoke(
+      const {
+        data,
+        error: functionError,
+      } = await supabase.functions.invoke(
         'create-school-admin',
         {
           body: {
             school: {
               name: schoolName,
-              address: schoolForm.address.trim() || null,
-              city: schoolForm.city.trim() || null,
-              phone: schoolForm.phone.trim() || null,
-              email: schoolForm.email.trim() || null,
+              address:
+                schoolForm.address.trim() ||
+                null,
+              city:
+                schoolForm.city.trim() ||
+                null,
+              phone:
+                schoolForm.phone.trim() ||
+                null,
+              email:
+                schoolForm.email
+                  .trim()
+                  .toLowerCase() ||
+                null,
             },
 
             admin: {
-              full_name: adminName,
-              username,
+              full_name: adminFullName,
+              username: adminUsername,
               email: adminEmail,
-              phone: adminForm.phone.trim() || null,
+              password: adminPassword,
+              phone:
+                schoolForm.admin_phone
+                  .trim() || null,
             },
-
-            // IMPORTANT :
-            // Aucune classe n'est créée ici.
-            // Les classes seront créées par l'Admin École.
           },
         }
       )
 
-      if (error) {
-        console.error(
-          'Erreur Edge Function create-school-admin:',
-          error
-        )
-
-        throw error
+      if (functionError) {
+        throw functionError
       }
 
-      console.log(
-        'École + Admin École créés:',
-        data
+      if (!data?.success) {
+        throw new Error(
+          data?.message ||
+            'Impossible de créer l’école.'
+        )
+      }
+
+      setMessage(
+        `✅ ${data.message || "L'école et son Administrateur École ont été créés avec succès."}`
       )
 
-      setSuccessMessage(
-        'École et Admin École créés avec succès.'
-      )
-
-      setSchoolModalOpen(false)
       resetSchoolForm()
 
-      await loadDashboard()
-    } catch (error) {
-      console.error('Erreur création école:', error)
-
-      setErrorMessage(
-        error?.message ||
-          'Impossible de créer l’école et son Admin École.'
+      await loadDashboard(true)
+    } catch (err) {
+      showError(
+        'Erreur lors de la création de l’école',
+        err
       )
     } finally {
-      setSavingSchool(false)
+      setSchoolSaving(false)
     }
   }
 
-  function openCreateSubject() {
-    setEditingSubject(null)
+  // =========================================================
+  // MAPS
+  // =========================================================
 
-    setSubjectForm({
-      name: '',
-    })
+  const schoolNameById = useMemo(
+    () =>
+      Object.fromEntries(
+        schools.map((school) => [
+          school.id,
+          school.name,
+        ])
+      ),
+    [schools]
+  )
 
-    setSubjectModalOpen(true)
-  }
+  const classNameById = useMemo(
+    () =>
+      Object.fromEntries(
+        classes.map((item) => [
+          item.id,
+          item.name,
+        ])
+      ),
+    [classes]
+  )
 
-  function openEditSubject(subject) {
-    setEditingSubject(subject)
-
-    setSubjectForm({
-      name: subject.name || '',
-    })
-
-    setSubjectModalOpen(true)
-  }
-
-  function closeSubjectModal() {
-    if (savingSubject) return
-
-    setSubjectModalOpen(false)
-    setEditingSubject(null)
-
-    setSubjectForm({
-      name: '',
-    })
-  }
-
-  async function saveSubject(event) {
-    event.preventDefault()
-
-    const name = subjectForm.name.trim()
-
-    if (!name) {
-      setErrorMessage('Le nom de la matière est obligatoire.')
-      return
-    }
-
-    setSavingSubject(true)
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    try {
-      if (editingSubject) {
-        const { error } = await supabase
-          .from('subjects')
-          .update({
-            name,
-          })
-          .eq('id', editingSubject.id)
-
-        if (error) throw error
-
-        setSuccessMessage(
-          'Matière modifiée avec succès.'
-        )
-      } else {
-        const { error } = await supabase
-          .from('subjects')
-          .insert({
-            name,
-          })
-
-        if (error) throw error
-
-        setSuccessMessage(
-          'Matière créée avec succès.'
-        )
-      }
-
-      closeSubjectModal()
-      await loadDashboard()
-    } catch (error) {
-      console.error('Erreur matière:', error)
-
-      setErrorMessage(
-        error?.message ||
-          'Impossible d’enregistrer cette matière.'
-      )
-    } finally {
-      setSavingSubject(false)
-    }
-  }
-
-  async function deleteSubject(subject) {
-    const confirmed = window.confirm(
-      `Voulez-vous vraiment supprimer la matière "${subject.name}" ?`
-    )
-
-    if (!confirmed) return
-
-    setErrorMessage('')
-    setSuccessMessage('')
-
-    try {
-      const { error } = await supabase
-        .from('subjects')
-        .delete()
-        .eq('id', subject.id)
-
-      if (error) throw error
-
-      setSuccessMessage(
-        'Matière supprimée avec succès.'
-      )
-
-      await loadDashboard()
-    } catch (error) {
-      console.error('Erreur suppression matière:', error)
-
-      setErrorMessage(
-        error?.message ||
-          'Impossible de supprimer cette matière.'
-      )
-    }
-  }
-
-  function getSchoolName(schoolId) {
-    if (!schoolId) return '—'
-
-    return schoolNameById[schoolId] || 'École inconnue'
-  }
-
-  function getClassName(classId) {
-    if (!classId) return '—'
-
-    return classNameById[classId] || 'Classe inconnue'
-  }
+  // =========================================================
+  // TABLEAU DE BORD
+  // =========================================================
 
   function renderOverview() {
     return (
       <>
-        <div className="admin-page-heading">
-          <div>
-            <span className="admin-eyebrow">
-              ADMINISTRATION
-            </span>
-
-            <h1>Vue générale</h1>
-
-            <p>
-              Gérez l’environnement global d’École Connectée.
-            </p>
-          </div>
-
-          <ActionButton onClick={openCreateSchool}>
-            + Nouvelle école
-          </ActionButton>
-        </div>
-
         <div className="admin-stats-grid">
           <StatCard
+            icon="🏫"
             label="Écoles"
             value={stats.schools}
-            icon="▣"
+            onClick={() =>
+              setActiveMenu('schools')
+            }
           />
 
           <StatCard
-            label="Admins École"
-            value={stats.schoolAdmins}
-            icon="♙"
-          />
-
-          <StatCard
+            icon="👨‍🏫"
             label="Enseignants"
             value={stats.teachers}
-            icon="♟"
+            onClick={() =>
+              setActiveMenu('teachers')
+            }
           />
 
           <StatCard
+            icon="👨‍🎓"
             label="Élèves"
             value={stats.students}
-            icon="◉"
+            onClick={() =>
+              setActiveMenu('students')
+            }
           />
 
           <StatCard
+            icon="👪"
             label="Parents"
             value={stats.parents}
-            icon="♧"
+            onClick={() =>
+              setActiveMenu('parents')
+            }
           />
 
           <StatCard
+            icon="🛡️"
+            label="Administrateurs"
+            value={stats.admins}
+            onClick={() =>
+              setActiveMenu('admins')
+            }
+          />
+
+          <StatCard
+            icon="📚"
             label="Classes"
             value={stats.classes}
-            icon="▤"
+            onClick={() =>
+              setActiveMenu('classes')
+            }
           />
 
           <StatCard
+            icon="📖"
             label="Matières"
             value={stats.subjects}
-            icon="▥"
+            onClick={() =>
+              setActiveMenu('subjects')
+            }
           />
 
           <StatCard
+            icon="📄"
             label="Documents"
             value={stats.documents}
-            icon="▧"
+            onClick={() =>
+              setActiveMenu('documents')
+            }
           />
         </div>
 
-        <div className="admin-content-grid">
+        <div className="admin-panel-grid">
           <section className="admin-panel">
             <div className="admin-panel-header">
               <div>
-                <h2>Actions rapides</h2>
+                <h3>
+                  Résumé de la plateforme
+                </h3>
+
                 <p>
-                  Les principales actions d’administration.
+                  Vue générale des données
+                  actuellement disponibles.
                 </p>
               </div>
             </div>
 
-            <div className="admin-quick-actions">
-              <button
-                type="button"
-                onClick={openCreateSchool}
-                className="admin-quick-action"
-              >
-                <span>＋</span>
-                <strong>Nouvelle école</strong>
-                <small>
-                  École + Admin École
-                </small>
-              </button>
+            <div className="admin-summary-list">
+              <div>
+                <span>
+                  Écoles enregistrées
+                </span>
 
-              <button
-                type="button"
-                onClick={() => setActiveMenu('admins')}
-                className="admin-quick-action"
-              >
-                <span>♙</span>
-                <strong>Admins École</strong>
-                <small>
-                  Consulter les administrateurs
-                </small>
-              </button>
+                <strong>
+                  {stats.schools}
+                </strong>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setActiveMenu('classes')}
-                className="admin-quick-action"
-              >
-                <span>▤</span>
-                <strong>Classes</strong>
-                <small>
-                  Voir les classes des écoles
-                </small>
-              </button>
+              <div>
+                <span>
+                  Personnel enseignant
+                </span>
 
-              <button
-                type="button"
-                onClick={() => setActiveMenu('subjects')}
-                className="admin-quick-action"
-              >
-                <span>▥</span>
-                <strong>Matières</strong>
-                <small>
-                  Gérer les matières
-                </small>
-              </button>
+                <strong>
+                  {stats.teachers}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Élèves enregistrés
+                </span>
+
+                <strong>
+                  {stats.students}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Parents
+                </span>
+
+                <strong>
+                  {stats.parents}
+                </strong>
+              </div>
+
+              <div>
+                <span>
+                  Documents
+                </span>
+
+                <strong>
+                  {stats.documents}
+                </strong>
+              </div>
             </div>
           </section>
 
           <section className="admin-panel">
             <div className="admin-panel-header">
               <div>
-                <h2>Dernières écoles</h2>
+                <h3>
+                  Accès rapides
+                </h3>
+
                 <p>
-                  Les écoles récemment enregistrées.
+                  Ouvrir directement une
+                  section.
                 </p>
               </div>
             </div>
 
-            {schools.length === 0 ? (
-              <EmptyState
-                title="Aucune école"
-                text="Créez votre première école pour commencer."
-              />
-            ) : (
-              <div className="admin-list">
-                {schools.slice(0, 5).map((school) => (
-                  <div
-                    key={school.id}
-                    className="admin-list-item"
-                  >
-                    <div>
-                      <strong>{school.name}</strong>
-                      <span>
-                        {school.city || 'Ville non renseignée'}
-                      </span>
-                    </div>
+            <div className="admin-quick-grid">
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveMenu('schools')
+                }
+              >
+                🏫 Gérer les écoles
+              </button>
 
-                    <button
-                      type="button"
-                      onClick={() => openEditSchool(school)}
-                      className="admin-link-button"
-                    >
-                      Voir
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveMenu('teachers')
+                }
+              >
+                👨‍🏫 Gérer les enseignants
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveMenu('students')
+                }
+              >
+                👨‍🎓 Gérer les élèves
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveMenu('admins')
+                }
+              >
+                🛡️ Gérer les administrateurs
+              </button>
+            </div>
           </section>
         </div>
       </>
     )
   }
+
+  // =========================================================
+  // ÉCOLES
+  // =========================================================
 
   function renderSchools() {
     return (
-      <>
-        <div className="admin-page-heading">
+      <section className="admin-panel">
+        <div className="admin-panel-header">
           <div>
-            <span className="admin-eyebrow">
-              STRUCTURE
-            </span>
-
-            <h1>Écoles</h1>
+            <h3>🏫 Écoles</h3>
 
             <p>
-              Créez et gérez les établissements présents sur la plateforme.
+              {schools.length} école(s)
+              affichée(s).
             </p>
           </div>
 
-          <ActionButton onClick={openCreateSchool}>
-            + Nouvelle école
-          </ActionButton>
+          {isSuperAdmin && (
+            <button
+              type="button"
+              className="admin-primary-button"
+              onClick={() => {
+                setError('')
+                setMessage('')
+                setSchoolForm(
+                  EMPTY_SCHOOL_FORM
+                )
+                setShowSchoolForm(true)
+              }}
+            >
+              ＋ Nouvelle école
+            </button>
+          )}
         </div>
 
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Liste des écoles</h2>
-              <p>
-                Chaque école possède son propre espace d’administration.
-              </p>
-            </div>
+        {schools.length === 0 ? (
+          <EmptyState
+            title="Aucune école"
+            text="Aucune école n'est encore disponible."
+          />
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>École</th>
+                  <th>Ville</th>
+                  <th>Téléphone</th>
+                  <th>Email</th>
+                </tr>
+              </thead>
 
-            <span className="admin-count">
-              {schools.length} école
-              {schools.length !== 1 ? 's' : ''}
-            </span>
-          </div>
+              <tbody>
+                {schools.map((school) => (
+                  <tr key={school.id}>
+                    <td>
+                      <strong>
+                        {school.name ||
+                          'Sans nom'}
+                      </strong>
+                    </td>
 
-          {schools.length === 0 ? (
-            <EmptyState
-              title="Aucune école"
-              text="Aucune école n’a encore été créée."
-            />
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>École</th>
-                    <th>Ville</th>
-                    <th>Téléphone</th>
-                    <th>Email</th>
-                    <th>Statut</th>
-                    <th>Action</th>
+                    <td>
+                      {school.city || '—'}
+                    </td>
+
+                    <td>
+                      {school.phone || '—'}
+                    </td>
+
+                    <td>
+                      {school.email || '—'}
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {schools.map((school) => (
-                    <tr key={school.id}>
-                      <td>
-                        <strong>{school.name}</strong>
-                      </td>
-
-                      <td>
-                        {school.city || '—'}
-                      </td>
-
-                      <td>
-                        {school.phone || '—'}
-                      </td>
-
-                      <td>
-                        {school.email || '—'}
-                      </td>
-
-                      <td>
-                        <span className="admin-status">
-                          {school.active === false
-                            ? 'Inactive'
-                            : 'Active'}
-                        </span>
-                      </td>
-
-                      <td>
-                        <button
-                          type="button"
-                          className="admin-table-action"
-                          onClick={() =>
-                            openEditSchool(school)
-                          }
-                        >
-                          Modifier
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     )
   }
 
-  function renderAdmins() {
-    return (
-      <>
-        <div className="admin-page-heading">
-          <div>
-            <span className="admin-eyebrow">
-              ADMINISTRATION
-            </span>
-
-            <h1>Admins École</h1>
-
-            <p>
-              Consultez les administrateurs responsables de chaque établissement.
-            </p>
-          </div>
-        </div>
-
-        <div className="admin-info-banner">
-          <strong>Organisation des écoles</strong>
-
-          <p>
-            Le Super Admin crée l’école et son Admin École.
-            L’Admin École crée ensuite les classes et organise
-            la structure pédagogique de son établissement.
-          </p>
-        </div>
-
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Administrateurs</h2>
-              <p>
-                Liste des comptes administrateurs des écoles.
-              </p>
-            </div>
-
-            <span className="admin-count">
-              {schoolAdmins.length}
-            </span>
-          </div>
-
-          {schoolAdmins.length === 0 ? (
-            <EmptyState
-              title="Aucun Admin École"
-              text="Les administrateurs apparaîtront ici après la création des écoles."
-            />
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Utilisateur</th>
-                    <th>École</th>
-                    <th>Téléphone</th>
-                    <th>Statut</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {schoolAdmins.map((admin) => (
-                    <tr key={admin.id}>
-                      <td>
-                        <strong>
-                          {admin.full_name || '—'}
-                        </strong>
-                      </td>
-
-                      <td>
-                        {admin.username || '—'}
-                      </td>
-
-                      <td>
-                        {getSchoolName(admin.school_id)}
-                      </td>
-
-                      <td>
-                        {admin.phone || '—'}
-                      </td>
-
-                      <td>
-                        <span className="admin-status">
-                          {admin.active === false
-                            ? 'Inactive'
-                            : 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
-    )
-  }
+  // =========================================================
+  // ENSEIGNANTS
+  // =========================================================
 
   function renderTeachers() {
     return (
-      <>
-        <div className="admin-page-heading">
+      <section className="admin-panel">
+        <div className="admin-panel-header">
           <div>
-            <span className="admin-eyebrow">
-              PERSONNEL
-            </span>
-
-            <h1>Enseignants</h1>
+            <h3>👨‍🏫 Enseignants</h3>
 
             <p>
-              Vue globale des enseignants enregistrés dans les écoles.
+              {teachers.length} enseignant(s)
+              affiché(s).
             </p>
           </div>
         </div>
 
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Liste des enseignants</h2>
-            </div>
+        {teachers.length === 0 ? (
+          <EmptyState
+            title="Aucun enseignant"
+            text="Aucun enseignant n'est encore disponible."
+          />
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>École</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
 
-            <span className="admin-count">
-              {teachers.length}
-            </span>
-          </div>
+              <tbody>
+                {teachers.map((teacher) => (
+                  <tr key={teacher.id}>
+                    <td>
+                      <code>
+                        {teacher.id}
+                      </code>
+                    </td>
 
-          {teachers.length === 0 ? (
-            <EmptyState
-              title="Aucun enseignant"
-              text="Les enseignants apparaîtront ici lorsqu’ils seront créés par les écoles."
-            />
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>École</th>
-                    <th>Statut</th>
+                    <td>
+                      {schoolNameById[
+                        teacher.school_id
+                      ] || '—'}
+                    </td>
+
+                    <td>
+                      <span
+                        className={
+                          teacher.active
+                            ? 'status-active'
+                            : 'status-inactive'
+                        }
+                      >
+                        {teacher.active
+                          ? 'Actif'
+                          : 'Inactif'}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {teachers.map((teacher) => (
-                    <tr key={teacher.id}>
-                      <td>
-                        <strong>
-                          {teacher.display_name || '—'}
-                        </strong>
-                      </td>
-
-                      <td>
-                        {getSchoolName(teacher.school_id)}
-                      </td>
-
-                      <td>
-                        <span className="admin-status">
-                          {teacher.active === false
-                            ? 'Inactive'
-                            : 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     )
   }
+
+  // =========================================================
+  // ÉLÈVES
+  // =========================================================
 
   function renderStudents() {
     return (
-      <>
-        <div className="admin-page-heading">
+      <section className="admin-panel">
+        <div className="admin-panel-header">
           <div>
-            <span className="admin-eyebrow">
-              SCOLARITÉ
-            </span>
-
-            <h1>Élèves</h1>
+            <h3>👨‍🎓 Élèves</h3>
 
             <p>
-              Vue globale des élèves inscrits dans les établissements.
+              {students.length} élève(s)
+              affiché(s).
             </p>
           </div>
         </div>
 
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Liste des élèves</h2>
-            </div>
+        {students.length === 0 ? (
+          <EmptyState
+            title="Aucun élève"
+            text="Aucun élève n'est encore disponible."
+          />
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Code</th>
+                  <th>Classe</th>
+                  <th>École</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
 
-            <span className="admin-count">
-              {students.length}
-            </span>
-          </div>
+              <tbody>
+                {students.map((student) => (
+                  <tr key={student.id}>
+                    <td>
+                      <strong>
+                        {`${student.first_name || ''} ${
+                          student.last_name || ''
+                        }`.trim() ||
+                          'Sans nom'}
+                      </strong>
+                    </td>
 
-          {students.length === 0 ? (
-            <EmptyState
-              title="Aucun élève"
-              text="Les élèves apparaîtront ici après leur inscription."
-            />
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Élève</th>
-                    <th>Code</th>
-                    <th>École</th>
-                    <th>Classe</th>
-                    <th>Statut</th>
+                    <td>
+                      {student.student_code ||
+                        '—'}
+                    </td>
+
+                    <td>
+                      {classNameById[
+                        student.class_id
+                      ] || '—'}
+                    </td>
+
+                    <td>
+                      {schoolNameById[
+                        student.school_id
+                      ] || '—'}
+                    </td>
+
+                    <td>
+                      <span
+                        className={
+                          student.active
+                            ? 'status-active'
+                            : 'status-inactive'
+                        }
+                      >
+                        {student.active
+                          ? 'Actif'
+                          : 'Inactif'}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {students.map((student) => (
-                    <tr key={student.id}>
-                      <td>
-                        <strong>
-                          {student.first_name || ''}{' '}
-                          {student.last_name || ''}
-                        </strong>
-                      </td>
-
-                      <td>
-                        {student.student_code || '—'}
-                      </td>
-
-                      <td>
-                        {getSchoolName(student.school_id)}
-                      </td>
-
-                      <td>
-                        {getClassName(student.class_id)}
-                      </td>
-
-                      <td>
-                        <span className="admin-status">
-                          {student.active === false
-                            ? 'Inactive'
-                            : 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     )
   }
+
+  // =========================================================
+  // PARENTS
+  // =========================================================
 
   function renderParents() {
     return (
-      <>
-        <div className="admin-page-heading">
+      <section className="admin-panel">
+        <div className="admin-panel-header">
           <div>
-            <span className="admin-eyebrow">
-              FAMILLES
-            </span>
-
-            <h1>Parents</h1>
+            <h3>👪 Parents</h3>
 
             <p>
-              Vue globale des parents présents sur la plateforme.
+              {parents.length} parent(s)
+              affiché(s).
             </p>
           </div>
         </div>
 
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Liste des parents</h2>
-            </div>
+        {parents.length === 0 ? (
+          <EmptyState
+            title="Aucun parent"
+            text="Aucun parent n'est encore disponible."
+          />
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>École</th>
+                  <th>Profil</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
 
-            <span className="admin-count">
-              {parents.length}
-            </span>
-          </div>
+              <tbody>
+                {parents.map((parent) => (
+                  <tr key={parent.id}>
+                    <td>
+                      <code>
+                        {parent.id}
+                      </code>
+                    </td>
 
-          {parents.length === 0 ? (
-            <EmptyState
-              title="Aucun parent"
-              text="Les parents apparaîtront ici après leur inscription."
-            />
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Téléphone</th>
-                    <th>Email</th>
-                    <th>École</th>
-                    <th>Statut</th>
+                    <td>
+                      {schoolNameById[
+                        parent.school_id
+                      ] || '—'}
+                    </td>
+
+                    <td>
+                      <code>
+                        {parent.profile_id ||
+                          '—'}
+                      </code>
+                    </td>
+
+                    <td>
+                      <span
+                        className={
+                          parent.active
+                            ? 'status-active'
+                            : 'status-inactive'
+                        }
+                      >
+                        {parent.active
+                          ? 'Actif'
+                          : 'Inactif'}
+                      </span>
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {parents.map((parent) => (
-                    <tr key={parent.id}>
-                      <td>
-                        <strong>
-                          {parent.full_name || '—'}
-                        </strong>
-                      </td>
-
-                      <td>
-                        {parent.phone || '—'}
-                      </td>
-
-                      <td>
-                        {parent.email || '—'}
-                      </td>
-
-                      <td>
-                        {getSchoolName(parent.school_id)}
-                      </td>
-
-                      <td>
-                        <span className="admin-status">
-                          {parent.active === false
-                            ? 'Inactive'
-                            : 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     )
   }
+
+  // =========================================================
+  // ADMINISTRATEURS
+  // =========================================================
+
+  function renderAdmins() {
+    return (
+      <section className="admin-panel">
+        <div className="admin-panel-header">
+          <div>
+            <h3>
+              🛡️ Administrateurs
+            </h3>
+
+            <p>
+              {admins.length} compte(s)
+              administrateur(s)
+              affiché(s).
+            </p>
+          </div>
+        </div>
+
+        {admins.length === 0 ? (
+          <EmptyState
+            title="Aucun administrateur"
+            text="Aucun compte administrateur n'est disponible."
+          />
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Rôle</th>
+                  <th>École</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {admins.map((admin) => (
+                  <tr key={admin.id}>
+                    <td>
+                      <strong>
+                        {admin.full_name ||
+                          'Sans nom'}
+                      </strong>
+                    </td>
+
+                    <td>
+                      <span className="role-badge">
+                        {admin.role ===
+                        'super_admin'
+                          ? 'Super administrateur'
+                          : 'Administrateur école'}
+                      </span>
+                    </td>
+
+                    <td>
+                      {admin.school_id
+                        ? schoolNameById[
+                            admin.school_id
+                          ] ||
+                          admin.school_id
+                        : 'Toutes les écoles'}
+                    </td>
+
+                    <td>
+                      <span
+                        className={
+                          admin.active
+                            ? 'status-active'
+                            : 'status-inactive'
+                        }
+                      >
+                        {admin.active
+                          ? 'Actif'
+                          : 'Inactif'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  // =========================================================
+  // CLASSES
+  // =========================================================
 
   function renderClasses() {
     return (
-      <>
-        <div className="admin-page-heading">
+      <section className="admin-panel">
+        <div className="admin-panel-header">
           <div>
-            <span className="admin-eyebrow">
-              STRUCTURE PÉDAGOGIQUE
-            </span>
-
-            <h1>Classes</h1>
+            <h3>📚 Classes</h3>
 
             <p>
-              Vue globale des classes créées et gérées par les Administrateurs d’école.
+              {classes.length} classe(s)
+              affichée(s).
             </p>
           </div>
+
+          <span className="admin-readonly-badge">
+            Lecture seule
+          </span>
         </div>
 
-        <div className="admin-info-banner">
-          <strong>Gestion des classes</strong>
+        {classes.length === 0 ? (
+          <EmptyState
+            title="Aucune classe"
+            text="Les classes seront créées par les Administrateurs École."
+          />
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Classe</th>
+                  <th>Niveau</th>
+                  <th>École</th>
+                </tr>
+              </thead>
 
-          <p>
-            Les classes ne sont plus créées par le Super Admin.
-            Chaque Admin École crée et gère les classes de son établissement.
-          </p>
-        </div>
+              <tbody>
+                {classes.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>
+                        {item.name ||
+                          'Sans nom'}
+                      </strong>
+                    </td>
 
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Classes enregistrées</h2>
+                    <td>
+                      {item.level || '—'}
+                    </td>
 
-              <p>
-                Consultation globale uniquement.
-              </p>
-            </div>
-
-            <span className="admin-count">
-              {classes.length}
-            </span>
-          </div>
-
-          {classes.length === 0 ? (
-            <EmptyState
-              title="Aucune classe"
-              text="Les classes apparaîtront ici lorsque les Administrateurs d’école les auront créées."
-            />
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Classe</th>
-                    <th>Niveau</th>
-                    <th>École</th>
+                    <td>
+                      {schoolNameById[
+                        item.school_id
+                      ] || '—'}
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {classes.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <strong>
-                          {item.name || '—'}
-                        </strong>
-                      </td>
-
-                      <td>
-                        {item.level || '—'}
-                      </td>
-
-                      <td>
-                        {getSchoolName(item.school_id)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     )
   }
+
+  // =========================================================
+  // MATIÈRES
+  // =========================================================
 
   function renderSubjects() {
     return (
-      <>
-        <div className="admin-page-heading">
+      <section className="admin-panel">
+        <div className="admin-panel-header">
           <div>
-            <span className="admin-eyebrow">
-              PÉDAGOGIE
-            </span>
-
-            <h1>Matières</h1>
+            <h3>📖 Matières</h3>
 
             <p>
-              Gérez les matières disponibles dans École Connectée.
+              {subjects.length} matière(s)
+              affichée(s).
             </p>
           </div>
-
-          <ActionButton onClick={openCreateSubject}>
-            + Nouvelle matière
-          </ActionButton>
         </div>
 
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Matières disponibles</h2>
-            </div>
+        {subjects.length === 0 ? (
+          <EmptyState
+            title="Aucune matière"
+            text="Aucune matière n'est encore disponible."
+          />
+        ) : (
+          <div className="admin-subject-grid">
+            {subjects.map((subject) => (
+              <div
+                className="admin-subject-card"
+                key={subject.id}
+              >
+                <span>📖</span>
 
-            <span className="admin-count">
-              {subjects.length}
-            </span>
+                <strong>
+                  {subject.name}
+                </strong>
+              </div>
+            ))}
           </div>
-
-          {subjects.length === 0 ? (
-            <EmptyState
-              title="Aucune matière"
-              text="Ajoutez votre première matière."
-            />
-          ) : (
-            <div className="admin-subject-grid">
-              {subjects.map((subject) => (
-                <div
-                  key={subject.id}
-                  className="admin-subject-card"
-                >
-                  <div>
-                    <span className="admin-subject-icon">
-                      ▥
-                    </span>
-
-                    <strong>
-                      {subject.name}
-                    </strong>
-                  </div>
-
-                  <div className="admin-subject-actions">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openEditSubject(subject)
-                      }
-                      className="admin-table-action"
-                    >
-                      Modifier
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        deleteSubject(subject)
-                      }
-                      className="admin-danger-link"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </>
+        )}
+      </section>
     )
   }
 
+  // =========================================================
+  // DOCUMENTS
+  // =========================================================
+
   function renderDocuments() {
     return (
-      <>
-        <div className="admin-page-heading">
+      <section className="admin-panel">
+        <div className="admin-panel-header">
           <div>
-            <span className="admin-eyebrow">
-              CONTENU
-            </span>
-
-            <h1>Documents</h1>
+            <h3>📄 Documents</h3>
 
             <p>
-              Vue globale des contenus pédagogiques publiés.
+              {documents.length} document(s)
+              affiché(s).
             </p>
           </div>
         </div>
 
-        <section className="admin-panel">
-          <div className="admin-panel-header">
-            <div>
-              <h2>Documents pédagogiques</h2>
-            </div>
+        {documents.length === 0 ? (
+          <EmptyState
+            title="Aucun document"
+            text="Aucun document n'est encore disponible."
+          />
+        ) : (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Titre</th>
+                  <th>Type</th>
+                  <th>Classe</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
 
-            <span className="admin-count">
-              {documents.length}
-            </span>
-          </div>
-
-          {documents.length === 0 ? (
-            <EmptyState
-              title="Aucun document"
-              text="Les documents pédagogiques apparaîtront ici après leur publication."
-            />
-          ) : (
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Titre</th>
-                    <th>Type</th>
-                    <th>Classe</th>
-                    <th>École</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {documents.map((document) => (
+              <tbody>
+                {documents.map(
+                  (document) => (
                     <tr key={document.id}>
                       <td>
                         <strong>
-                          {document.title || 'Sans titre'}
+                          {document.title ||
+                            'Sans titre'}
                         </strong>
                       </td>
 
                       <td>
-                        {document.document_type || '—'}
+                        {document.document_type ||
+                          '—'}
                       </td>
 
                       <td>
-                        {getClassName(document.class_id)}
-                      </td>
-
-                      <td>
-                        {document.school_id
-                          ? getSchoolName(document.school_id)
-                          : '—'}
+                        {classNameById[
+                          document.class_id
+                        ] || '—'}
                       </td>
 
                       <td>
                         {document.created_at
                           ? new Date(
                               document.created_at
-                            ).toLocaleDateString('fr-FR')
+                            ).toLocaleDateString(
+                              'fr-FR'
+                            )
                           : '—'}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     )
   }
 
-  function renderActivePage() {
+  // =========================================================
+  // CONTENU
+  // =========================================================
+
+  function renderContent() {
+    if (loading) {
+      return (
+        <div className="admin-loading">
+          <div className="admin-spinner" />
+
+          <p>
+            Chargement du tableau de bord...
+          </p>
+        </div>
+      )
+    }
+
     switch (activeMenu) {
       case 'schools':
         return renderSchools()
-
-      case 'admins':
-        return renderAdmins()
 
       case 'teachers':
         return renderTeachers()
@@ -1559,6 +1359,9 @@ export default function AdminDashboard({
       case 'parents':
         return renderParents()
 
+      case 'admins':
+        return renderAdmins()
+
       case 'classes':
         return renderClasses()
 
@@ -1568,17 +1371,27 @@ export default function AdminDashboard({
       case 'documents':
         return renderDocuments()
 
-      case 'overview':
       default:
         return renderOverview()
     }
   }
 
+  const pageTitle =
+    MENU.find(
+      (item) =>
+        item.id === activeMenu
+    )?.label ||
+    'Tableau de bord'
+
+  // =========================================================
+  // AFFICHAGE
+  // =========================================================
+
   return (
     <div className="admin-layout">
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <div className="admin-brand-mark">
+          <div className="admin-logo">
             EC
           </div>
 
@@ -1594,30 +1407,24 @@ export default function AdminDashboard({
         </div>
 
         <nav className="admin-nav">
-          <span className="admin-nav-section">
-            MENU PRINCIPAL
-          </span>
-
           {MENU.map((item) => (
             <button
               key={item.id}
               type="button"
-              className={`admin-nav-item ${
+              className={
                 activeMenu === item.id
-                  ? 'active'
-                  : ''
-              }`}
+                  ? 'admin-nav-item active'
+                  : 'admin-nav-item'
+              }
               onClick={() =>
                 setActiveMenu(item.id)
               }
             >
-              <span className="admin-nav-icon">
+              <span>
                 {item.icon}
               </span>
 
-              <span>
-                {item.label}
-              </span>
+              {item.label}
             </button>
           ))}
         </nav>
@@ -1625,18 +1432,24 @@ export default function AdminDashboard({
         <div className="admin-sidebar-footer">
           <div className="admin-user-mini">
             <div className="admin-avatar">
-              {currentUserName
+              {(
+                profile?.full_name ||
+                'A'
+              )
                 .charAt(0)
                 .toUpperCase()}
             </div>
 
             <div>
               <strong>
-                {currentUserName}
+                {profile?.full_name ||
+                  'Administrateur'}
               </strong>
 
               <span>
-                Super Admin
+                {isSuperAdmin
+                  ? 'Super administrateur'
+                  : 'Administrateur'}
               </span>
             </div>
           </div>
@@ -1646,7 +1459,7 @@ export default function AdminDashboard({
             className="admin-logout"
             onClick={onLogout}
           >
-            Déconnexion
+            🚪 Se déconnecter
           </button>
         </div>
       </aside>
@@ -1654,392 +1467,356 @@ export default function AdminDashboard({
       <main className="admin-main">
         <header className="admin-topbar">
           <div>
-            <span className="admin-topbar-title">
+            <span className="admin-breadcrumb">
+              École Connectée /
               Administration
             </span>
 
-            <span className="admin-topbar-subtitle">
-              Gestion centrale d’École Connectée
-            </span>
+            <h1>{pageTitle}</h1>
           </div>
 
           <div className="admin-topbar-actions">
             <button
               type="button"
               className="admin-refresh"
-              onClick={loadDashboard}
-              disabled={loading}
+              onClick={() =>
+                loadDashboard(true)
+              }
+              disabled={refreshing}
             >
-              {loading
-                ? 'Actualisation…'
-                : 'Actualiser'}
+              {refreshing
+                ? 'Actualisation...'
+                : '↻ Actualiser'}
             </button>
-
-            <div className="admin-topbar-user">
-              <div className="admin-avatar">
-                {currentUserName
-                  .charAt(0)
-                  .toUpperCase()}
-              </div>
-
-              <div>
-                <strong>
-                  {currentUserName}
-                </strong>
-
-                <span>
-                  Super Admin
-                </span>
-              </div>
-            </div>
           </div>
         </header>
 
-        <div className="admin-content">
-          {errorMessage && (
-            <div className="admin-alert admin-alert-error">
-              <strong>Erreur</strong>
+        {message && (
+          <div className="admin-alert admin-success-alert">
+            <strong>✅ Succès</strong>
+            <span>{message}</span>
+          </div>
+        )}
 
-              <span>
-                {errorMessage}
-              </span>
+        {error && (
+          <div className="admin-alert">
+            <strong>
+              ⚠️ Attention
+            </strong>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setErrorMessage('')
-                }
-              >
-                ×
-              </button>
-            </div>
-          )}
+            <span>{error}</span>
+          </div>
+        )}
 
-          {successMessage && (
-            <div className="admin-alert admin-alert-success">
-              <strong>Succès</strong>
-
-              <span>
-                {successMessage}
-              </span>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setSuccessMessage('')
-                }
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="admin-loading">
-              <div className="admin-loading-spinner" />
-
-              <h2>
-                Chargement du tableau de bord…
-              </h2>
-
-              <p>
-                Récupération des données École Connectée.
-              </p>
-            </div>
-          ) : (
-            renderActivePage()
-          )}
-        </div>
+        {renderContent()}
       </main>
 
-      {schoolModalOpen && (
-        <Modal
-          title={
-            editingSchool
-              ? 'Modifier l’école'
-              : 'Nouvelle école'
-          }
-          subtitle={
-            editingSchool
-              ? 'Modifiez les informations de l’établissement.'
-              : 'Créez une école et son Admin École.'
-          }
-          onClose={closeSchoolModal}
-          wide
+      {/* =====================================================
+          MODALE NOUVELLE ÉCOLE
+      ===================================================== */}
+
+      {showSchoolForm && (
+        <div
+          className="admin-modal-overlay"
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.currentTarget
+            ) {
+              resetSchoolForm()
+            }
+          }}
         >
-          <form
-            onSubmit={saveSchool}
-            className="admin-form"
-          >
-            <div className="admin-form-section">
-              <div className="admin-form-section-heading">
-                <div>
-                  <span className="admin-form-section-number">
-                    01
-                  </span>
-                </div>
+          <div className="admin-modal">
+            <div className="admin-modal-header">
+              <div>
+                <span className="admin-modal-kicker">
+                  ADMINISTRATION
+                </span>
 
-                <div>
-                  <h3>
-                    Informations de l’école
-                  </h3>
+                <h2>
+                  Nouvelle école
+                </h2>
 
-                  <p>
-                    Informations principales de l’établissement.
-                  </p>
-                </div>
+                <p>
+                  Créez l'école et son
+                  compte Administrateur
+                  École.
+                </p>
               </div>
 
-              <div className="admin-form-grid">
-                <FormField
-                  label="Nom de l’école"
-                  required
-                >
-                  <Input
-                    value={schoolForm.name}
-                    onChange={(event) =>
-                      setSchoolForm({
-                        ...schoolForm,
-                        name: event.target.value,
-                      })
-                    }
-                    placeholder="Ex : École Connectée Dakar"
-                  />
-                </FormField>
-
-                <FormField label="Ville">
-                  <Input
-                    value={schoolForm.city}
-                    onChange={(event) =>
-                      setSchoolForm({
-                        ...schoolForm,
-                        city: event.target.value,
-                      })
-                    }
-                    placeholder="Dakar"
-                  />
-                </FormField>
-
-                <FormField label="Adresse">
-                  <Input
-                    value={schoolForm.address}
-                    onChange={(event) =>
-                      setSchoolForm({
-                        ...schoolForm,
-                        address: event.target.value,
-                      })
-                    }
-                    placeholder="Adresse de l’établissement"
-                  />
-                </FormField>
-
-                <FormField label="Téléphone">
-                  <Input
-                    value={schoolForm.phone}
-                    onChange={(event) =>
-                      setSchoolForm({
-                        ...schoolForm,
-                        phone: event.target.value,
-                      })
-                    }
-                    placeholder="Ex : 77 000 00 00"
-                  />
-                </FormField>
-
-                <FormField label="Email de l’école">
-                  <Input
-                    type="email"
-                    value={schoolForm.email}
-                    onChange={(event) =>
-                      setSchoolForm({
-                        ...schoolForm,
-                        email: event.target.value,
-                      })
-                    }
-                    placeholder="contact@ecole.sn"
-                  />
-                </FormField>
-              </div>
+              <button
+                type="button"
+                className="admin-modal-close"
+                onClick={
+                  resetSchoolForm
+                }
+                disabled={schoolSaving}
+              >
+                ×
+              </button>
             </div>
 
-            {!editingSchool && (
+            <form
+              onSubmit={saveSchool}
+              className="admin-modal-form"
+            >
+              {/* ÉCOLE */}
+
               <div className="admin-form-section">
-                <div className="admin-form-section-heading">
-                  <div>
-                    <span className="admin-form-section-number">
-                      02
-                    </span>
-                  </div>
+                <div className="admin-form-section-title">
+                  <span>🏫</span>
 
                   <div>
-                    <h3>
-                      Admin École
-                    </h3>
+                    <strong>
+                      Informations de
+                      l'école
+                    </strong>
 
-                    <p>
-                      Le compte responsable de cet établissement.
-                    </p>
+                    <small>
+                      Les informations
+                      principales de
+                      l'établissement.
+                    </small>
                   </div>
                 </div>
 
-                <div className="admin-info-banner">
-                  <strong>
-                    Gestion des classes
-                  </strong>
+                <div className="admin-form-grid">
+                  <FormField
+                    label="Nom de l'école"
+                    required
+                    value={
+                      schoolForm.name
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'name',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex : École Moderne de Dakar"
+                  />
 
-                  <p>
-                    Aucune classe n’est créée à cette étape.
-                    L’Admin École créera ensuite les classes
-                    de son établissement depuis son propre tableau de bord.
-                  </p>
+                  <FormField
+                    label="Ville"
+                    value={
+                      schoolForm.city
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'city',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex : Dakar"
+                  />
+
+                  <FormField
+                    label="Adresse"
+                    value={
+                      schoolForm.address
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'address',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex : Avenue Cheikh Anta Diop, Point E"
+                  />
+
+                  <FormField
+                    label="Téléphone"
+                    value={
+                      schoolForm.phone
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'phone',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex : 77 123 45 67"
+                    type="tel"
+                  />
+
+                  <FormField
+                    label="Email de l'école"
+                    value={
+                      schoolForm.email
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'email',
+                        e.target.value
+                      )
+                    }
+                    placeholder="contact@ecole.sn"
+                    type="email"
+                  />
+                </div>
+              </div>
+
+              {/* ADMIN */}
+
+              <div className="admin-form-section">
+                <div className="admin-form-section-title">
+                  <span>👨‍💼</span>
+
+                  <div>
+                    <strong>
+                      Administrateur
+                      École
+                    </strong>
+
+                    <small>
+                      Ce compte permettra
+                      de gérer cette école.
+                    </small>
+                  </div>
                 </div>
 
                 <div className="admin-form-grid">
                   <FormField
                     label="Nom complet"
                     required
-                  >
-                    <Input
-                      value={adminForm.full_name}
-                      onChange={(event) =>
-                        setAdminForm({
-                          ...adminForm,
-                          full_name:
-                            event.target.value,
-                        })
-                      }
-                      placeholder="Ex : Fatou Diop"
-                    />
-                  </FormField>
+                    value={
+                      schoolForm.admin_full_name
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'admin_full_name',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex : Mamadou Ndiaye"
+                  />
 
                   <FormField
-                    label="Nom d’utilisateur"
+                    label="Nom d'utilisateur"
                     required
-                  >
-                    <Input
-                      value={adminForm.username}
-                      onChange={(event) =>
-                        setAdminForm({
-                          ...adminForm,
-                          username:
-                            event.target.value,
-                        })
-                      }
-                      placeholder="Ex : admin_ecole"
-                    />
-                  </FormField>
+                    value={
+                      schoolForm.admin_username
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'admin_username',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex : mamadou.ndiaye"
+                    autoComplete="username"
+                  />
 
                   <FormField
                     label="Email"
                     required
-                  >
-                    <Input
-                      type="email"
-                      value={adminForm.email}
-                      onChange={(event) =>
-                        setAdminForm({
-                          ...adminForm,
-                          email:
-                            event.target.value,
-                        })
-                      }
-                      placeholder="admin@ecole.sn"
-                    />
-                  </FormField>
+                    type="email"
+                    value={
+                      schoolForm.admin_email
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'admin_email',
+                        e.target.value
+                      )
+                    }
+                    placeholder="admin@ecole.sn"
+                    autoComplete="email"
+                  />
 
-                  <FormField label="Téléphone">
-                    <Input
-                      value={adminForm.phone}
-                      onChange={(event) =>
-                        setAdminForm({
-                          ...adminForm,
-                          phone:
-                            event.target.value,
-                        })
-                      }
-                      placeholder="Ex : 77 000 00 00"
-                    />
-                  </FormField>
+                  <FormField
+                    label="Téléphone"
+                    type="tel"
+                    value={
+                      schoolForm.admin_phone
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'admin_phone',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Ex : 78 987 65 43"
+                  />
+
+                  <FormField
+                    label="Mot de passe"
+                    required
+                    type="password"
+                    value={
+                      schoolForm.admin_password
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'admin_password',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Minimum 6 caractères"
+                    autoComplete="new-password"
+                  />
+
+                  <FormField
+                    label="Confirmation du mot de passe"
+                    required
+                    type="password"
+                    value={
+                      schoolForm.admin_password_confirmation
+                    }
+                    onChange={(e) =>
+                      updateSchoolField(
+                        'admin_password_confirmation',
+                        e.target.value
+                      )
+                    }
+                    placeholder="Retapez le mot de passe"
+                    autoComplete="new-password"
+                  />
                 </div>
               </div>
-            )}
 
-            <div className="admin-modal-footer">
-              <ActionButton
-                variant="secondary"
-                onClick={closeSchoolModal}
-                disabled={savingSchool}
-              >
-                Annuler
-              </ActionButton>
+              <div className="admin-form-info">
+                <span>🔐</span>
 
-              <ActionButton
-                type="submit"
-                disabled={savingSchool}
-              >
-                {savingSchool
-                  ? 'Enregistrement…'
-                  : editingSchool
-                  ? 'Enregistrer les modifications'
-                  : 'Créer l’école et l’Admin École'}
-              </ActionButton>
-            </div>
-          </form>
-        </Modal>
-      )}
+                <p>
+                  Le mot de passe sert à
+                  créer le compte
+                  sécurisé de l'Admin
+                  École. Il n'est pas
+                  enregistré dans la table
+                  <code>profiles</code>.
+                </p>
+              </div>
 
-      {subjectModalOpen && (
-        <Modal
-          title={
-            editingSubject
-              ? 'Modifier la matière'
-              : 'Nouvelle matière'
-          }
-          subtitle="Gérez les matières disponibles dans École Connectée."
-          onClose={closeSubjectModal}
-        >
-          <form
-            onSubmit={saveSubject}
-            className="admin-form"
-          >
-            <FormField
-              label="Nom de la matière"
-              required
-            >
-              <Input
-                value={subjectForm.name}
-                onChange={(event) =>
-                  setSubjectForm({
-                    name: event.target.value,
-                  })
-                }
-                placeholder="Ex : Mathématiques"
-              />
-            </FormField>
+              <div className="admin-modal-actions">
+                <button
+                  type="button"
+                  className="admin-secondary-button"
+                  onClick={
+                    resetSchoolForm
+                  }
+                  disabled={schoolSaving}
+                >
+                  Annuler
+                </button>
 
-            <div className="admin-modal-footer">
-              <ActionButton
-                variant="secondary"
-                onClick={closeSubjectModal}
-                disabled={savingSubject}
-              >
-                Annuler
-              </ActionButton>
-
-              <ActionButton
-                type="submit"
-                disabled={savingSubject}
-              >
-                {savingSubject
-                  ? 'Enregistrement…'
-                  : editingSubject
-                  ? 'Enregistrer'
-                  : 'Créer la matière'}
-              </ActionButton>
-            </div>
-          </form>
-        </Modal>
+                <button
+                  type="submit"
+                  className="admin-primary-button"
+                  disabled={schoolSaving}
+                >
+                  {schoolSaving
+                    ? 'Création en cours...'
+                    : '🏫 Créer l’école et l’Admin'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )
 }
+
+export default AdminDashboard
