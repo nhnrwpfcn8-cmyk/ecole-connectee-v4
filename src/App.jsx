@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import AdminDashboard from './AdminDashboard'
 import AdminEcoleDashboard from './AdminEcoleDashboard'
+import SecretaryDashboard from "./SecretaryDashboard";
 import './App.css'
 
 function App() {
@@ -226,6 +227,9 @@ if (role === 'school_admin') {
       onLogout={handleLogout}
     />
   )
+}
+if (role === "secretary") {
+  return <SecretaryDashboard session={session} profile={profile} onLogout={signOut} />;
 }
 
   return (
