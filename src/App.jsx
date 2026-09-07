@@ -229,7 +229,7 @@ if (role === 'school_admin') {
   )
 }
 if (role === "secretary") {
-  return <SecretaryDashboard session={session} profile={profile} onLogout={signOut} />;
+  return <SecretaryDashboard session={session} profile={profile} />;
 }
 
   return (
