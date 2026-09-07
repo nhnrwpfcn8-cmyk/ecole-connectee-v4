@@ -3563,7 +3563,7 @@ const styles = {
     fontSize: 21,
   },
 
-  brand span: {
+  brandSpan: {
     display: "block",
     fontSize: 12,
     color: "#94a3b8",
@@ -3592,7 +3592,7 @@ const styles = {
     justifyContent: "center",
   },
 
-  schoolMini span: {
+  schoolMiniSpan: {
     display: "block",
     fontSize: 11,
     color: "#94a3b8",
