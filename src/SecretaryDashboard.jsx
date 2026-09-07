@@ -25,7 +25,7 @@ import { supabase } from "./lib/supabase";
 const MENU = [
   { id: "overview", label: "Tableau de bord", icon: "🏠" },
   { id: "students", label: "Élèves", icon: "🎓" },
-  { id: "parents", label: "Parents", icon: "👨‍👩‍👧" },
+  { id: "parents", label: "Parents", icon: "👨👩👧" },
   { id: "classes", label: "Classes", icon: "🏫" },
   { id: "attendance", label: "Présences", icon: "📋" },
   { id: "enrollments", label: "Inscriptions", icon: "📝" },
@@ -1442,7 +1442,7 @@ export default function SecretaryDashboard({ session, onLogout }) {
           />
 
           <StatCard
-            icon="👨‍👩‍👧"
+            icon="👨👩👧"
             label="Parents"
             value={activeParents}
             onClick={() =>
@@ -1460,7 +1460,7 @@ export default function SecretaryDashboard({ session, onLogout }) {
           />
 
           <StatCard
-            icon="👨‍🏫"
+            icon="👨🏫"
             label="Enseignants"
             value={teachers.length}
           />
@@ -1731,7 +1731,7 @@ export default function SecretaryDashboard({ session, onLogout }) {
           <div style={styles.sectionTop}>
             <div>
               <h2 style={styles.sectionTitle}>
-                👨‍👩‍👧 Parents
+                👨👩👧 Parents
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -1757,7 +1757,7 @@ export default function SecretaryDashboard({ session, onLogout }) {
 
           {filteredParents.length === 0 ? (
             <EmptyState
-              icon="👨‍👩‍👧"
+              icon="👨👩👧"
               title="Aucun parent"
               text="Aucun parent ne correspond à votre recherche."
             />
@@ -2036,7 +2036,7 @@ export default function SecretaryDashboard({ session, onLogout }) {
           <div style={styles.sectionTop}>
             <div>
               <h2 style={styles.sectionTitle}>
-                👨‍🏫 Enseignants
+                👨🏫 Enseignants
               </h2>
 
               <p style={styles.sectionSubtitle}>
@@ -2058,7 +2058,7 @@ export default function SecretaryDashboard({ session, onLogout }) {
 
           {filteredTeachers.length === 0 ? (
             <EmptyState
-              icon="👨‍🏫"
+              icon="👨🏫"
               title="Aucun enseignant"
               text="Aucun enseignant actif trouvé."
             />
@@ -2070,7 +2070,7 @@ export default function SecretaryDashboard({ session, onLogout }) {
                   style={styles.listItem}
                 >
                   <span>
-                    👨‍🏫{" "}
+                    👨🏫{" "}
                     <strong>
                       {teacher.display_name}
                     </strong>
