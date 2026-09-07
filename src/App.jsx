@@ -1,19 +1,33 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+
 import AdminDashboard from './AdminDashboard'
 import AdminEcoleDashboard from './AdminEcoleDashboard'
-import SecretaryDashboard from "./SecretaryDashboard";
+import SecretaryDashboard from './SecretaryDashboard'
+import SecretaryServices from './SecretaryServices'
+
 import './App.css'
 
 function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
+
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+
+  /*
+   * Pour le secrétaire :
+   * dashboard = tableau de bord secrétaire existant
+   * services = communication + scolarité
+   */
+  const [secretaryPage, setSecretaryPage] =
+    useState('dashboard')
 
   useEffect(() => {
     let mounted = true
@@ -38,19 +52,21 @@ function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (!mounted) return
+    } = supabase.auth.onAuthStateChange(
+      async (_event, newSession) => {
+        if (!mounted) return
 
-      setSession(newSession)
+        setSession(newSession)
 
-      if (newSession) {
-        await loadProfile(newSession.user.id)
-      } else {
-        setProfile(null)
+        if (newSession) {
+          await loadProfile(newSession.user.id)
+        } else {
+          setProfile(null)
+        }
+
+        setLoading(false)
       }
-
-      setLoading(false)
-    })
+    )
 
     return () => {
       mounted = false
@@ -61,7 +77,9 @@ function App() {
   async function loadProfile(userId) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, phone, role, school_id, active')
+      .select(
+        'id, full_name, phone, role, school_id, active'
+      )
       .eq('id', userId)
       .maybeSingle()
 
@@ -83,16 +101,19 @@ function App() {
     const cleanEmail = email.trim().toLowerCase()
 
     if (!cleanEmail || !password) {
-      setError('Veuillez saisir votre email et votre mot de passe.')
+      setError(
+        'Veuillez saisir votre email et votre mot de passe.'
+      )
       return
     }
 
     setConnecting(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    })
+    const { data, error } =
+      await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      })
 
     if (error) {
       console.error(error)
@@ -115,7 +136,8 @@ function App() {
     setError('')
     setMessage('')
 
-    const { error } = await supabase.auth.signOut()
+    const { error } =
+      await supabase.auth.signOut()
 
     if (error) {
       setError(error.message)
@@ -126,25 +148,35 @@ function App() {
     setProfile(null)
     setEmail('')
     setPassword('')
+    setSecretaryPage('dashboard')
   }
 
   if (loading) {
     return (
       <div className="app-container">
         <div className="loading-card">
-          <div className="logo-circle">EC</div>
+          <div className="logo-circle">
+            EC
+          </div>
+
           <h1>École Connectée</h1>
+
           <p>Chargement...</p>
         </div>
       </div>
     )
   }
 
+  /*
+   * PAGE DE CONNEXION
+   */
   if (!session) {
     return (
       <div className="app-container">
         <div className="login-card">
-          <div className="logo-circle">EC</div>
+          <div className="logo-circle">
+            EC
+          </div>
 
           <h1>École Connectée</h1>
 
@@ -155,25 +187,33 @@ function App() {
           <h2>Se connecter</h2>
 
           <form onSubmit={handleLogin}>
-            <label htmlFor="email">Adresse email</label>
+            <label htmlFor="email">
+              Adresse email
+            </label>
 
             <input
               id="email"
               type="email"
               placeholder="exemple@email.com"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
               autoComplete="email"
             />
 
-            <label htmlFor="password">Mot de passe</label>
+            <label htmlFor="password">
+              Mot de passe
+            </label>
 
             <input
               id="password"
               type="password"
               placeholder="Votre mot de passe"
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
               autoComplete="current-password"
             />
 
@@ -189,8 +229,13 @@ function App() {
               </div>
             )}
 
-            <button type="submit" disabled={connecting}>
-              {connecting ? 'Connexion...' : 'Se connecter'}
+            <button
+              type="submit"
+              disabled={connecting}
+            >
+              {connecting
+                ? 'Connexion...'
+                : 'Se connecter'}
             </button>
           </form>
 
@@ -202,43 +247,87 @@ function App() {
     )
   }
 
-  const role = profile?.role || 'non configuré'
+  const role =
+    profile?.role || 'non configuré'
 
-  const isAdmin =
-    role === 'admin' ||
-    role === 'school_admin' ||
-    role === 'super_admin'
-
+  /*
+   * SUPER ADMIN
+   *
+   * On ne modifie pas son fonctionnement.
+   */
   if (role === 'super_admin') {
-  return (
-    <AdminDashboard
-      profile={profile}
-      session={session}
-      onLogout={handleLogout}
-    />
-  )
-}
+    return (
+      <AdminDashboard
+        profile={profile}
+        session={session}
+        onLogout={handleLogout}
+      />
+    )
+  }
 
-if (role === 'school_admin') {
-  return (
-    <AdminEcoleDashboard
-      profile={profile}
-      session={session}
-      onLogout={handleLogout}
-    />
-  )
-}
-if (role === "secretary") {
-  return <SecretaryDashboard session={session} profile={profile} />;
-}
+  /*
+   * ADMIN ÉCOLE
+   *
+   * On ne modifie pas son fonctionnement.
+   */
+  if (role === 'school_admin') {
+    return (
+      <AdminEcoleDashboard
+        profile={profile}
+        session={session}
+        onLogout={handleLogout}
+      />
+    )
+  }
 
+  /*
+   * SECRÉTAIRE
+   */
+  if (role === 'secretary') {
+    /*
+     * Nouveau module :
+     * Communication + Scolarité
+     */
+    if (secretaryPage === 'services') {
+      return (
+        <SecretaryServices
+          session={session}
+          profile={profile}
+          onLogout={handleLogout}
+          onBack={() =>
+            setSecretaryPage('dashboard')
+          }
+        />
+      )
+    }
+
+    /*
+     * Tableau de bord secrétaire EXISTANT
+     */
+    return (
+      <SecretaryDashboard
+        session={session}
+        profile={profile}
+        onLogout={handleLogout}
+        onOpenServices={() =>
+          setSecretaryPage('services')
+        }
+      />
+    )
+  }
+
+  /*
+   * AUTRES RÔLES
+   */
   return (
     <div className="app-container">
       <div className="dashboard-card">
-
         <div className="dashboard-header">
           <div>
-            <div className="small-logo">EC</div>
+            <div className="small-logo">
+              EC
+            </div>
+
             <h1>École Connectée</h1>
           </div>
 
@@ -255,11 +344,13 @@ if (role === "secretary") {
             Bienvenue
             {profile?.full_name
               ? `, ${profile.full_name}`
-              : ''} 👋
+              : ''}{' '}
+            👋
           </h2>
 
           <p>
-            Vous êtes connecté à votre espace École Connectée.
+            Vous êtes connecté à votre espace
+            École Connectée.
           </p>
         </div>
 
@@ -280,13 +371,14 @@ if (role === "secretary") {
         </div>
 
         <div className="feature-card">
-          <h3>Bienvenue dans École Connectée</h3>
+          <h3>
+            Bienvenue dans École Connectée
+          </h3>
 
           <p>
             Votre espace est en cours de préparation.
           </p>
         </div>
-
       </div>
     </div>
   )
