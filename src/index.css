@@ -134,11 +134,56 @@ code {
       0 4px 16px rgba(0, 0, 0, 0.14) !important;
   }
 
+  /* On cache seulement les éléments inutiles sur mobile */
   #root .ec-sidebar .ec-brand,
-  #root .ec-sidebar .ec-school-mini,
-  #root .ec-sidebar .ec-sidebar-bottom {
+  #root .ec-sidebar .ec-school-mini {
     display: none !important;
   }
+
+  /* =====================================================
+     DÉCONNEXION MOBILE
+     ===================================================== */
+
+  #root .ec-sidebar .ec-sidebar-bottom {
+    display: flex !important;
+
+    position: absolute !important;
+    right: 6px !important;
+    top: 8px !important;
+
+    height: 48px !important;
+    width: auto !important;
+
+    padding: 0 !important;
+    margin: 0 !important;
+
+    z-index: 1002 !important;
+  }
+
+  #root .ec-sidebar .ec-sidebar-bottom button {
+    display: flex !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    gap: 4px !important;
+
+    padding: 6px 10px !important;
+
+    min-width: 44px !important;
+    height: 44px !important;
+
+    border-radius: 10px !important;
+  }
+
+  /* Sur téléphone, on garde uniquement l'icône 🚪 */
+  #root .ec-sidebar .ec-sidebar-bottom button span:last-child {
+    display: none !important;
+  }
+
+  /* =====================================================
+     MENU MOBILE
+     ===================================================== */
 
   #root .ec-sidebar .ec-menu {
     width: 100% !important;
@@ -149,7 +194,7 @@ code {
     overflow-x: auto !important;
     overflow-y: hidden !important;
 
-    padding: 6px 8px !important;
+    padding: 6px 58px 6px 8px !important;
 
     gap: 4px !important;
 
@@ -193,6 +238,10 @@ code {
 
     max-width: 72px !important;
   }
+
+  /* =====================================================
+     CONTENU PRINCIPAL
+     ===================================================== */
 
   #root .ec-main {
     width: 100% !important;
