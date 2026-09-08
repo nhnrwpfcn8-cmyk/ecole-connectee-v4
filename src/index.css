@@ -114,14 +114,6 @@ code {
 }
 
 /* =========================================================
-   CORRECTION — TEXTE DES MESSAGES DU SECRÉTAIRE
-   ========================================================= */
-
-#root button[style*="text-align: left"] {
-  color: #0f172a !important;
-}
-
-/* =========================================================
    ÉCOLE CONNECTÉE — NAVIGATION MOBILE ADMIN ÉCOLE
    ========================================================= */
 
@@ -188,7 +180,7 @@ code {
     border-radius: 10px !important;
   }
 
-  /* Sur téléphone, on garde uniquement l'icône 🚪 */
+  /* Sur téléphone, on garde uniquement l’icône 🚪 */
   #root .ec-sidebar .ec-sidebar-bottom button span:last-child {
     display: none !important;
   }
