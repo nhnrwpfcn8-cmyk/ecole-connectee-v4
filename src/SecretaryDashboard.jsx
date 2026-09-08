@@ -4292,6 +4292,7 @@ const styles = {
     alignItems: "flex-start",
     gap: 12,
     textAlign: "left",
+    color: "#000",
     cursor: "pointer",
   },
 
