@@ -483,20 +483,22 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
         </div>
 
         <div style={styles.headerActions}>
-          <button
-            onClick={onBack}
-            style={styles.secondaryButton}
-          >
-            ← Tableau de bord
-          </button>
+  <button
+    type="button"
+    onClick={onBack}
+    style={styles.secondaryButton}
+  >
+    🏠 Menu principal
+  </button>
 
-          <button
-            onClick={onLogout}
-            style={styles.logoutButton}
-          >
-            Déconnexion
-          </button>
-        </div>
+  <button
+    type="button"
+    onClick={onLogout}
+    style={styles.logoutButton}
+  >
+    Déconnexion
+  </button>
+</div>
       </header>
 
       <main style={styles.container}>
