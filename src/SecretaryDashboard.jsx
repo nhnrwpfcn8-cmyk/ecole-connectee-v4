@@ -31,6 +31,7 @@ const MENU = [
   { id: "enrollments", label: "Inscriptions", icon: "📝" },
   { id: "communication", label: "Communication", icon: "📢" },
   { id: "notifications", label: "Notifications", icon: "🔔" },
+  { id: "services", label: "Services administratifs", icon: "🗂️" },
   { id: "profile", label: "Mon profil", icon: "👤" },
 ];
 
@@ -196,7 +197,11 @@ function EmptyState({ icon = "📭", title, text }) {
    DASHBOARD
    ============================================================ */
 
-export default function SecretaryDashboard({ session, onLogout }) {
+export default function SecretaryDashboard({
+  session,
+  onLogout,
+  onOpenServices,
+}) {
   const [activeSection, setActiveSection] = useState("overview");
 
   const [profile, setProfile] = useState(null);
@@ -2815,9 +2820,16 @@ export default function SecretaryDashboard({ session, onLogout }) {
             <button
               key={item.id}
               type="button"
-              onClick={() =>
-                setActiveSection(item.id)
-              }
+              onClick={() => {
+  if (item.id === "services") {
+    if (typeof onOpenServices === "function") {
+      onOpenServices();
+    }
+    return;
+  }
+
+  setActiveSection(item.id);
+}}
               style={{
                 ...styles.menuItem,
                 ...(activeSection === item.id
