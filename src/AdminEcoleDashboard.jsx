@@ -5278,161 +5278,649 @@ return <PageShell title="Bulletins" description="Bulletin scolaire calculé à p
 {student && <section className="ec-card bulletin-print"><div className="bulletin-header"><div><h2>{school?.name || "Établissement scolaire"}</h2><p>{school?.address || ""} {school?.city ? `— ${school.city}` : ""}</p></div><div><strong>BULLETIN SCOLAIRE</strong><p>{student.first_name} {student.last_name}</p><p>Code : {student.student_code || "-"}</p></div></div><div className="ec-stat-grid"><div className="ec-stat-card"><span>Moyenne générale</span><strong>{average.toFixed(2)}/20</strong></div><div className="ec-stat-card"><span>Évaluations</span><strong>{rows.length}</strong></div></div><div className="ec-table-wrap"><table className="ec-table"><thead><tr><th>Matière</th><th>Professeur</th><th>Moyenne</th></tr></thead><tbody>{bySubject.map((r,i)=><tr key={i}><td>{r.subject}</td><td>{[...r.teachers].map(id=>safeTeachers.find(t=>t.id===id)?.display_name).filter(Boolean).join(", ") || "-"}</td><td><strong>{(r.scores.reduce((a,b)=>a+b,0)/r.scores.length).toFixed(2)}/20</strong></td></tr>)}{!bySubject.length&&<tr><td colSpan="3">Aucune note disponible.</td></tr>}</tbody></table></div><div className="bulletin-footer"><p>Signature / cachet de l'établissement</p><p>Signature du responsable</p></div></section>}
 </PageShell>
 }
+function CommunicationPage({
+  schoolId,
+  secretaries,
+  currentProfile,
+}) {
+  const safeSecretaries = Array.isArray(secretaries)
+    ? secretaries
+    : [];
 
-function CommunicationPage({ schoolId, secretaries, currentProfile }) {
-const safeSecretaries = Array.isArray(secretaries) ? secretaries : [];
-const activeSecretaries = safeSecretaries.filter(item => item.active !== false);
-const [messages, setMessages] = useState([]);
-const [subject, setSubject] = useState("");
-const [message, setMessage] = useState("");
-const [sending, setSending] = useState(false);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState("");
-const [success, setSuccess] = useState("");
+  const activeSecretaries =
+    safeSecretaries.filter(
+      (item) => item.active !== false
+    );
 
-async function loadMessages() {
-if (!schoolId) return;
-setLoading(true);
-setError("");
-const { data, error: loadError } = await supabase
-  .from("school_messages")
-  .select("id, school_id, sender_id, recipient_role, subject, message, read_at, created_at")
-  .eq("school_id", schoolId)
-  .order("created_at", { ascending: false });
+  const [messages, setMessages] = useState([]);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-if (loadError) {
-  setError(loadError.message);
-  setMessages([]);
-} else {
-  setMessages(data || []);
-}
-setLoading(false);
-}
+  // =========================================================
+  // CHARGER LES MESSAGES
+  // =========================================================
 
-useEffect(() => {
-loadMessages();
-}, [schoolId]);
+  async function loadMessages() {
+    if (!schoolId) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
 
-async function sendMessage(event) {
-event.preventDefault();
-setError("");
-setSuccess("");
+    setLoading(true);
+    setError("");
 
-if (!subject.trim() || !message.trim()) {
-  setError("Le sujet et le message sont obligatoires.");
-  return;
-}
+    const {
+      data,
+      error: loadError,
+    } = await supabase
+      .from("school_messages")
+      .select(
+        "id, school_id, sender_id, recipient_role, subject, message, read_at, created_at"
+      )
+      .eq("school_id", schoolId)
+      .order("created_at", {
+        ascending: true,
+      });
 
-if (!activeSecretaries.length) {
-  setError("Aucun secrétaire actif n'est actuellement enregistré dans cette école.");
-  return;
-}
+    if (loadError) {
+      console.error(
+        "Erreur chargement messages :",
+        loadError
+      );
 
-setSending(true);
-const { data: { user } } = await supabase.auth.getUser();
+      setError(
+        "Impossible de charger les messages : " +
+          loadError.message
+      );
 
-const { error: sendError } = await supabase
-  .from("school_messages")
-  .insert({
-    school_id: schoolId,
-    sender_id: user?.id,
-    recipient_role: "secretary",
-    subject: subject.trim(),
-    message: message.trim(),
-  });
+      setMessages([]);
+    } else {
+      setMessages(data || []);
+    }
 
-setSending(false);
+    setLoading(false);
+  }
 
-if (sendError) {
-  setError(sendError.message);
-  return;
-}
+  useEffect(() => {
+    loadMessages();
+  }, [schoolId]);
 
-setSubject("");
-setMessage("");
-setSuccess("Message envoyé au secrétariat.");
-await loadMessages();
-}
+  // =========================================================
+  // ENVOYER UN MESSAGE
+  // =========================================================
 
-async function markAsRead(id) {
-const { error: updateError } = await supabase
-  .from("school_messages")
-  .update({ read_at: new Date().toISOString() })
-  .eq("id", id)
-  .eq("school_id", schoolId);
+  async function sendMessage(event) {
+    event.preventDefault();
 
-if (!updateError) await loadMessages();
-}
+    setError("");
+    setSuccess("");
 
-const unread = messages.filter(item => !item.read_at).length;
+    const cleanMessage = message.trim();
 
-return (
-<PageShell
-title="Communication"
-description="Échangez directement avec le secrétariat de votre établissement."
-action={
-<button className="ec-btn ec-btn-secondary" onClick={loadMessages}>
-↻ Actualiser
-</button>
-}
->
-<div className="ec-grid-2">
-<section className="ec-card">
-  <div className="ec-card-head">
-    <div>
-      <h3>Nouveau message</h3>
-      <p>Le message est limité à votre établissement.</p>
-    </div>
-    <span className="ec-badge">{activeSecretaries.length} secrétaire(s)</span>
-  </div>
+    const cleanSubject =
+      subject.trim() ||
+      "Conversation avec le secrétariat";
 
-  {error && <div className="ec-alert ec-alert-error">⚠️ {error}</div>}
-  {success && <div className="ec-alert ec-alert-success">✓ {success}</div>}
+    if (!cleanMessage) {
+      setError(
+        "Veuillez écrire un message avant de l'envoyer."
+      );
+      return;
+    }
 
-  <form className="ec-form" onSubmit={sendMessage}>
-    <TextInput label="Sujet" value={subject} onChange={setSubject} placeholder="Ex. Réunion avec les parents" disabled={sending} />
-    <TextAreaInput label="Message" value={message} onChange={setMessage} placeholder="Écrivez votre message au secrétariat..." disabled={sending} />
-    <button className="ec-btn ec-btn-primary" disabled={sending || !activeSecretaries.length}>
-      {sending ? "Envoi…" : "📨 Envoyer au secrétaire"}
-    </button>
-  </form>
-</section>
+    if (!activeSecretaries.length) {
+      setError(
+        "Aucun secrétaire actif n'est actuellement enregistré dans cette école."
+      );
+      return;
+    }
 
-<section className="ec-card">
-  <div className="ec-card-head">
-    <div>
-      <h3>Boîte de communication</h3>
-      <p>Messages de l'école et échanges avec le secrétariat.</p>
-    </div>
-    {unread > 0 && <span className="ec-badge warning">{unread} non lu(s)</span>}
-  </div>
+    setSending(true);
 
-  {loading ? (
-    <div className="ec-empty-large"><div className="ec-spinner small" /><p>Chargement des messages…</p></div>
-  ) : messages.length === 0 ? (
-    <EmptyState icon="📢" title="Aucun message" description="Les échanges avec le secrétariat apparaîtront ici." />
-  ) : (
-    <div className="ec-message-list">
-      {messages.map(item => (
-        <article key={item.id} className={`ec-message-card ${!item.read_at ? "unread" : ""}`}>
-          <div className="ec-message-top">
-            <strong>{item.subject}</strong>
-            <span>{formatDateTime(item.created_at)}</span>
+    try {
+      const {
+        data: userData,
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) {
+        throw userError;
+      }
+
+      const user = userData?.user;
+
+      if (!user?.id) {
+        throw new Error(
+          "Utilisateur non connecté."
+        );
+      }
+
+      const {
+        error: sendError,
+      } = await supabase
+        .from("school_messages")
+        .insert({
+          school_id: schoolId,
+          sender_id: user.id,
+          recipient_role: "secretary",
+          subject: cleanSubject,
+          message: cleanMessage,
+        });
+
+      if (sendError) {
+        throw sendError;
+      }
+
+      // On vide uniquement le message.
+      // Le sujet reste disponible pour la conversation.
+      setMessage("");
+
+      setSuccess(
+        "Message envoyé au secrétariat."
+      );
+
+      await loadMessages();
+
+    } catch (sendError) {
+      console.error(
+        "Erreur envoi message :",
+        sendError
+      );
+
+      setError(
+        sendError?.message ||
+          "Impossible d'envoyer le message."
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // =========================================================
+  // MARQUER UN MESSAGE COMME LU
+  // =========================================================
+
+  async function markAsRead(id) {
+    if (!id || !schoolId) {
+      return;
+    }
+
+    const {
+      error: updateError,
+    } = await supabase
+      .from("school_messages")
+      .update({
+        read_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("school_id", schoolId);
+
+    if (updateError) {
+      console.error(
+        "Erreur marquage message :",
+        updateError
+      );
+
+      setError(
+        "Impossible de marquer le message comme lu."
+      );
+
+      return;
+    }
+
+    await loadMessages();
+  }
+
+  // =========================================================
+  // MESSAGES NON LUS
+  // =========================================================
+
+  const unread = messages.filter(
+    (item) =>
+      item.sender_id !== currentProfile?.id &&
+      !item.read_at
+  ).length;
+
+  // =========================================================
+  // AFFICHAGE
+  // =========================================================
+
+  return (
+    <PageShell
+      title="Communication"
+      description="Échangez directement avec le secrétariat de votre établissement."
+      action={
+        <button
+          type="button"
+          className="ec-btn ec-btn-secondary"
+          onClick={loadMessages}
+          disabled={loading}
+        >
+          {loading
+            ? "Chargement…"
+            : "↻ Actualiser"}
+        </button>
+      }
+    >
+      <section className="ec-card">
+        {/* ===================================================
+            EN-TÊTE
+        =================================================== */}
+
+        <div className="ec-card-head">
+          <div>
+            <h3>
+              💬 Conversation avec le secrétariat
+            </h3>
+
+            <p>
+              Échangez directement avec le
+              secrétariat de votre école.
+            </p>
           </div>
-          <p>{item.message}</p>
-          {!item.read_at && (
-            <button className="ec-action-btn" onClick={() => markAsRead(item.id)}>
-              ✓ Marquer comme lu
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              flexWrap: "wrap",
+            }}
+          >
+            <span className="ec-badge">
+              👥 {activeSecretaries.length} secrétaire
+              {activeSecretaries.length > 1
+                ? "s"
+                : ""}
+            </span>
+
+            {unread > 0 && (
+              <span className="ec-badge warning">
+                🔔 {unread} non lu
+                {unread > 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ===================================================
+            ALERTES
+        =================================================== */}
+
+        {error && (
+          <div
+            className="ec-alert ec-alert-error"
+            style={{
+              marginBottom: "12px",
+            }}
+          >
+            ⚠️ {error}
+          </div>
+        )}
+
+        {success && (
+          <div
+            className="ec-alert ec-alert-success"
+            style={{
+              marginBottom: "12px",
+            }}
+          >
+            ✓ {success}
+          </div>
+        )}
+
+        {/* ===================================================
+            CONVERSATION
+        =================================================== */}
+
+        {loading ? (
+          <div className="ec-empty-large">
+            <div className="ec-spinner small" />
+
+            <p>
+              Chargement de la conversation…
+            </p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div
+            style={{
+              minHeight: "280px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <EmptyState
+              icon="💬"
+              title="Aucun message"
+              description="Commencez la conversation avec le secrétariat."
+            />
+          </div>
+        ) : (
+          <div
+            style={{
+              maxHeight: "520px",
+              overflowY: "auto",
+              padding: "18px",
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}
+          >
+            {messages.map((item) => {
+              const isMine =
+                item.sender_id ===
+                currentProfile?.id;
+
+              const isUnread =
+                !isMine && !item.read_at;
+
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: isMine
+                      ? "flex-end"
+                      : "flex-start",
+                    width: "100%",
+                  }}
+                >
+                  <div
+                    style={{
+                      maxWidth: "78%",
+                      minWidth: "180px",
+                      padding: "12px 14px",
+                      borderRadius: isMine
+                        ? "16px 16px 4px 16px"
+                        : "16px 16px 16px 4px",
+                      background: isMine
+                        ? "#2563eb"
+                        : "#ffffff",
+                      color: isMine
+                        ? "#ffffff"
+                        : "#0f172a",
+                      border: isMine
+                        ? "none"
+                        : "1px solid #e2e8f0",
+                      boxShadow:
+                        "0 2px 8px rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    {/* EXPÉDITEUR */}
+
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        fontWeight: "700",
+                        marginBottom: "5px",
+                        color: isMine
+                          ? "#ffffff"
+                          : "#2563eb",
+                        opacity: 0.95,
+                      }}
+                    >
+                      {isMine
+                        ? "Vous"
+                        : "Secrétariat"}
+                    </div>
+
+                    {/* SUJET */}
+
+                    {item.subject && (
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          marginBottom: "6px",
+                          color: isMine
+                            ? "#ffffff"
+                            : "#0f172a",
+                        }}
+                      >
+                        {item.subject}
+                      </div>
+                    )}
+
+                    {/* MESSAGE */}
+
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        lineHeight: "1.55",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                        color: isMine
+                          ? "#ffffff"
+                          : "#0f172a",
+                      }}
+                    >
+                      {item.message}
+                    </div>
+
+                    {/* DATE / HEURE */}
+
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent:
+                          "space-between",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                        fontSize: "11px",
+                        color: isMine
+                          ? "rgba(255,255,255,0.82)"
+                          : "#64748b",
+                      }}
+                    >
+                      <span>
+                        {formatDateTime(
+                          item.created_at
+                        )}
+                      </span>
+
+                      {isUnread && (
+                        <span
+                          style={{
+                            fontWeight: "700",
+                            color: "#dc2626",
+                          }}
+                        >
+                          ● Nouveau
+                        </span>
+                      )}
+                    </div>
+
+                    {/* MARQUER COMME LU */}
+
+                    {isUnread && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          markAsRead(item.id)
+                        }
+                        style={{
+                          marginTop: "8px",
+                          border: "none",
+                          background:
+                            "transparent",
+                          padding: "0",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                          color: "#2563eb",
+                        }}
+                      >
+                        ✓ Marquer comme lu
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ===================================================
+            COMPOSITEUR DE MESSAGE
+        =================================================== */}
+
+        <form
+          onSubmit={sendMessage}
+          style={{
+            marginTop: "16px",
+            padding: "14px",
+            background: "#ffffff",
+            border: "1px solid #e2e8f0",
+            borderRadius: "14px",
+          }}
+        >
+          {/* SUJET */}
+
+          <div
+            style={{
+              marginBottom: "10px",
+            }}
+          >
+            <label
+              style={{
+                display: "block",
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#334155",
+                marginBottom: "6px",
+              }}
+            >
+              Sujet
+              <span
+                style={{
+                  fontWeight: "400",
+                  color: "#64748b",
+                  marginLeft: "5px",
+                }}
+              >
+                (optionnel)
+              </span>
+            </label>
+
+            <input
+              type="text"
+              value={subject}
+              onChange={(event) =>
+                setSubject(event.target.value)
+              }
+              placeholder="Ex. Réunion avec les parents"
+              disabled={sending}
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                padding: "11px 12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "9px",
+                background: "#ffffff",
+                color: "#0f172a",
+                fontSize: "14px",
+                outline: "none",
+              }}
+            />
+          </div>
+
+          {/* MESSAGE + BOUTON */}
+
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              alignItems: "flex-end",
+            }}
+          >
+            <div
+              style={{
+                flex: "1",
+              }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  color: "#334155",
+                  marginBottom: "6px",
+                }}
+              >
+                Message
+              </label>
+
+              <textarea
+                value={message}
+                onChange={(event) =>
+                  setMessage(event.target.value)
+                }
+                placeholder="Écrire un message…"
+                disabled={sending}
+                rows={3}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  resize: "vertical",
+                  minHeight: "76px",
+                  padding: "11px 12px",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "9px",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                  fontSize: "14px",
+                  lineHeight: "1.5",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="ec-btn ec-btn-primary"
+              disabled={
+                sending ||
+                !activeSecretaries.length ||
+                !message.trim()
+              }
+              style={{
+                minHeight: "76px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {sending
+                ? "Envoi…"
+                : "📨 Envoyer"}
             </button>
-          )}
-        </article>
-      ))}
-    </div>
-  )}
-</section>
-</div>
-</PageShell>
-);
+          </div>
+
+          {/* INFO */}
+
+          <div
+            style={{
+              marginTop: "8px",
+              fontSize: "12px",
+              color: "#64748b",
+            }}
+          >
+            🔐 Cette conversation est limitée à
+            votre établissement.
+          </div>
+        </form>
+      </section>
+    </PageShell>
+  );
 }
 
 /* =========================================================

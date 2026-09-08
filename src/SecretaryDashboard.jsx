@@ -2386,168 +2386,395 @@ export default function SecretaryDashboard({
      COMMUNICATION
      ============================================================ */
 
-  function renderCommunication() {
-    return (
-      <>
-        <section style={styles.card}>
-          <div style={styles.sectionTop}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                📢 Communication
-              </h2>
+function renderCommunication() {
+  const sortedMessages = [...messages].sort(
+    (a, b) =>
+      new Date(a.created_at).getTime() -
+      new Date(b.created_at).getTime()
+  );
 
-              <p style={styles.sectionSubtitle}>
-                Échangez directement avec l'Admin École.
-              </p>
-            </div>
+  const admin =
+    schoolAdmins.find(
+      (item) =>
+        item.id ===
+        messageForm.recipient_id
+    ) ||
+    schoolAdmins[0];
 
-            <Button
-              onClick={() =>
-                setShowMessageModal(true)
-              }
+  return (
+    <>
+      <section style={styles.card}>
+        <div style={styles.sectionTop}>
+          <div>
+            <h2 style={styles.sectionTitle}>
+              📢 Communication
+            </h2>
+
+            <p style={styles.sectionSubtitle}>
+              Échangez directement avec
+              l'Admin École.
+            </p>
+          </div>
+        </div>
+
+        {schoolAdmins.length === 0 ? (
+          <EmptyState
+            icon="👤"
+            title="Aucun Admin École trouvé"
+            text="Aucun administrateur actif n'a été trouvé dans votre école."
+          />
+        ) : (
+          <div
+            style={{
+              border:
+                "1px solid #e2e8f0",
+              borderRadius: 16,
+              overflow: "hidden",
+              background: "#ffffff",
+            }}
+          >
+            {/* ------------------------------------------------
+                EN-TÊTE DE LA CONVERSATION
+            ------------------------------------------------ */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: 16,
+                borderBottom:
+                  "1px solid #e2e8f0",
+                background: "#f8fafc",
+              }}
             >
-              + Nouveau message
-            </Button>
-          </div>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  background: "#dbeafe",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 21,
+                  flexShrink: 0,
+                }}
+              >
+                👤
+              </div>
 
-          {schoolAdmins.length === 0 ? (
-            <EmptyState
-              icon="👤"
-              title="Aucun Admin École trouvé"
-              text="Aucun administrateur actif n'a été trouvé dans votre école."
-            />
-          ) : (
-            <div style={styles.adminGrid}>
-              {schoolAdmins.map((admin) => (
-                <div
-                  key={admin.id}
-                  style={styles.adminCard}
+              <div>
+                <strong
+                  style={{
+                    color: "#000000",
+                    display: "block",
+                    fontSize: 15,
+                  }}
                 >
-                  <div style={styles.adminIcon}>
-                    👤
-                  </div>
+                  {admin?.full_name ||
+                    "Admin École"}
+                </strong>
 
-                  <div>
-                    <strong>
-                      {admin.full_name ||
-                        "Admin École"}
-                    </strong>
-
-                    <div style={styles.muted}>
-                      Administrateur de l'école
-                    </div>
-
-                    {admin.phone && (
-                      <div style={styles.muted}>
-                        📞 {admin.phone}
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    style={styles.smallButton}
-                    onClick={() => {
-                      setMessageForm({
-                        recipient_id: admin.id,
-                        subject: "",
-                        message: "",
-                      });
-
-                      setShowMessageModal(true);
-                    }}
-                  >
-                    Écrire
-                  </button>
-                </div>
-              ))}
+                <span
+                  style={{
+                    color: "#64748b",
+                    fontSize: 12,
+                  }}
+                >
+                  Administrateur de
+                  l'école
+                </span>
+              </div>
             </div>
-          )}
-        </section>
 
-        <section style={styles.card}>
-          <div style={styles.sectionTop}>
-            <div>
-              <h2 style={styles.cardTitle}>
-                💬 Messages
-              </h2>
-
-              <p style={styles.cardSubtitle}>
-                Historique de vos échanges.
-              </p>
-            </div>
-          </div>
-
-          {messages.length === 0 ? (
-            <EmptyState
-              icon="📨"
-              title="Aucun message"
-              text="Votre communication avec l'Admin École apparaîtra ici."
-            />
-          ) : (
-            <div>
-              {messages.map((message) => {
-                const received =
-                  message.recipient_id ===
-                  session.user.id;
-
-                return (
-                  <button
-                    key={message.id}
-                    type="button"
+            {/* ------------------------------------------------
+                HISTORIQUE DES MESSAGES
+            ------------------------------------------------ */}
+            <div
+              style={{
+                minHeight: 360,
+                maxHeight: 520,
+                overflowY: "auto",
+                padding: 18,
+                background: "#f8fafc",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              {sortedMessages.length ===
+              0 ? (
+                <div
+                  style={{
+                    flex: 1,
+                    minHeight: 300,
+                    display: "flex",
+                    flexDirection:
+                      "column",
+                    alignItems: "center",
+                    justifyContent:
+                      "center",
+                    textAlign: "center",
+                    color: "#64748b",
+                  }}
+                >
+                  <div
                     style={{
-                      ...styles.messageItem,
-                      background:
-                        received &&
-                        !message.read_at
-                          ? "#eff6ff"
-                          : "#ffffff",
+                      fontSize: 42,
+                      marginBottom: 10,
                     }}
-                    onClick={() =>
-                      markMessageRead(message)
-                    }
                   >
-                    <div style={styles.messageIcon}>
-                      {received ? "📥" : "📤"}
-                    </div>
+                    💬
+                  </div>
 
-                    <div style={{ flex: 1 }}>
-                      <strong>
-                        {message.subject}
-                      </strong>
+                  <strong
+                    style={{
+                      color: "#334155",
+                      marginBottom: 5,
+                    }}
+                  >
+                    Aucun message
+                  </strong>
 
-                      <p style={styles.messagePreview}>
-                        {message.message}
-                      </p>
+                  <span
+                    style={{
+                      fontSize: 13,
+                    }}
+                  >
+                    Commencez la conversation
+                    avec l'Admin École.
+                  </span>
+                </div>
+              ) : (
+                sortedMessages.map(
+                  (message) => {
+                    const sent =
+                      message.sender_id ===
+                      session.user.id;
 
-                      <div style={styles.muted}>
-                        {received
-                          ? "Reçu"
-                          : "Envoyé"}{" "}
-                        •{" "}
-                        {formatDateTime(
-                          message.created_at
-                        )}
-                      </div>
-                    </div>
+                    if (
+                      !sent &&
+                      !message.read_at
+                    ) {
+                      markMessageRead(
+                        message
+                      );
+                    }
 
-                    {received &&
-                      !message.read_at && (
-                        <span
-                          style={styles.unreadBadge}
+                    return (
+                      <div
+                        key={message.id}
+                        style={{
+                          display: "flex",
+                          justifyContent:
+                            sent
+                              ? "flex-end"
+                              : "flex-start",
+                        }}
+                      >
+                        <div
+                          style={{
+                            maxWidth: "75%",
+                            padding:
+                              "10px 13px",
+                            borderRadius:
+                              sent
+                                ? "16px 16px 4px 16px"
+                                : "16px 16px 16px 4px",
+                            background:
+                              sent
+                                ? "#2563eb"
+                                : "#ffffff",
+                            color: sent
+                              ? "#ffffff"
+                              : "#0f172a",
+                            boxShadow:
+                              "0 1px 3px rgba(15,23,42,0.08)",
+                            border: sent
+                              ? "none"
+                              : "1px solid #e2e8f0",
+                          }}
                         >
-                          Nouveau
-                        </span>
-                      )}
-                  </button>
-                );
-              })}
+                          {!sent && (
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color:
+                                  "#2563eb",
+                                marginBottom: 4,
+                              }}
+                            >
+                              Admin École
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              fontSize: 14,
+                              lineHeight: 1.45,
+                              whiteSpace:
+                                "pre-wrap",
+                              wordBreak:
+                                "break-word",
+                            }}
+                          >
+                            {message.message}
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: 5,
+                              fontSize: 10,
+                              color: sent
+                                ? "rgba(255,255,255,0.75)"
+                                : "#94a3b8",
+                              textAlign:
+                                "right",
+                            }}
+                          >
+                            {formatDateTime(
+                              message.created_at
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                )
+              )}
             </div>
-          )}
-        </section>
-      </>
-    );
-  }
+
+            {/* ------------------------------------------------
+                ZONE D'ENVOI
+            ------------------------------------------------ */}
+            <form
+              onSubmit={async (event) => {
+                event.preventDefault();
+
+                const text =
+                  messageForm.message.trim();
+
+                if (!text) {
+                  return;
+                }
+
+                if (!admin?.id) {
+                  setError(
+                    "Aucun Admin École n'est disponible."
+                  );
+                  return;
+                }
+
+                setError("");
+
+                try {
+                  const {
+                    error: insertError,
+                  } = await supabase
+                    .from(
+                      "admin_secretary_messages"
+                    )
+                    .insert({
+                      school_id:
+                        profile.school_id,
+                      sender_id:
+                        session.user.id,
+                      recipient_id:
+                        admin.id,
+                      subject:
+                        messageForm.subject
+                          .trim() ||
+                        "Message",
+                      message: text,
+                    });
+
+                  if (insertError) {
+                    throw insertError;
+                  }
+
+                  setMessageForm({
+                    recipient_id: admin.id,
+                    subject: "",
+                    message: "",
+                  });
+
+                  setSuccess(
+                    "Message envoyé avec succès."
+                  );
+
+                  await loadDashboard();
+                } catch (err) {
+                  console.error(
+                    "Erreur envoi message :",
+                    err
+                  );
+
+                  setError(
+                    err?.message ||
+                      "Impossible d'envoyer le message."
+                  );
+                }
+              }}
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                gap: 10,
+                padding: 12,
+                borderTop:
+                  "1px solid #e2e8f0",
+                background: "#ffffff",
+              }}
+            >
+              <textarea
+                value={
+                  messageForm.message
+                }
+                onChange={(event) =>
+                  setMessageForm(
+                    (current) => ({
+                      ...current,
+                      recipient_id:
+                        admin?.id || "",
+                      message:
+                        event.target.value,
+                    })
+                  )
+                }
+                placeholder="Écrire un message..."
+                rows={2}
+                style={{
+                  flex: 1,
+                  resize: "none",
+                  border:
+                    "1px solid #cbd5e1",
+                  borderRadius: 12,
+                  padding:
+                    "10px 12px",
+                  fontFamily:
+                    "inherit",
+                  fontSize: 14,
+                  outline: "none",
+                  color: "#0f172a",
+                  background: "#ffffff",
+                }}
+              />
+
+              <Button
+                type="submit"
+                disabled={
+                  !messageForm.message.trim()
+                }
+              >
+                ➤ Envoyer
+              </Button>
+            </form>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
 
   /* ============================================================
      NOTIFICATIONS
