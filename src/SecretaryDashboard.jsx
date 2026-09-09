@@ -3266,6 +3266,9 @@ function renderCommunication() {
       case "parents":
         return renderParents();
 
+      case "registry":
+        return renderConsultativeRegistry();
+
       case "classes":
         return renderClasses();
 
