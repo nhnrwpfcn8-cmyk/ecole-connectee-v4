@@ -228,6 +228,11 @@ export default function SecretaryDashboard({
   const [classSearch, setClassSearch] = useState("");
   const [teacherSearch, setTeacherSearch] = useState("");
 
+  const [registryView, setRegistryView] = useState("students");
+  const [registryClassFilter, setRegistryClassFilter] = useState("");
+  const [selectedRegistryStudent, setSelectedRegistryStudent] = useState(null);
+  const [selectedRegistryParent, setSelectedRegistryParent] = useState(null);
+
   const [attendanceDate, setAttendanceDate] = useState(todayISO());
   const [attendanceClass, setAttendanceClass] = useState("");
   const [attendanceSearch, setAttendanceSearch] = useState("");
@@ -1269,6 +1274,42 @@ export default function SecretaryDashboard({
       );
     });
   }, [students, studentSearch]);
+  const registryStudents = useMemo(() => {
+  const search = studentSearch.trim().toLowerCase();
+
+  return students.filter((student) => {
+    const fullName = studentName(student).toLowerCase();
+    const code = (student.student_code || "").toLowerCase();
+
+    const matchesSearch =
+      !search ||
+      fullName.includes(search) ||
+      code.includes(search);
+
+    const matchesClass =
+      !registryClassFilter ||
+      student.class_id === registryClassFilter;
+
+    return matchesSearch && matchesClass;
+  });
+}, [students, studentSearch, registryClassFilter]);
+
+const registryParents = useMemo(() => {
+  const search = parentSearch.trim().toLowerCase();
+
+  return parents.filter((parent) => {
+    const name = parentName(parent).toLowerCase();
+    const phone = (parent.phone || "").toLowerCase();
+    const email = (parent.email || "").toLowerCase();
+
+    return (
+      !search ||
+      name.includes(search) ||
+      phone.includes(search) ||
+      email.includes(search)
+    );
+  });
+}, [parents, parentSearch]);
 
   const filteredParents = useMemo(() => {
     const search = parentSearch.trim().toLowerCase();
@@ -1590,7 +1631,268 @@ export default function SecretaryDashboard({
      ÉLÈVES
      ============================================================ */
 
-  function renderStudents() {
+  function renderConsultativeRegistry() {
+  return (
+    <section style={styles.card}>
+      <div style={styles.sectionTop}>
+        <div>
+          <h2 style={styles.sectionTitle}>
+            📚 Registre consultatif
+          </h2>
+
+          <p style={styles.sectionSubtitle}>
+            Consultation rapide des élèves et des parents de votre école.
+          </p>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 20,
+        }}
+      >
+        <Button
+          onClick={() => setRegistryView("students")}
+        >
+          🎓 Registre élèves
+        </Button>
+
+        <Button
+          onClick={() => setRegistryView("parents")}
+        >
+          👨‍👩‍👧 Registre parents
+        </Button>
+      </div>
+
+      {registryView === "students" && (
+        <div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 220px",
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            <input
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              placeholder="Rechercher un élève ou matricule..."
+              style={styles.input}
+            />
+
+            <select
+              value={registryClassFilter}
+              onChange={(e) =>
+                setRegistryClassFilter(e.target.value)
+              }
+              style={styles.input}
+            >
+              <option value="">Toutes les classes</option>
+
+              {classes.map((classe) => (
+                <option key={classe.id} value={classe.id}>
+                  {classe.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+              marginBottom: 20,
+            }}
+          >
+            {classes.map((classe) => {
+              const count = students.filter(
+                (student) => student.class_id === classe.id
+              ).length;
+
+              return (
+                <button
+                  key={classe.id}
+                  type="button"
+                  onClick={() =>
+                    setRegistryClassFilter(classe.id)
+                  }
+                  style={{
+                    padding: 16,
+                    borderRadius: 12,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <strong>{classe.name}</strong>
+
+                  <div style={{ marginTop: 6 }}>
+                    {count} élève{count > 1 ? "s" : ""}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Élève</th>
+                  <th style={styles.th}>Matricule</th>
+                  <th style={styles.th}>Classe</th>
+                  <th style={styles.th}>Statut</th>
+                  <th style={styles.th}>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {registryStudents.map((student) => {
+                  const classe = classes.find(
+                    (item) => item.id === student.class_id
+                  );
+
+                  return (
+                    <tr key={student.id}>
+                      <td style={styles.td}>
+                        {studentName(student)}
+                      </td>
+
+                      <td style={styles.td}>
+                        {student.student_code || "—"}
+                      </td>
+
+                      <td style={styles.td}>
+                        {classe?.name || "—"}
+                      </td>
+
+                      <td style={styles.td}>
+                        {student.status || "Actif"}
+                      </td>
+
+                      <td style={styles.td}>
+                        <button type="button">
+                          Voir le dossier
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {registryStudents.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      style={{
+                        ...styles.td,
+                        textAlign: "center",
+                        padding: 30,
+                      }}
+                    >
+                      Aucun élève trouvé.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {registryView === "parents" && (
+        <div>
+          <div style={{ marginBottom: 20 }}>
+            <input
+              value={parentSearch}
+              onChange={(e) => setParentSearch(e.target.value)}
+              placeholder="Rechercher un parent, téléphone ou email..."
+              style={styles.input}
+            />
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Parent</th>
+                  <th style={styles.th}>Téléphone</th>
+                  <th style={styles.th}>Email</th>
+                  <th style={styles.th}>Enfants</th>
+                  <th style={styles.th}>Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {registryParents.map((parent) => {
+                  const children = parentStudents
+                    .filter(
+                      (relation) =>
+                        relation.parent_id === parent.id
+                    )
+                    .map((relation) =>
+                      students.find(
+                        (student) =>
+                          student.id === relation.student_id
+                      )
+                    )
+                    .filter(Boolean);
+
+                  return (
+                    <tr key={parent.id}>
+                      <td style={styles.td}>
+                        {parentName(parent)}
+                      </td>
+
+                      <td style={styles.td}>
+                        {parent.phone || "—"}
+                      </td>
+
+                      <td style={styles.td}>
+                        {parent.email || "—"}
+                      </td>
+
+                      <td style={styles.td}>
+                        {children.length}
+                      </td>
+
+                      <td style={styles.td}>
+                        <button type="button">
+                          Voir le dossier
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {registryParents.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      style={{
+                        ...styles.td,
+                        textAlign: "center",
+                        padding: 30,
+                      }}
+                    >
+                      Aucun parent trouvé.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+     function renderStudents() {
     return (
       <>
         <section style={styles.card}>
