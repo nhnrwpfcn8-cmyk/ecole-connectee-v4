@@ -26,6 +26,7 @@ const MENU = [
   { id: "overview", label: "Tableau de bord", icon: "🏠" },
   { id: "students", label: "Élèves", icon: "🎓" },
   { id: "parents", label: "Parents", icon: "👨👩👧" },
+  { id: "registry", label: "Registre consultatif", icon: "📚" },
   { id: "classes", label: "Classes", icon: "🏫" },
   { id: "attendance", label: "Présences", icon: "📋" },
   { id: "enrollments", label: "Inscriptions", icon: "📝" },
