@@ -2869,8 +2869,45 @@ function renderAttendance() {
                   (student) => (
                     <tr key={student.id}>
                       <td style={styles.td}>
-                        {studentName(student)}
-                      </td>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+    }}
+  >
+    {student.photo_url ? (
+      <img
+        src={student.photo_url}
+        alt={studentName(student)}
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: "50%",
+          objectFit: "cover",
+          border: "2px solid #e2e8f0",
+        }}
+      />
+    ) : (
+      <div
+        style={{
+          width: 42,
+          height: 42,
+          borderRadius: "50%",
+          background: "#e2e8f0",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 20,
+        }}
+      >
+        👤
+      </div>
+    )}
+
+    <strong>{studentName(student)}</strong>
+  </div>
+</td>
 
                       <td style={styles.td}>
                         {formatDate(
