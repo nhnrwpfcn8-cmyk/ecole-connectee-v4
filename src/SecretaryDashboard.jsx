@@ -2015,6 +2015,7 @@ const registryParents = useMemo(() => {
                         borderRadius: 12,
                         border: "1px solid #e2e8f0",
                         background: "#fff",
+                        color: "#0f172a",
                         cursor: "pointer",
                         textAlign: "left",
                         boxShadow:
