@@ -3425,164 +3425,123 @@ export default function TeacherDashboard({
      --------------------------------------------------------- */
 
   return (
-    <div
-      className="ec-app"
-      style={{
-        minHeight: "100vh",
-      }}
-    >
-      {/* =====================================================
-          SIDEBAR
-          ===================================================== */}
+  <div className="school-admin-layout">
+    {/* =====================================================
+        SIDEBAR V4
+        ===================================================== */}
 
-      <aside className="ec-sidebar">
-        <div className="ec-brand">
-          <div className="ec-brand-logo">
-            EC
+    <aside className="school-admin-sidebar">
+      <div className="school-admin-brand">
+        <div className="school-admin-logo">
+          EC
+        </div>
+
+        <div>
+          <strong>École Connectée</strong>
+          <span>Espace enseignant</span>
+        </div>
+      </div>
+
+      <div className="school-admin-school">
+        <div className="school-admin-school-label">
+          Enseignant
+        </div>
+
+        <div className="school-admin-school-name">
+          {teacher?.display_name ||
+            profile?.full_name ||
+            "Enseignant"}
+        </div>
+
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: 12,
+            opacity: 0.7,
+          }}
+        >
+          {school?.name ||
+            "Établissement scolaire"}
+        </div>
+      </div>
+
+      <nav className="school-admin-nav">
+        {MENU.map((item) => {
+          const active = activePage === item.id;
+
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActivePage(item.id)}
+              className={`school-admin-nav-item ${
+                active ? "active" : ""
+              }`}
+            >
+              <span className="school-admin-nav-icon">
+                {item.icon}
+              </span>
+
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="school-admin-sidebar-bottom">
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="school-admin-logout"
+        >
+          🚪 Déconnexion
+        </button>
+      </div>
+    </aside>
+
+    {/* =====================================================
+        CONTENU PRINCIPAL V4
+        ===================================================== */}
+
+    <main className="school-admin-main">
+      <header className="school-admin-topbar">
+        <div className="school-admin-page-title">
+          <span>📚</span>
+          <div>
+            <h1>Mon espace enseignant</h1>
+            <p>
+              {teacher?.display_name ||
+                profile?.full_name ||
+                "Enseignant"}
+            </p>
+          </div>
+        </div>
+
+        <div className="school-admin-user">
+          <div className="school-admin-avatar">
+            {(teacher?.display_name ||
+              profile?.full_name ||
+              "E")
+              .charAt(0)
+              .toUpperCase()}
           </div>
 
-          <div>
+          <div className="school-admin-user-info">
             <strong>
-              École Connectée
+              {teacher?.display_name ||
+                profile?.full_name ||
+                "Enseignant"}
             </strong>
 
-            <span>
-              Espace enseignant
-            </span>
+            <span>Enseignant</span>
           </div>
         </div>
+      </header>
 
-        <div
-          style={{
-            margin: "16px 12px",
-            padding: 13,
-            borderRadius: 12,
-            background: "rgba(255,255,255,.08)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 12,
-              opacity: 0.7,
-            }}
-          >
-            Enseignant
-          </div>
-
-          <div
-            style={{
-              marginTop: 4,
-              fontWeight: 800,
-            }}
-          >
-            {teacher?.display_name ||
-              profile?.full_name ||
-              "Enseignant"}
-          </div>
-
-          <div
-            style={{
-              marginTop: 4,
-              fontSize: 12,
-              opacity: 0.7,
-            }}
-          >
-            {school?.name ||
-              "Établissement scolaire"}
-          </div>
-        </div>
-
-        <nav
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 5,
-            padding: "0 10px",
-          }}
-        >
-          {MENU.map((item) => {
-            const active =
-              activePage === item.id;
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() =>
-                  setActivePage(item.id)
-                }
-                style={{
-                  width: "100%",
-                  border: "none",
-                  borderRadius: 9,
-                  padding: "11px 12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  textAlign: "left",
-                  cursor: "pointer",
-                  background: active
-                    ? "rgba(255,255,255,.16)"
-                    : "transparent",
-                  color: "#fff",
-                  fontWeight: active
-                    ? 800
-                    : 600,
-                }}
-              >
-                <span
-                  style={{
-                    width: 25,
-                    textAlign: "center",
-                  }}
-                >
-                  {item.icon}
-                </span>
-
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div
-          style={{
-            marginTop: "auto",
-            padding: 12,
-          }}
-        >
-          <button
-            type="button"
-            onClick={handleLogout}
-            style={{
-              width: "100%",
-              border: "1px solid rgba(255,255,255,.18)",
-              borderRadius: 9,
-              padding: "10px 12px",
-              background:
-                "rgba(255,255,255,.05)",
-              color: "#fff",
-              cursor: "pointer",
-              fontWeight: 700,
-            }}
-          >
-            🚪 Déconnexion
-          </button>
-        </div>
-      </aside>
-
-      {/* =====================================================
-          CONTENU
-          ===================================================== */}
-
-      <main
-        className="ec-main"
-        style={{
-          minWidth: 0,
-        }}
-      >
+      <div className="school-admin-content">
         {renderPage()}
-      </main>
-    </div>
-  );
+      </div>
+    </main>
+  </div>
+);
 }
