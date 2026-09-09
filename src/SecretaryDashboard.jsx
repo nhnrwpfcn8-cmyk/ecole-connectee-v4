@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
+import SecretaryBilling from "./SecretaryBilling";
 
 /*
   ============================================================
@@ -3402,6 +3403,11 @@ function renderCommunication() {
 
       <main style={styles.main}>
         {renderHeader()}
+              <SecretaryBilling
+        schoolId={profile?.school_id}
+        students={students}
+        parents={parents}
+      />
 
         <div style={styles.content}>
           {error && (
