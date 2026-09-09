@@ -245,6 +245,7 @@ export default function SecretaryDashboard({
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedParent, setSelectedParent] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
+  const [studentClassFilter, setStudentClassFilter] = useState("");
 
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [showParentModal, setShowParentModal] = useState(false);
@@ -1265,20 +1266,28 @@ export default function SecretaryDashboard({
      ============================================================ */
 
   const filteredStudents = useMemo(() => {
-    const search = studentSearch.trim().toLowerCase();
+  const search = studentSearch.trim().toLowerCase();
 
-    if (!search) return students;
+  return students.filter((student) => {
+    const fullName = studentName(student).toLowerCase();
+    const code = (student.student_code || "").toLowerCase();
 
-    return students.filter((student) => {
-      const fullName = studentName(student).toLowerCase();
-      const code = (student.student_code || "").toLowerCase();
+    const matchesSearch =
+      !search ||
+      fullName.includes(search) ||
+      code.includes(search);
 
-      return (
-        fullName.includes(search) ||
-        code.includes(search)
-      );
-    });
-  }, [students, studentSearch]);
+    const matchesClass =
+      !studentClassFilter ||
+      student.class_id === studentClassFilter;
+
+    return matchesSearch && matchesClass;
+  });
+}, [
+  students,
+  studentSearch,
+  studentClassFilter,
+]);
   const registryStudents = useMemo(() => {
   const search = studentSearch.trim().toLowerCase();
 
@@ -1898,139 +1907,272 @@ const registryParents = useMemo(() => {
   );
 }
      function renderStudents() {
-    return (
-      <>
-        <section style={styles.card}>
-          <div style={styles.sectionTop}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                🎓 Élèves
-              </h2>
+  const selectedClass = classes.find(
+    (item) => item.id === studentClassFilter
+  );
 
-              <p style={styles.sectionSubtitle}>
-                Gestion des élèves de votre école.
-              </p>
+  const studentsInSelectedClass = filteredStudents;
+
+  return (
+    <>
+      <section style={styles.card}>
+        <div style={styles.sectionTop}>
+          <div>
+            <h2 style={styles.sectionTitle}>
+              🎓 Élèves
+            </h2>
+
+            <p style={styles.sectionSubtitle}>
+              Consultez les élèves organisés par classe.
+            </p>
+          </div>
+
+          <Button onClick={openNewStudent}>
+            + Nouvel élève
+          </Button>
+        </div>
+
+        <div style={styles.toolbar}>
+          <input
+            value={studentSearch}
+            onChange={(event) =>
+              setStudentSearch(event.target.value)
+            }
+            placeholder="Rechercher un élève..."
+            style={styles.searchInput}
+          />
+        </div>
+
+        {studentClassFilter && (
+          <div
+            style={{
+              marginBottom: 18,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <strong>
+                📁 {selectedClass?.name || "Classe"}
+              </strong>
+
+              <div style={styles.muted}>
+                {studentsInSelectedClass.length} élève
+                {studentsInSelectedClass.length > 1
+                  ? "s"
+                  : ""}
+              </div>
             </div>
 
-            <Button onClick={openNewStudent}>
-              + Nouvel élève
+            <Button
+              secondary
+              onClick={() => setStudentClassFilter("")}
+            >
+              ← Toutes les classes
             </Button>
           </div>
+        )}
 
-          <div style={styles.toolbar}>
-            <input
-              value={studentSearch}
-              onChange={(event) =>
-                setStudentSearch(event.target.value)
-              }
-              placeholder="Rechercher un élève..."
-              style={styles.searchInput}
-            />
-          </div>
+        {!studentClassFilter && (
+          <>
+            <div
+              style={{
+                marginBottom: 18,
+                fontWeight: 700,
+              }}
+            >
+              👥 Tous les élèves : {students.length}
+            </div>
 
-          {filteredStudents.length === 0 ? (
-            <EmptyState
-              icon="🎓"
-              title="Aucun élève"
-              text="Aucun élève ne correspond à votre recherche."
-            />
-          ) : (
-            <div style={styles.tableWrap}>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Élève</th>
-                    <th style={styles.th}>Code</th>
-                    <th style={styles.th}>Classe</th>
-                    <th style={styles.th}>Statut</th>
-                    <th style={styles.th}>Actions</th>
-                  </tr>
-                </thead>
+            {classes.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 12,
+                  marginBottom: 24,
+                }}
+              >
+                {classes.map((classe) => {
+                  const count = students.filter(
+                    (student) =>
+                      student.class_id === classe.id
+                  ).length;
 
-                <tbody>
-                  {filteredStudents.map((student) => (
-                    <tr key={student.id}>
-                      <td style={styles.td}>
-                        <strong>
-                          {studentName(student)}
-                        </strong>
-                      </td>
+                  return (
+                    <button
+                      key={classe.id}
+                      type="button"
+                      onClick={() =>
+                        setStudentClassFilter(classe.id)
+                      }
+                      style={{
+                        padding: 16,
+                        borderRadius: 12,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        boxShadow:
+                          "0 2px 8px rgba(15,23,42,0.05)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 28,
+                          marginBottom: 8,
+                        }}
+                      >
+                        📁
+                      </div>
 
-                      <td style={styles.td}>
-                        {student.student_code || "—"}
-                      </td>
+                      <strong
+                        style={{
+                          display: "block",
+                          fontSize: 16,
+                        }}
+                      >
+                        {classe.name}
+                      </strong>
 
-                      <td style={styles.td}>
-                        {classNameFor(
-                          student,
-                          classes
-                        )}
-                      </td>
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 6,
+                          color: "#64748b",
+                        }}
+                      >
+                        {classe.level ||
+                          "Niveau non précisé"}
+                      </span>
 
-                      <td style={styles.td}>
-                        <span
-                          style={{
-                            ...styles.status,
-                            ...(student.active
-                              ? styles.statusGreen
-                              : styles.statusGray),
+                      <span
+                        style={{
+                          display: "block",
+                          marginTop: 8,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {count} élève
+                        {count > 1 ? "s" : ""}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {filteredStudents.length === 0 ? (
+          <EmptyState
+            icon="🎓"
+            title="Aucun élève"
+            text={
+              studentClassFilter
+                ? "Aucun élève dans cette classe avec cette recherche."
+                : "Aucun élève ne correspond à votre recherche."
+            }
+          />
+        ) : (
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Élève</th>
+                  <th style={styles.th}>Code</th>
+                  <th style={styles.th}>Classe</th>
+                  <th style={styles.th}>Statut</th>
+                  <th style={styles.th}>Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredStudents.map((student) => (
+                  <tr key={student.id}>
+                    <td style={styles.td}>
+                      <strong>
+                        {studentName(student)}
+                      </strong>
+                    </td>
+
+                    <td style={styles.td}>
+                      {student.student_code || "—"}
+                    </td>
+
+                    <td style={styles.td}>
+                      {classNameFor(
+                        student,
+                        classes
+                      )}
+                    </td>
+
+                    <td style={styles.td}>
+                      <span
+                        style={{
+                          ...styles.status,
+                          ...(student.active
+                            ? styles.statusGreen
+                            : styles.statusGray),
+                        }}
+                      >
+                        {student.active
+                          ? "Actif"
+                          : "Inactif"}
+                      </span>
+                    </td>
+
+                    <td style={styles.td}>
+                      <div style={styles.actions}>
+                        <button
+                          type="button"
+                          style={styles.smallButton}
+                          onClick={() => {
+                            setSelectedStudent(student);
+                            setShowStudentDetail(true);
                           }}
                         >
-                          {student.active
-                            ? "Actif"
-                            : "Inactif"}
-                        </span>
-                      </td>
+                          Voir
+                        </button>
 
-                      <td style={styles.td}>
-                        <div style={styles.actions}>
-                          <button
-                            type="button"
-                            style={styles.smallButton}
-                            onClick={() => {
-                              setSelectedStudent(
-                                student
-                              );
-                              setShowStudentDetail(true);
-                            }}
-                          >
-                            Voir
-                          </button>
+                        <button
+                          type="button"
+                          style={styles.smallButton}
+                          onClick={() =>
+                            openEditStudent(student)
+                          }
+                        >
+                          Modifier
+                        </button>
 
-                          <button
-                            type="button"
-                            style={styles.smallButton}
-                            onClick={() =>
-                              openEditStudent(student)
-                            }
-                          >
-                            Modifier
-                          </button>
-
-                          <button
-                            type="button"
-                            style={styles.smallButton}
-                            onClick={() =>
-                              openLinkParent(
-                                null,
-                                student
-                              )
-                            }
-                          >
-                            Parent
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </>
-    );
-  }
+                        <button
+                          type="button"
+                          style={styles.smallButton}
+                          onClick={() =>
+                            openLinkParent(
+                              null,
+                              student
+                            )
+                          }
+                        >
+                          Parent
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
 
   /* ============================================================
      PARENTS
