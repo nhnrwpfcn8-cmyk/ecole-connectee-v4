@@ -5,6 +5,7 @@ import AdminDashboard from './AdminDashboard'
 import AdminEcoleDashboard from './AdminEcoleDashboard'
 import SecretaryDashboard from './SecretaryDashboard'
 import SecretaryServices from './SecretaryServices'
+import TeacherDashboard from './TeacherDashboard'
 
 import './App.css'
 
@@ -315,7 +316,18 @@ function App() {
       />
     )
   }
-
+  /*
+   * ENSEIGNANT
+   */
+  if (role === 'teacher') {
+    return (
+      <TeacherDashboard
+        profile={profile}
+        session={session}
+        onLogout={handleLogout}
+      />
+    )
+  }
   /*
    * AUTRES RÔLES
    */
