@@ -2775,15 +2775,26 @@ useState("");
 const [showModal, setShowModal] =
 useState(false);
 
-const safeStudents = Array.isArray(students) ? students : [];
-const safeClasses = Array.isArray(classes) ? classes : [];
+const [selectedClassId, setSelectedClassId] =
+useState(null);
 
-const filtered =
-useMemo(() => {
+const safeStudents =
+Array.isArray(students) ? students : [];
+
+const safeClasses =
+Array.isArray(classes) ? classes : [];
+
+/* ---------------------------------------------------------
+RECHERCHE
+--------------------------------------------------------- */
+
+const filtered = useMemo(() => {
 const query =
 normalizeSearch(search);
 
-if (!query) return safeStudents;
+if (!query) {
+return safeStudents;
+}
 
 return safeStudents.filter(
 (student) =>
@@ -2796,88 +2807,107 @@ student.student_code
 );
 }, [safeStudents, search]);
 
-return (
-<div className="ec-page">
+/* ---------------------------------------------------------
+CLASSES AVEC NOMBRE D'ÉLÈVES
+--------------------------------------------------------- */
 
-<div className="ec-page-heading">
-
-<div>
-<span className="ec-eyebrow">
-SCOLARITÉ
-</span>
-
-<h2>
-Élèves
-</h2>
-
-<p>
-Gérez les élèves et leur affectation aux classes.
-</p>
-</div>
-
-<button
-className="ec-btn ec-btn-primary"
-onClick={() =>
-setShowModal(true)
+const classFolders = useMemo(() => {
+return safeClasses
+.map((item) => ({
+...item,
+studentCount:
+safeStudents.filter(
+(student) =>
+student.class_id === item.id
+).length,
+}))
+.sort((a, b) =>
+String(a.name || "").localeCompare(
+String(b.name || ""),
+"fr",
+{
+numeric: true,
+sensitivity: "base",
 }
->
-+ Ajouter un élève
-</button>
-
-</div>
-
-<div className="ec-toolbar">
-
-<div className="ec-search">
-
-<span>🔎</span>
-
-<input
-placeholder="Rechercher un élève ou matricule..."
-value={search}
-onChange={(event) =>
-setSearch(
-event.target.value
 )
-}
-/>
+);
+}, [safeClasses, safeStudents]);
 
-</div>
+/* ---------------------------------------------------------
+ÉLÈVES NON AFFECTÉS
+--------------------------------------------------------- */
 
-<div className="ec-count">
-{filtered.length} élève
-{filtered.length !== 1
-? "s"
-: ""}
-</div>
+const unassignedStudents =
+useMemo(() => {
+return safeStudents.filter(
+(student) =>
+!student.class_id ||
+!safeClasses.some(
+(item) =>
+item.id === student.class_id
+)
+);
+}, [safeStudents, safeClasses]);
 
-</div>
+/* ---------------------------------------------------------
+CLASSE SÉLECTIONNÉE
+--------------------------------------------------------- */
 
-<div className="ec-panel">
+const selectedClass =
+selectedClassId === "__unassigned__"
+? null
+: safeClasses.find(
+(item) =>
+item.id === selectedClassId
+);
 
-{filtered.length === 0 ? (
-<EmptyState
-icon="🎓"
-title={
-search
-? "Aucun résultat"
-: "Aucun élève"
+/* ---------------------------------------------------------
+ÉLÈVES DE LA CLASSE
+--------------------------------------------------------- */
+
+const selectedClassStudents =
+useMemo(() => {
+if (!selectedClassId) {
+return [];
 }
-description={
-search
-? "Aucun élève ne correspond à votre recherche."
-: "Commencez par ajouter un élève."
+
+if (
+selectedClassId ===
+"__unassigned__"
+) {
+return unassignedStudents;
 }
-button={
-!search
-? "Ajouter un élève"
-: null
+
+return safeStudents
+.filter(
+(student) =>
+student.class_id ===
+selectedClassId
+)
+.sort((a, b) =>
+`${a.last_name || ""} ${a.first_name || ""}`
+.localeCompare(
+`${b.last_name || ""} ${b.first_name || ""}`,
+"fr",
+{
+sensitivity: "base",
 }
-onButton={() =>
-setShowModal(true)
-}
-/>
-) : (
+)
+);
+}, [
+safeStudents,
+selectedClassId,
+unassignedStudents,
+]);
+
+/* ---------------------------------------------------------
+AFFICHAGE DU TABLEAU
+--------------------------------------------------------- */
+
+function renderStudentTable(
+studentList
+) {
+return (
 <div className="ec-table-wrapper">
 
 <table className="ec-table">
@@ -2894,8 +2924,9 @@ setShowModal(true)
 
 <tbody>
 
-{filtered.map(
+{studentList.map(
 (student) => {
+
 const studentClass =
 safeClasses.find(
 (item) =>
@@ -2927,38 +2958,46 @@ student.first_name,
 )}
 
 <div>
+
 <strong>
-{
-student.first_name
-}{" "}
-{
-student.last_name
-}
+{student.first_name}{" "}
+{student.last_name}
 </strong>
 
 <span>
 Élève
 </span>
-</div>
 
 </div>
+
+</div>
 </td>
 
 <td>
-{
-student.student_code ||
-"-"
-}
+{student.student_code ||
+"-"}
 </td>
 
 <td>
-{
-studentClass?.name ||
-"Non affecté"
-}
+{studentClass?.name ||
+"Non affecté"}
+
+{studentClass?.level && (
+<span
+style={{
+display: "block",
+fontSize: "10px",
+color: "#6b7280",
+marginTop: "2px",
+}}
+>
+{studentClass.level}
+</span>
+)}
 </td>
 
 <td>
+
 <span
 className={
 student.active
@@ -2970,6 +3009,7 @@ student.active
 ? "Actif"
 : "Inactif"}
 </span>
+
 </td>
 
 <td>
@@ -2988,9 +3028,419 @@ student.created_at
 </table>
 
 </div>
+);
+}
+
+/* ---------------------------------------------------------
+RETOUR À TOUTES LES CLASSES
+--------------------------------------------------------- */
+
+function backToClasses() {
+setSelectedClassId(null);
+}
+
+/* ---------------------------------------------------------
+INTERFACE
+--------------------------------------------------------- */
+
+return (
+<div className="ec-page">
+
+<div className="ec-page-heading">
+
+<div>
+
+<span className="ec-eyebrow">
+SCOLARITÉ
+</span>
+
+<h2>
+Élèves
+</h2>
+
+<p>
+Gérez les élèves et leur affectation aux classes.
+</p>
+
+</div>
+
+<button
+className="ec-btn ec-btn-primary"
+onClick={() =>
+setShowModal(true)
+}
+>
++ Ajouter un élève
+</button>
+
+</div>
+
+{/* -------------------------------------------------------
+BARRE DE RECHERCHE
+------------------------------------------------------- */}
+
+<div className="ec-toolbar">
+
+<div className="ec-search">
+
+<span>🔎</span>
+
+<input
+placeholder="Rechercher un élève ou matricule..."
+value={search}
+onChange={(event) =>
+setSearch(
+event.target.value
+)
+}
+/>
+
+</div>
+
+<div className="ec-count">
+{filtered.length} élève
+{filtered.length !== 1
+? "s"
+: ""}
+</div>
+
+</div>
+
+{/* -------------------------------------------------------
+RECHERCHE ACTIVE
+------------------------------------------------------- */}
+
+{search.trim() ? (
+
+<div className="ec-panel">
+
+{filtered.length === 0 ? (
+
+<EmptyState
+icon="🎓"
+title="Aucun résultat"
+description="Aucun élève ne correspond à votre recherche."
+/>
+
+) : (
+
+renderStudentTable(
+filtered
+)
+
 )}
 
 </div>
+
+) : selectedClassId ? (
+
+/* -------------------------------------------------------
+CLASSE OUVERTE
+------------------------------------------------------- */
+
+<div>
+
+<div
+style={{
+display: "flex",
+alignItems: "center",
+gap: "12px",
+marginBottom: "17px",
+flexWrap: "wrap",
+}}
+>
+
+<button
+className="ec-btn ec-btn-secondary"
+onClick={backToClasses}
+>
+← Toutes les classes
+</button>
+
+</div>
+
+<div className="ec-panel">
+
+<div
+className="ec-panel-header"
+>
+
+<div>
+
+<h3>
+📁{" "}
+{selectedClass?.name ||
+"Classe"}
+</h3>
+
+<p>
+{selectedClass?.level
+? `${selectedClass.level} · `
+: ""}
+{selectedClassStudents.length} élève
+{selectedClassStudents.length !== 1
+? "s"
+: ""}
+</p>
+
+</div>
+
+</div>
+
+{selectedClassStudents.length === 0 ? (
+
+<EmptyState
+icon="🎓"
+title="Aucun élève dans cette classe"
+description="Aucun élève n'est actuellement affecté à cette classe."
+/>
+
+) : (
+
+renderStudentTable(
+selectedClassStudents
+)
+
+)}
+
+</div>
+
+</div>
+
+) : (
+
+/* -------------------------------------------------------
+DOSSIERS DES CLASSES
+------------------------------------------------------- */
+
+<div className="ec-panel">
+
+<div
+className="ec-panel-header"
+>
+
+<div>
+
+<h3>
+📁 Élèves par classe
+</h3>
+
+<p>
+Sélectionnez une classe pour consulter ses élèves.
+</p>
+
+</div>
+
+<div className="ec-count">
+{safeStudents.length} élève
+{safeStudents.length !== 1
+? "s"
+: ""}
+</div>
+
+</div>
+
+{safeStudents.length === 0 ? (
+
+<EmptyState
+icon="🎓"
+title="Aucun élève"
+description="Commencez par ajouter un élève."
+button="Ajouter un élève"
+onButton={() =>
+setShowModal(true)
+}
+/>
+
+) : (
+
+<div
+style={{
+padding: "20px",
+display: "grid",
+gridTemplateColumns:
+"repeat(auto-fill, minmax(210px, 1fr))",
+gap: "15px",
+}}
+>
+
+{/* DOSSIERS DES CLASSES */}
+
+{classFolders.map(
+(item) => (
+
+<button
+key={item.id}
+type="button"
+onClick={() =>
+setSelectedClassId(
+item.id
+)
+}
+style={{
+border:
+"1px solid #e5e7eb",
+background:
+"#ffffff",
+borderRadius:
+"14px",
+padding: "18px",
+textAlign: "left",
+cursor: "pointer",
+transition:
+"transform .15s ease, box-shadow .15s ease",
+}}
+onMouseEnter={(event) => {
+event.currentTarget.style.transform =
+"translateY(-2px)";
+event.currentTarget.style.boxShadow =
+"0 8px 20px rgba(15,23,42,.08)";
+}}
+onMouseLeave={(event) => {
+event.currentTarget.style.transform =
+"translateY(0)";
+event.currentTarget.style.boxShadow =
+"none";
+}}
+>
+
+<div
+style={{
+fontSize: "34px",
+marginBottom: "10px",
+}}
+>
+📁
+</div>
+
+<strong
+style={{
+display: "block",
+fontSize: "15px",
+color: "#172033",
+}}
+>
+{item.name}
+</strong>
+
+{item.level && (
+<span
+style={{
+display: "block",
+fontSize: "11px",
+color: "#6b7280",
+marginTop: "3px",
+}}
+>
+{item.level}
+</span>
+)}
+
+<span
+style={{
+display: "inline-block",
+marginTop: "12px",
+fontSize: "11px",
+fontWeight: "700",
+color: "#2563eb",
+}}
+>
+{item.studentCount} élève
+{item.studentCount !== 1
+? "s"
+: ""}
+</span>
+
+</button>
+
+)
+)}
+
+{/* DOSSIER NON AFFECTÉS */}
+
+{unassignedStudents.length >
+0 && (
+
+<button
+type="button"
+onClick={() =>
+setSelectedClassId(
+"__unassigned__"
+)
+}
+style={{
+border:
+"1px dashed #cbd5e1",
+background:
+"#f8fafc",
+borderRadius:
+"14px",
+padding: "18px",
+textAlign: "left",
+cursor: "pointer",
+}}
+>
+
+<div
+style={{
+fontSize: "34px",
+marginBottom: "10px",
+}}
+>
+📁
+</div>
+
+<strong
+style={{
+display: "block",
+fontSize: "15px",
+color: "#172033",
+}}
+>
+Non affectés
+</strong>
+
+<span
+style={{
+display: "block",
+fontSize: "11px",
+color: "#6b7280",
+marginTop: "3px",
+}}
+>
+Élèves sans classe
+</span>
+
+<span
+style={{
+display: "inline-block",
+marginTop: "12px",
+fontSize: "11px",
+fontWeight: "700",
+color: "#64748b",
+}}
+>
+{unassignedStudents.length} élève
+{unassignedStudents.length !== 1
+? "s"
+: ""}
+</span>
+
+</button>
+
+)}
+
+</div>
+
+)}
+
+</div>
+
+)}
+
+{/* -------------------------------------------------------
+MODALE AJOUT ÉLÈVE
+------------------------------------------------------- */}
 
 {showModal && (
 <StudentFormModal
