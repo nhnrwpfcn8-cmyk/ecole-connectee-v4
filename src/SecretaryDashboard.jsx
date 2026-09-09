@@ -238,6 +238,9 @@ export default function SecretaryDashboard({
   const [attendanceDate, setAttendanceDate] = useState(todayISO());
   const [attendanceClass, setAttendanceClass] = useState("");
   const [attendanceSearch, setAttendanceSearch] = useState("");
+  const [absenceSheetStudent, setAbsenceSheetStudent] = useState(null);
+  const [absenceSheetRecords, setAbsenceSheetRecords] = useState([]);
+  const [absenceSheetLoading, setAbsenceSheetLoading] = useState(false);
 
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedParent, setSelectedParent] = useState(null);
@@ -2400,183 +2403,410 @@ const registryParents = useMemo(() => {
   /* ============================================================
      PRÉSENCES
      ============================================================ */
+function renderAttendance() {
+  return (
+    <>
+      <section style={styles.card}>
+        <div style={styles.sectionTop}>
+          <div>
+            <h2 style={styles.sectionTitle}>
+              📋 Présences
+            </h2>
 
-  function renderAttendance() {
-    return (
-      <>
-        <section style={styles.card}>
-          <div style={styles.sectionTop}>
-            <div>
-              <h2 style={styles.sectionTitle}>
-                📋 Présences
-              </h2>
-
-              <p style={styles.sectionSubtitle}>
-                Enregistrez les présences des élèves.
-              </p>
-            </div>
-
-            <Button
-              secondary
-              onClick={refreshAttendance}
-            >
-              Actualiser
-            </Button>
+            <p style={styles.sectionSubtitle}>
+              Enregistrez les présences des élèves.
+            </p>
           </div>
 
-          <div style={styles.filtersGrid}>
-            <Field label="Date">
-              <input
-                type="date"
-                value={attendanceDate}
-                onChange={async (event) => {
-                  const value =
-                    event.target.value;
+          <Button
+            secondary
+            onClick={refreshAttendance}
+          >
+            Actualiser
+          </Button>
+        </div>
 
-                  setAttendanceDate(value);
+        <div style={styles.filtersGrid}>
+          <Field label="Date">
+            <input
+              type="date"
+              value={attendanceDate}
+              onChange={async (event) => {
+                const value =
+                  event.target.value;
 
-                  await loadAttendanceForDate(
-                    value,
-                    attendanceClass,
-                    students
-                  );
-                }}
-                style={styles.input}
-              />
-            </Field>
+                setAttendanceDate(value);
 
-            <Field label="Classe">
-              <select
-                value={attendanceClass}
-                onChange={async (event) => {
-                  const value =
-                    event.target.value;
-
-                  setAttendanceClass(value);
-
-                  await loadAttendanceForDate(
-                    attendanceDate,
-                    value,
-                    students
-                  );
-                }}
-                style={styles.input}
-              >
-                <option value="">
-                  Toutes les classes
-                </option>
-
-                {classes.map((item) => (
-                  <option
-                    key={item.id}
-                    value={item.id}
-                  >
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Recherche">
-              <input
-                value={attendanceSearch}
-                onChange={(event) =>
-                  setAttendanceSearch(
-                    event.target.value
-                  )
-                }
-                placeholder="Nom de l'élève..."
-                style={styles.input}
-              />
-            </Field>
-          </div>
-
-          {attendanceStudents.length === 0 ? (
-            <EmptyState
-              icon="📋"
-              title="Aucun élève"
-              text="Aucun élève ne correspond aux filtres."
+                await loadAttendanceForDate(
+                  value,
+                  attendanceClass,
+                  students
+                );
+              }}
+              style={styles.input}
             />
-          ) : (
-            <div style={styles.attendanceGrid}>
-              {attendanceStudents.map((student) => {
-                const record =
-                  attendanceForStudent(
-                    student.id
-                  );
+          </Field>
 
-                return (
-                  <div
-                    key={student.id}
-                    style={styles.attendanceCard}
-                  >
-                    <div>
-                      <strong>
-                        {studentName(student)}
-                      </strong>
+          <Field label="Classe">
+            <select
+              value={attendanceClass}
+              onChange={async (event) => {
+                const value =
+                  event.target.value;
 
-                      <div style={styles.muted}>
-                        {classNameFor(
-                          student,
-                          classes
-                        )}
-                      </div>
+                setAttendanceClass(value);
+
+                await loadAttendanceForDate(
+                  attendanceDate,
+                  value,
+                  students
+                );
+              }}
+              style={styles.input}
+            >
+              <option value="">
+                Toutes les classes
+              </option>
+
+              {classes.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Recherche">
+            <input
+              value={attendanceSearch}
+              onChange={(event) =>
+                setAttendanceSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Nom de l'élève..."
+              style={styles.input}
+            />
+          </Field>
+        </div>
+
+        {attendanceStudents.length === 0 ? (
+          <EmptyState
+            icon="📋"
+            title="Aucun élève"
+            text="Aucun élève ne correspond aux filtres."
+          />
+        ) : (
+          <div style={styles.attendanceGrid}>
+            {attendanceStudents.map((student) => {
+              const record =
+                attendanceForStudent(
+                  student.id
+                );
+
+              return (
+                <div
+                  key={student.id}
+                  style={styles.attendanceCard}
+                >
+                  <div>
+                    <strong>
+                      {studentName(student)}
+                    </strong>
+
+                    <div style={styles.muted}>
+                      {classNameFor(
+                        student,
+                        classes
+                      )}
                     </div>
+                  </div>
 
-                    <div style={styles.attendanceButtons}>
-                      {[
-                        "present",
-                        "absent",
-                        "late",
-                        "excused",
-                      ].map((status) => (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() =>
-                            saveAttendance(
-                              student,
-                              status
-                            )
-                          }
-                          style={{
-                            ...styles.attendanceButton,
-                            ...(record?.status ===
+                  <div style={styles.attendanceButtons}>
+                    {[
+                      "present",
+                      "absent",
+                      "late",
+                      "excused",
+                    ].map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() =>
+                          saveAttendance(
+                            student,
                             status
-                              ? styles.attendanceSelected
-                              : {}),
+                          )
+                        }
+                        style={{
+                          ...styles.attendanceButton,
+                          ...(record?.status ===
+                          status
+                            ? styles.attendanceSelected
+                            : {}),
+                        }}
+                      >
+                        {STATUS_ICONS[status]}
+                        <span>
+                          {STATUS_LABELS[status]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {record && (
+                    <div style={styles.attendanceCurrent}>
+                      Statut actuel :{" "}
+                      <strong>
+                        {STATUS_ICONS[
+                          record.status
+                        ] || "•"}{" "}
+                        {STATUS_LABELS[
+                          record.status
+                        ] || record.status}
+                      </strong>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openAbsenceSheet(student)
+                    }
+                    style={{
+                      ...styles.smallButton,
+                      width: "100%",
+                      marginTop: 10,
+                    }}
+                  >
+                    📄 Fiche d'absence
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {absenceSheetStudent && (
+        <Modal
+          title={`📄 Fiche d'absence — ${studentName(
+            absenceSheetStudent
+          )}`}
+          onClose={() => {
+            setAbsenceSheetStudent(null);
+            setAbsenceSheetRecords([]);
+          }}
+          width={800}
+        >
+          {absenceSheetLoading ? (
+            <div style={styles.emptyState}>
+              Chargement de la fiche d'absence...
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(3, minmax(0, 1fr))",
+                  gap: 12,
+                  marginBottom: 20,
+                }}
+              >
+                <div style={styles.statCard}>
+                  <strong>
+                    {absenceSheetRecords.filter(
+                      (item) =>
+                        item.status === "absent"
+                    ).length}
+                  </strong>
+
+                  <span>Absences</span>
+                </div>
+
+                <div style={styles.statCard}>
+                  <strong>
+                    {absenceSheetRecords.filter(
+                      (item) =>
+                        item.status === "late"
+                    ).length}
+                  </strong>
+
+                  <span>Retards</span>
+                </div>
+
+                <div style={styles.statCard}>
+                  <strong>
+                    {absenceSheetRecords.filter(
+                      (item) =>
+                        item.justified === true
+                    ).length}
+                  </strong>
+
+                  <span>Justifiées</span>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 18 }}>
+                <strong>
+                  Élève :
+                </strong>{" "}
+                {studentName(
+                  absenceSheetStudent
+                )}
+
+                <br />
+
+                <strong>
+                  Classe :
+                </strong>{" "}
+                {classNameFor(
+                  absenceSheetStudent,
+                  classes
+                )}
+              </div>
+
+              {absenceSheetRecords.length === 0 ? (
+                <EmptyState
+                  icon="📄"
+                  title="Aucune absence enregistrée"
+                  text="Aucun historique d'absence ou de retard pour cet élève."
+                />
+              ) : (
+                <div
+                  style={{
+                    overflowX: "auto",
+                  }}
+                >
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse:
+                        "collapse",
+                    }}
+                  >
+                    <thead>
+                      <tr>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: 10,
+                            borderBottom:
+                              "1px solid #ddd",
                           }}
                         >
-                          {STATUS_ICONS[status]}
-                          <span>
-                            {STATUS_LABELS[status]}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
+                          Date
+                        </th>
 
-                    {record && (
-                      <div style={styles.attendanceCurrent}>
-                        Statut actuel :{" "}
-                        <strong>
-                          {STATUS_ICONS[
-                            record.status
-                          ] || "•"}{" "}
-                          {STATUS_LABELS[
-                            record.status
-                          ] || record.status}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: 10,
+                            borderBottom:
+                              "1px solid #ddd",
+                          }}
+                        >
+                          Statut
+                        </th>
+
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: 10,
+                            borderBottom:
+                              "1px solid #ddd",
+                          }}
+                        >
+                          Justification
+                        </th>
+
+                        <th
+                          style={{
+                            textAlign: "left",
+                            padding: 10,
+                            borderBottom:
+                              "1px solid #ddd",
+                          }}
+                        >
+                          Enregistré le
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {absenceSheetRecords.map(
+                        (item) => (
+                          <tr key={item.id}>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom:
+                                  "1px solid #eee",
+                              }}
+                            >
+                              {formatDate(
+                                item.attendance_date
+                              )}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom:
+                                  "1px solid #eee",
+                              }}
+                            >
+                              {STATUS_ICONS[
+                                item.status
+                              ] || "•"}{" "}
+                              {STATUS_LABELS[
+                                item.status
+                              ] ||
+                                item.status}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom:
+                                  "1px solid #eee",
+                              }}
+                            >
+                              {item.justification ||
+                                (item.justified
+                                  ? "Justifiée"
+                                  : "—")}
+                            </td>
+
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom:
+                                  "1px solid #eee",
+                              }}
+                            >
+                              {formatDateTime(
+                                item.created_at
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
-        </section>
-      </>
-    );
-  }
+        </Modal>
+      )}
+    </>
+  );
+}
 
   /* ============================================================
      INSCRIPTIONS
