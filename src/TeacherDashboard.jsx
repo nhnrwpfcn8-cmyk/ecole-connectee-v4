@@ -1002,6 +1002,7 @@ function GradesPage({
 }) {
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedTrimester, setSelectedTrimester] = useState("trimestre_1");
   const [assessmentId, setAssessmentId] = useState("");
   const [assessments, setAssessments] = useState([]);
   const [grades, setGrades] = useState({});
@@ -1032,8 +1033,14 @@ function GradesPage({
   }, [subjects, selectedSubject]);
 
   useEffect(() => {
-    loadAssessments();
-  }, [selectedClass, selectedSubject, schoolId, teacherId]);
+  loadAssessments();
+}, [
+  selectedClass,
+  selectedSubject,
+  selectedTrimester,
+  schoolId,
+  teacherId,
+]);
 
   useEffect(() => {
     if (assessmentId) {
@@ -1053,14 +1060,15 @@ function GradesPage({
     setMessage(null);
 
     let query = supabase
-      .from("assessments")
-      .select(
-        "id, school_id, teacher_id, class_id, subject_id, title, description, assessment_type, max_score, evaluation_date, coefficient, published, created_at, updated_at"
-      )
-      .eq("school_id", schoolId)
-      .eq("teacher_id", teacherId)
-      .eq("class_id", selectedClass)
-      .order("evaluation_date", { ascending: false });
+  .from("assessments")
+  .select(
+    "id, school_id, teacher_id, class_id, subject_id, title, description, assessment_type, trimester, max_score, evaluation_date, coefficient, published, created_at, updated_at"
+  )
+  .eq("school_id", schoolId)
+  .eq("teacher_id", teacherId)
+  .eq("class_id", selectedClass)
+  .eq("trimester", selectedTrimester)
+  .order("evaluation_date", { ascending: false });
 
     if (selectedSubject) {
       query = query.eq("subject_id", Number(selectedSubject));
@@ -1354,6 +1362,7 @@ function GradesPage({
         max_score: maxScore,
         evaluation_date: evaluationDate,
         coefficient,
+        trimester: selectedTrimester,
         published: false,
       })
       .select()
@@ -1586,7 +1595,38 @@ function GradesPage({
           </select>
         </div>
       </div>
+<div>
+  <label
+    style={{
+      display: "block",
+      marginBottom: 6,
+      fontWeight: 700,
+      color: "#334155",
+    }}
+  >
+    Trimestre
+  </label>
 
+  <select
+    value={selectedTrimester}
+    onChange={(event) => {
+      setSelectedTrimester(event.target.value);
+      setAssessmentId("");
+    }}
+    style={{
+      width: "100%",
+      padding: 10,
+      borderRadius: 8,
+      border: "1px solid #cbd5e1",
+      color: "#0f172a",
+      background: "#fff",
+    }}
+  >
+    <option value="trimestre_1">Trimestre 1</option>
+    <option value="trimestre_2">Trimestre 2</option>
+    <option value="trimestre_3">Trimestre 3</option>
+  </select>
+</div>
       <div
         style={{
           background: "#fff",
@@ -1705,10 +1745,15 @@ function GradesPage({
                     fontSize: 14,
                   }}
                 >
-                  {assessment.assessment_type} · /{" "}
-                  {assessment.max_score} · Coef.{" "}
-                  {assessment.coefficient} ·{" "}
-                  {assessment.evaluation_date}
+                  {assessment.assessment_type} ·{" "}
+{assessment.trimester === "trimestre_1"
+  ? "Trimestre 1"
+  : assessment.trimester === "trimestre_2"
+  ? "Trimestre 2"
+  : "Trimestre 3"}{" "}
+· / {assessment.max_score} · Coef.{" "}
+{assessment.coefficient} ·{" "}
+{assessment.evaluation_date}
                 </div>
               </button>
             ))}
@@ -1751,8 +1796,13 @@ function GradesPage({
                   color: "#64748b",
                 }}
               >
-                {selectedClassName} · {selectedSubjectName} ·
-                note sur {selectedAssessment.max_score}
+                {selectedClassName} · {selectedSubjectName} ·{" "}
+{selectedAssessment.trimester === "trimestre_1"
+  ? "Trimestre 1"
+  : selectedAssessment.trimester === "trimestre_2"
+  ? "Trimestre 2"
+  : "Trimestre 3"}{" "}
+· note sur {selectedAssessment.max_score}
               </p>
             </div>
 
