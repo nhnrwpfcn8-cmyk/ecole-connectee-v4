@@ -2586,7 +2586,11 @@ function renderAttendance() {
                   students
                 );
               }}
-              style={styles.input}
+              style={{
+  ...styles.input,
+  color: "#0f172a",
+  colorScheme: "light",
+}}
             />
           </Field>
 
@@ -2605,7 +2609,11 @@ function renderAttendance() {
                   students
                 );
               }}
-              style={styles.input}
+              style={{
+  ...styles.input,
+  color: "#0f172a",
+  colorScheme: "light",
+}}
             >
               <option value="">
                 Toutes les classes
