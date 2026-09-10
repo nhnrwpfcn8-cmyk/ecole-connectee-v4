@@ -1109,7 +1109,58 @@ function AttendancePage({
       setSavingId(null);
       return;
     }
+async function deleteAttendance(student) {
+  const current = attendance[student.id];
 
+  if (!current?.id) {
+    setMessage({
+      type: "error",
+      text: "Aucune présence enregistrée à supprimer.",
+    });
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Supprimer la présence de ${student.first_name} ${student.last_name} pour le ${formatDate(selectedDate)} ?`
+  );
+
+  if (!confirmed) return;
+
+  setSavingId(student.id);
+  setMessage(null);
+
+  const { error } = await supabase
+    .from("attendance")
+    .delete()
+    .eq("id", current.id);
+
+  if (error) {
+    console.error("Erreur suppression présence :", error);
+
+    setMessage({
+      type: "error",
+      text:
+        "Impossible de supprimer la présence : " +
+        error.message,
+    });
+
+    setSavingId(null);
+    return;
+  }
+
+  setAttendance((previous) => {
+    const next = { ...previous };
+    delete next[student.id];
+    return next;
+  });
+
+  setMessage({
+    type: "success",
+    text: `Présence de ${student.first_name} ${student.last_name} supprimée.`,
+  });
+
+  setSavingId(null);
+}
     setAttendance((previous) => ({
       ...previous,
       [student.id]: data,
@@ -1280,39 +1331,64 @@ function AttendancePage({
                       </td>
 
                       <td style={tdStyle}>
-                        {savingId === student.id ? (
-                          <span
-                            style={{
-                              color: "#64748b",
-                              fontSize: 13,
-                            }}
-                          >
-                            Enregistrement...
-                          </span>
-                        ) : current?.status ? (
-                          <span
-                            style={{
-                              fontWeight: 700,
-                            }}
-                          >
-                            {
-                              ATTENDANCE_STATUS.find(
-                                (item) =>
-                                  item.value ===
-                                  current.status
-                              )?.label
-                            }
-                          </span>
-                        ) : (
-                          <span
-                            style={{
-                              color: "#94a3b8",
-                            }}
-                          >
-                            Non renseigné
-                          </span>
-                        )}
-                      </td>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      flexWrap: "wrap",
+    }}
+  >
+    {savingId === student.id ? (
+      <span
+        style={{
+          color: "#64748b",
+          fontSize: 13,
+        }}
+      >
+        Enregistrement...
+      </span>
+    ) : current?.status ? (
+      <>
+        <span
+          style={{
+            fontWeight: 700,
+          }}
+        >
+          {
+            ATTENDANCE_STATUS.find(
+              (item) => item.value === current.status
+            )?.label
+          }
+        </span>
+
+        <button
+          type="button"
+          onClick={() => deleteAttendance(student)}
+          style={{
+            border: "1px solid #fecaca",
+            background: "#fef2f2",
+            color: "#b91c1c",
+            borderRadius: 8,
+            padding: "7px 10px",
+            cursor: "pointer",
+            fontWeight: 700,
+          }}
+        >
+          🗑️ Supprimer
+        </button>
+      </>
+    ) : (
+      <span
+        style={{
+          color: "#94a3b8",
+        }}
+      >
+        Non renseigné
+      </span>
+    )}
+  </div>
+</td>
                     </tr>
                   );
                 })}
