@@ -1345,7 +1345,11 @@ function GradesPage({
         subject_id: Number(selectedSubject),
         title: title.trim(),
         description: null,
-        assessment_type: type.trim(),
+        assessment_type: String(type || "evaluation")
+  .trim()
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, ""),
         max_score: maxScore,
         evaluation_date: evaluationDate,
         coefficient,
