@@ -1129,109 +1129,110 @@ function GradesPage({
   );
 
   async function saveGrade(studentId, value) {
-    if (!selectedAssessment || !schoolId || !teacherId) return;
+  if (!selectedAssessment || !schoolId || !teacherId) return;
 
-    if (value === "") {
-      return;
-    }
+  if (value === "") {
+    return;
+  }
 
-    const numericScore = Number(value);
+  const numericScore = Number(value);
 
-    if (
-      Number.isNaN(numericScore) ||
-      numericScore < 0 ||
-      numericScore > Number(selectedAssessment.max_score)
-    ) {
-      setMessage({
-        type: "error",
-        text: `La note doit être comprise entre 0 et ${selectedAssessment.max_score}.`,
-      });
-      return;
-    }
+  if (
+    Number.isNaN(numericScore) ||
+    numericScore < 0 ||
+    numericScore > Number(selectedAssessment.max_score)
+  ) {
+    setMessage({
+      type: "error",
+      text: `La note doit être comprise entre 0 et ${selectedAssessment.max_score}.`,
+    });
+    return;
+  }
 
-    setSaving(true);
-    setMessage(null);
+  setSaving(true);
+  setMessage(null);
 
-    const existing = grades[studentId];
+  const existing = grades[studentId];
 
-    const payload = {
-      assessment_id: selectedAssessment.id,
-      student_id: studentId,
-      teacher_id: teacherId,
-      school_id: schoolId,
-      score: numericScore,
-      appreciation: existing?.appreciation || null,
-      stars: existing?.stars || null,
-      comment: existing?.comment || null,
-    };
+  const payload = {
+    assessment_id: selectedAssessment.id,
+    student_id: studentId,
+    teacher_id: teacherId,
+    school_id: schoolId,
+    score: numericScore,
+    appreciation: existing?.appreciation || null,
+    stars: existing?.stars || null,
+    comment: existing?.comment || null,
+  };
 
-    const { data, error } = await supabase
+  let data = null;
+  let error = null;
+
+  /*
+   * Nouvelle note
+   */
+  if (!existing?.id) {
+    const result = await supabase
       .from("grades")
-      .upsert(payload, {
-        onConflict: "assessment_id,student_id",
-      })
+      .insert(payload)
       .select()
       .single();
 
-    setSaving(false);
-
-    if (error) {
-      console.error("Erreur enregistrement note :", error);
-      setMessage({
-        type: "error",
-        text: error.message || "Impossible d'enregistrer la note.",
-      });
-      return;
-    }
-
-    setGrades((current) => ({
-      ...current,
-      [studentId]: data,
-    }));
-
-    setMessage({
-      type: "success",
-      text: "Note enregistrée et synchronisée avec l'Admin École.",
-    });
+    data = result.data;
+    error = result.error;
   }
 
-  async function updateGrade(studentId, field, value) {
-    const existing = grades[studentId];
-
-    if (!existing?.id) return;
-
-    const payload = {
-      [field]: value === "" ? null : value,
-    };
-
-    const { data, error } = await supabase
+  /*
+   * Note déjà existante : modification
+   */
+  else {
+    const result = await supabase
       .from("grades")
-      .update(payload)
+      .update({
+        score: numericScore,
+      })
       .eq("id", existing.id)
       .eq("teacher_id", teacherId)
       .eq("school_id", schoolId)
       .select()
       .single();
 
-    if (error) {
-      console.error("Erreur modification note :", error);
-      setMessage({
-        type: "error",
-        text: "Impossible de modifier cette note.",
-      });
-      return;
-    }
+    data = result.data;
+    error = result.error;
+  }
 
-    setGrades((current) => ({
-      ...current,
-      [studentId]: data,
-    }));
+  setSaving(false);
+
+  if (error) {
+    console.error("Erreur enregistrement note :", error);
 
     setMessage({
-      type: "success",
-      text: "Modification enregistrée.",
+      type: "error",
+      text: error.message || "Impossible d'enregistrer la note.",
     });
+
+    return;
   }
+
+  if (!data) {
+    setMessage({
+      type: "error",
+      text: "La note n'a pas pu être enregistrée dans la base de données.",
+    });
+
+    return;
+  }
+
+  setGrades((current) => ({
+    ...current,
+    [studentId]: data,
+  }));
+
+  setMessage({
+    type: "success",
+    text: "Note enregistrée et synchronisée avec l'Admin École.",
+  });
+}
 
   async function deleteGrade(studentId) {
     const existing = grades[studentId];
