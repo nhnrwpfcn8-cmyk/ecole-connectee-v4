@@ -993,7 +993,1082 @@ function StudentsPage({
 /* =========================================================
    PAGE APPEL
    ========================================================= */
+function GradesPage({
+  schoolId,
+  teacherId,
+  classes,
+  students,
+  subjects,
+}) {
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [assessmentId, setAssessmentId] = useState("");
+  const [assessments, setAssessments] = useState([]);
+  const [grades, setGrades] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState(null);
 
+  const classStudents = useMemo(
+    () =>
+      students.filter(
+        (student) =>
+          student.class_id === selectedClass &&
+          student.active !== false
+      ),
+    [students, selectedClass]
+  );
+
+  useEffect(() => {
+    if (!selectedClass && classes.length) {
+      setSelectedClass(classes[0].id);
+    }
+  }, [classes, selectedClass]);
+
+  useEffect(() => {
+    if (!selectedSubject && subjects.length) {
+      setSelectedSubject(String(subjects[0].id));
+    }
+  }, [subjects, selectedSubject]);
+
+  useEffect(() => {
+    loadAssessments();
+  }, [selectedClass, selectedSubject, schoolId, teacherId]);
+
+  useEffect(() => {
+    if (assessmentId) {
+      loadGrades(assessmentId);
+    } else {
+      setGrades({});
+    }
+  }, [assessmentId]);
+
+  async function loadAssessments() {
+    if (!schoolId || !teacherId || !selectedClass) {
+      setAssessments([]);
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    let query = supabase
+      .from("assessments")
+      .select(
+        "id, school_id, teacher_id, class_id, subject_id, title, description, assessment_type, max_score, evaluation_date, coefficient, published, created_at, updated_at"
+      )
+      .eq("school_id", schoolId)
+      .eq("teacher_id", teacherId)
+      .eq("class_id", selectedClass)
+      .order("evaluation_date", { ascending: false });
+
+    if (selectedSubject) {
+      query = query.eq("subject_id", Number(selectedSubject));
+    }
+
+    const { data, error } = await query;
+
+    setLoading(false);
+
+    if (error) {
+      console.error("Erreur chargement évaluations :", error);
+      setMessage({
+        type: "error",
+        text: "Impossible de charger les évaluations.",
+      });
+      return;
+    }
+
+    setAssessments(data || []);
+
+    if (data?.length && !assessmentId) {
+      setAssessmentId(data[0].id);
+    }
+
+    if (!data?.length) {
+      setAssessmentId("");
+      setGrades({});
+    }
+  }
+
+  async function loadGrades(id) {
+    if (!id || !schoolId || !teacherId) {
+      setGrades({});
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("grades")
+      .select(
+        "id, assessment_id, student_id, teacher_id, school_id, score, appreciation, stars, comment, created_at, updated_at"
+      )
+      .eq("assessment_id", id)
+      .eq("teacher_id", teacherId)
+      .eq("school_id", schoolId);
+
+    if (error) {
+      console.error("Erreur chargement notes :", error);
+      setMessage({
+        type: "error",
+        text: "Impossible de charger les notes.",
+      });
+      return;
+    }
+
+    const mapped = {};
+
+    (data || []).forEach((grade) => {
+      mapped[grade.student_id] = grade;
+    });
+
+    setGrades(mapped);
+  }
+
+  const selectedAssessment = assessments.find(
+    (item) => item.id === assessmentId
+  );
+
+  async function saveGrade(studentId, value) {
+    if (!selectedAssessment || !schoolId || !teacherId) return;
+
+    if (value === "") {
+      return;
+    }
+
+    const numericScore = Number(value);
+
+    if (
+      Number.isNaN(numericScore) ||
+      numericScore < 0 ||
+      numericScore > Number(selectedAssessment.max_score)
+    ) {
+      setMessage({
+        type: "error",
+        text: `La note doit être comprise entre 0 et ${selectedAssessment.max_score}.`,
+      });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+
+    const existing = grades[studentId];
+
+    const payload = {
+      assessment_id: selectedAssessment.id,
+      student_id: studentId,
+      teacher_id: teacherId,
+      school_id: schoolId,
+      score: numericScore,
+      appreciation: existing?.appreciation || null,
+      stars: existing?.stars || null,
+      comment: existing?.comment || null,
+    };
+
+    const { data, error } = await supabase
+      .from("grades")
+      .upsert(payload, {
+        onConflict: "assessment_id,student_id",
+      })
+      .select()
+      .single();
+
+    setSaving(false);
+
+    if (error) {
+      console.error("Erreur enregistrement note :", error);
+      setMessage({
+        type: "error",
+        text: error.message || "Impossible d'enregistrer la note.",
+      });
+      return;
+    }
+
+    setGrades((current) => ({
+      ...current,
+      [studentId]: data,
+    }));
+
+    setMessage({
+      type: "success",
+      text: "Note enregistrée et synchronisée avec l'Admin École.",
+    });
+  }
+
+  async function updateGrade(studentId, field, value) {
+    const existing = grades[studentId];
+
+    if (!existing?.id) return;
+
+    const payload = {
+      [field]: value === "" ? null : value,
+    };
+
+    const { data, error } = await supabase
+      .from("grades")
+      .update(payload)
+      .eq("id", existing.id)
+      .eq("teacher_id", teacherId)
+      .eq("school_id", schoolId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Erreur modification note :", error);
+      setMessage({
+        type: "error",
+        text: "Impossible de modifier cette note.",
+      });
+      return;
+    }
+
+    setGrades((current) => ({
+      ...current,
+      [studentId]: data,
+    }));
+
+    setMessage({
+      type: "success",
+      text: "Modification enregistrée.",
+    });
+  }
+
+  async function deleteGrade(studentId) {
+    const existing = grades[studentId];
+
+    if (!existing?.id) return;
+
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer cette note ?"
+    );
+
+    if (!confirmed) return;
+
+    setSaving(true);
+    setMessage(null);
+
+    const { error } = await supabase
+      .from("grades")
+      .delete()
+      .eq("id", existing.id)
+      .eq("teacher_id", teacherId)
+      .eq("school_id", schoolId);
+
+    setSaving(false);
+
+    if (error) {
+      console.error("Erreur suppression note :", error);
+      setMessage({
+        type: "error",
+        text: "Impossible de supprimer cette note.",
+      });
+      return;
+    }
+
+    setGrades((current) => {
+      const next = { ...current };
+      delete next[studentId];
+      return next;
+    });
+
+    setMessage({
+      type: "success",
+      text: "Note supprimée.",
+    });
+  }
+
+  async function createAssessment() {
+    if (
+      !schoolId ||
+      !teacherId ||
+      !selectedClass ||
+      !selectedSubject
+    ) {
+      setMessage({
+        type: "error",
+        text: "Sélectionnez une classe et une matière.",
+      });
+      return;
+    }
+
+    const title = window.prompt(
+      "Nom de l'évaluation :",
+      "Évaluation"
+    );
+
+    if (!title?.trim()) return;
+
+    const type = window.prompt(
+      "Type d'évaluation :",
+      "Devoir"
+    );
+
+    if (!type?.trim()) return;
+
+    const maxScoreInput = window.prompt(
+      "Note maximale :",
+      "20"
+    );
+
+    const maxScore = Number(maxScoreInput);
+
+    if (!maxScore || maxScore <= 0) {
+      setMessage({
+        type: "error",
+        text: "La note maximale doit être supérieure à 0.",
+      });
+      return;
+    }
+
+    const coefficientInput = window.prompt(
+      "Coefficient :",
+      "1"
+    );
+
+    const coefficient = Number(coefficientInput) || 1;
+
+    const evaluationDate =
+      window.prompt(
+        "Date de l'évaluation (AAAA-MM-JJ) :",
+        new Date().toISOString().slice(0, 10)
+      ) || new Date().toISOString().slice(0, 10);
+
+    setSaving(true);
+    setMessage(null);
+
+    const { data, error } = await supabase
+      .from("assessments")
+      .insert({
+        school_id: schoolId,
+        teacher_id: teacherId,
+        class_id: selectedClass,
+        subject_id: Number(selectedSubject),
+        title: title.trim(),
+        description: null,
+        assessment_type: type.trim(),
+        max_score: maxScore,
+        evaluation_date: evaluationDate,
+        coefficient,
+        published: false,
+      })
+      .select()
+      .single();
+
+    setSaving(false);
+
+    if (error) {
+      console.error("Erreur création évaluation :", error);
+      setMessage({
+        type: "error",
+        text: error.message || "Impossible de créer l'évaluation.",
+      });
+      return;
+    }
+
+    setMessage({
+      type: "success",
+      text: "Évaluation créée en brouillon.",
+    });
+
+    await loadAssessments();
+
+    if (data?.id) {
+      setAssessmentId(data.id);
+    }
+  }
+
+  async function submitAssessment() {
+    if (!selectedAssessment) return;
+
+    const confirmed = window.confirm(
+      "Soumettre cette évaluation et ses notes à l'Admin École ?"
+    );
+
+    if (!confirmed) return;
+
+    setSaving(true);
+    setMessage(null);
+
+    const { data, error } = await supabase
+      .from("assessments")
+      .update({
+        published: true,
+      })
+      .eq("id", selectedAssessment.id)
+      .eq("teacher_id", teacherId)
+      .eq("school_id", schoolId)
+      .select()
+      .single();
+
+    setSaving(false);
+
+    if (error) {
+      console.error("Erreur soumission :", error);
+      setMessage({
+        type: "error",
+        text: "Impossible de soumettre l'évaluation.",
+      });
+      return;
+    }
+
+    setAssessments((current) =>
+      current.map((item) =>
+        item.id === data.id ? data : item
+      )
+    );
+
+    setMessage({
+      type: "success",
+      text: "Évaluation soumise à l'Admin École.",
+    });
+  }
+
+  const selectedClassName =
+    classes.find((item) => item.id === selectedClass)?.name ||
+    "Classe";
+
+  const selectedSubjectName =
+    subjects.find(
+      (item) => String(item.id) === String(selectedSubject)
+    )?.name || "Matière";
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          flexWrap: "wrap",
+          marginBottom: 20,
+        }}
+      >
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              color: "#0f172a",
+            }}
+          >
+            📝 Notes
+          </h2>
+
+          <p
+            style={{
+              marginTop: 6,
+              color: "#64748b",
+            }}
+          >
+            Saisie, modification et synchronisation des notes.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={createAssessment}
+          disabled={saving || !selectedClass || !selectedSubject}
+          style={{
+            padding: "10px 16px",
+            border: "none",
+            borderRadius: 10,
+            background: "#0f172a",
+            color: "#fff",
+            cursor: "pointer",
+            fontWeight: 700,
+          }}
+        >
+          + Nouvelle évaluation
+        </button>
+      </div>
+
+      {message && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            borderRadius: 10,
+            background:
+              message.type === "error"
+                ? "#fee2e2"
+                : "#dcfce7",
+            color:
+              message.type === "error"
+                ? "#991b1b"
+                : "#166534",
+          }}
+        >
+          {message.text}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        <div>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 700,
+              color: "#334155",
+            }}
+          >
+            Classe
+          </label>
+
+          <select
+            value={selectedClass}
+            onChange={(event) => {
+              setSelectedClass(event.target.value);
+              setAssessmentId("");
+            }}
+            style={{
+              width: "100%",
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #cbd5e1",
+              color: "#0f172a",
+              background: "#fff",
+            }}
+          >
+            {classes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 700,
+              color: "#334155",
+            }}
+          >
+            Matière
+          </label>
+
+          <select
+            value={selectedSubject}
+            onChange={(event) => {
+              setSelectedSubject(event.target.value);
+              setAssessmentId("");
+            }}
+            style={{
+              width: "100%",
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #cbd5e1",
+              color: "#0f172a",
+              background: "#fff",
+            }}
+          >
+            {subjects.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div
+        style={{
+          background: "#fff",
+          border: "1px solid #e2e8f0",
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginBottom: 14,
+          }}
+        >
+          <div>
+            <h3
+              style={{
+                margin: 0,
+                color: "#0f172a",
+              }}
+            >
+              Évaluations
+            </h3>
+
+            <p
+              style={{
+                margin: "5px 0 0",
+                color: "#64748b",
+              }}
+            >
+              {selectedClassName} · {selectedSubjectName}
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <p style={{ color: "#64748b" }}>
+            Chargement des évaluations...
+          </p>
+        ) : assessments.length === 0 ? (
+          <div
+            style={{
+              padding: 20,
+              textAlign: "center",
+              color: "#64748b",
+              background: "#f8fafc",
+              borderRadius: 10,
+            }}
+          >
+            Aucune évaluation pour cette classe et cette matière.
+            <br />
+            Cliquez sur « Nouvelle évaluation » pour commencer.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {assessments.map((assessment) => (
+              <button
+                key={assessment.id}
+                type="button"
+                onClick={() => setAssessmentId(assessment.id)}
+                style={{
+                  textAlign: "left",
+                  padding: 14,
+                  borderRadius: 10,
+                  border:
+                    assessment.id === assessmentId
+                      ? "2px solid #0f172a"
+                      : "1px solid #e2e8f0",
+                  background:
+                    assessment.id === assessmentId
+                      ? "#f8fafc"
+                      : "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <strong style={{ color: "#0f172a" }}>
+                    {assessment.title}
+                  </strong>
+
+                  <span
+                    style={{
+                      color: assessment.published
+                        ? "#166534"
+                        : "#92400e",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {assessment.published
+                      ? "Soumise"
+                      : "Brouillon"}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: 6,
+                    color: "#64748b",
+                    fontSize: 14,
+                  }}
+                >
+                  {assessment.assessment_type} · /{" "}
+                  {assessment.max_score} · Coef.{" "}
+                  {assessment.coefficient} ·{" "}
+                  {assessment.evaluation_date}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {selectedAssessment && (
+        <div
+          style={{
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            borderRadius: 12,
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+              marginBottom: 16,
+            }}
+          >
+            <div>
+              <h3
+                style={{
+                  margin: 0,
+                  color: "#0f172a",
+                }}
+              >
+                {selectedAssessment.title}
+              </h3>
+
+              <p
+                style={{
+                  margin: "5px 0 0",
+                  color: "#64748b",
+                }}
+              >
+                {selectedClassName} · {selectedSubjectName} ·
+                note sur {selectedAssessment.max_score}
+              </p>
+            </div>
+
+            {!selectedAssessment.published && (
+              <button
+                type="button"
+                onClick={submitAssessment}
+                disabled={saving}
+                style={{
+                  padding: "10px 14px",
+                  border: "none",
+                  borderRadius: 9,
+                  background: "#166534",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                📤 Soumettre à l'Admin
+              </button>
+            )}
+          </div>
+
+          {classStudents.length === 0 ? (
+            <div
+              style={{
+                padding: 20,
+                background: "#f8fafc",
+                borderRadius: 10,
+                color: "#64748b",
+                textAlign: "center",
+              }}
+            >
+              Aucun élève actif dans cette classe.
+            </div>
+          ) : (
+            <div
+              style={{
+                overflowX: "auto",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  minWidth: 850,
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: 12,
+                        color: "#334155",
+                      }}
+                    >
+                      Élève
+                    </th>
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: 12,
+                        color: "#334155",
+                      }}
+                    >
+                      Note
+                    </th>
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: 12,
+                        color: "#334155",
+                      }}
+                    >
+                      Appréciation
+                    </th>
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: 12,
+                        color: "#334155",
+                      }}
+                    >
+                      Commentaire
+                    </th>
+
+                    <th
+                      style={{
+                        padding: 12,
+                        color: "#334155",
+                      }}
+                    >
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {classStudents.map((student) => {
+                    const grade = grades[student.id];
+
+                    return (
+                      <tr
+                        key={student.id}
+                        style={{
+                          borderTop:
+                            "1px solid #e2e8f0",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: 12,
+                            color: "#0f172a",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {student.first_name}{" "}
+                          {student.last_name}
+
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#64748b",
+                              fontWeight: 400,
+                              marginTop: 3,
+                            }}
+                          >
+                            {student.student_code || ""}
+                          </div>
+                        </td>
+
+                        <td style={{ padding: 12 }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max={selectedAssessment.max_score}
+                            step="0.01"
+                            value={
+                              grade?.score ?? ""
+                            }
+                            onChange={(event) => {
+                              const value =
+                                event.target.value;
+
+                              setGrades((current) => ({
+                                ...current,
+                                [student.id]: {
+                                  ...(current[student.id] || {}),
+                                  score: value,
+                                },
+                              }));
+                            }}
+                            onBlur={(event) =>
+                              saveGrade(
+                                student.id,
+                                event.target.value
+                              )
+                            }
+                            style={{
+                              width: 90,
+                              padding: 9,
+                              border:
+                                "1px solid #cbd5e1",
+                              borderRadius: 8,
+                              color: "#0f172a",
+                              background: "#fff",
+                            }}
+                          />
+
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              color: "#64748b",
+                            }}
+                          >
+                            / {selectedAssessment.max_score}
+                          </span>
+                        </td>
+
+                        <td style={{ padding: 12 }}>
+                          <input
+                            type="text"
+                            value={
+                              grade?.appreciation || ""
+                            }
+                            onChange={(event) =>
+                              setGrades((current) => ({
+                                ...current,
+                                [student.id]: {
+                                  ...(current[student.id] || {}),
+                                  appreciation:
+                                    event.target.value,
+                                },
+                              }))
+                            }
+                            onBlur={(event) =>
+                              updateGrade(
+                                student.id,
+                                "appreciation",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Ex : Très bien"
+                            style={{
+                              width: 170,
+                              padding: 9,
+                              border:
+                                "1px solid #cbd5e1",
+                              borderRadius: 8,
+                              color: "#0f172a",
+                              background: "#fff",
+                            }}
+                          />
+                        </td>
+
+                        <td style={{ padding: 12 }}>
+                          <input
+                            type="text"
+                            value={
+                              grade?.comment || ""
+                            }
+                            onChange={(event) =>
+                              setGrades((current) => ({
+                                ...current,
+                                [student.id]: {
+                                  ...(current[student.id] || {}),
+                                  comment:
+                                    event.target.value,
+                                },
+                              }))
+                            }
+                            onBlur={(event) =>
+                              updateGrade(
+                                student.id,
+                                "comment",
+                                event.target.value
+                              )
+                            }
+                            placeholder="Commentaire"
+                            style={{
+                              width: 220,
+                              padding: 9,
+                              border:
+                                "1px solid #cbd5e1",
+                              borderRadius: 8,
+                              color: "#0f172a",
+                              background: "#fff",
+                            }}
+                          />
+                        </td>
+
+                        <td
+                          style={{
+                            padding: 12,
+                            textAlign: "center",
+                          }}
+                        >
+                          {grade?.id ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                deleteGrade(student.id)
+                              }
+                              disabled={saving}
+                              style={{
+                                padding:
+                                  "8px 10px",
+                                border: "none",
+                                borderRadius: 8,
+                                background:
+                                  "#fee2e2",
+                                color: "#991b1b",
+                                cursor: "pointer",
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          ) : (
+                            <span
+                              style={{
+                                color: "#94a3b8",
+                              }}
+                            >
+                              —
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div
+            style={{
+              marginTop: 16,
+              padding: 12,
+              borderRadius: 10,
+              background: "#f8fafc",
+              color: "#64748b",
+              fontSize: 14,
+            }}
+          >
+            💡 Les notes enregistrées sont immédiatement
+            disponibles pour l'Admin École de la même école.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 function AttendancePage({
   schoolId,
   teacherId,
@@ -3344,13 +4419,15 @@ export default function TeacherDashboard({
         );
 
       case "grades":
-        return (
-          <ComingSoonPage
-            icon="📝"
-            title="Notes"
-            description="Le module de notes sera activé avec le workflow brouillon → soumis → validation Admin École."
-          />
-        );
+  return (
+    <GradesPage
+      schoolId={schoolId}
+      teacherId={teacherId}
+      classes={classes}
+      students={students}
+      subjects={subjects}
+    />
+  );
 
       case "assessments":
         return (
