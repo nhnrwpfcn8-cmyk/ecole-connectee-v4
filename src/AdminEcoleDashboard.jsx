@@ -1641,7 +1641,11 @@ useState("");
 
 const [saving, setSaving] =
 useState(false);
-
+const [stampFile, setStampFile] = useState(null);
+const [signatureFile, setSignatureFile] = useState(null);
+const [stampPreview, setStampPreview] = useState("");
+const [signaturePreview, setSignaturePreview] = useState("");
+const [brandingSaving, setBrandingSaving] = useState(false);
 const [error, setError] =
 useState("");
 
@@ -7034,7 +7038,112 @@ await onRefresh();
 
 setSaving(false);
 }
+async function uploadBrandingFile(file, type) {
+  if (!file || !school?.id) return;
 
+  if (!file.type.startsWith("image/")) {
+    setMessage("Veuillez sélectionner une image.");
+    return;
+  }
+
+  setBrandingSaving(true);
+  setMessage("");
+
+  const extension =
+    file.name.split(".").pop()?.toLowerCase() || "png";
+
+  const filePath =
+    `${school.id}/${type}-${Date.now()}.${extension}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("school-branding")
+    .upload(filePath, file, {
+      upsert: false,
+      contentType: file.type,
+    });
+
+  if (uploadError) {
+    console.error("Erreur upload branding :", uploadError);
+    setMessage(
+      "Impossible d'envoyer l'image. Vérifiez les droits du stockage."
+    );
+    setBrandingSaving(false);
+    return;
+  }
+
+  const updateData =
+    type === "stamp"
+      ? { stamp_url: filePath }
+      : { signature_url: filePath };
+
+  const { error: updateError } = await supabase
+    .from("schools")
+    .update(updateData)
+    .eq("id", school.id);
+
+  if (updateError) {
+    console.error("Erreur mise à jour branding :", updateError);
+    setMessage(
+      "L'image a été envoyée mais n'a pas pu être enregistrée."
+    );
+    setBrandingSaving(false);
+    return;
+  }
+
+  const { data: signedData, error: signedError } =
+    await supabase.storage
+      .from("school-branding")
+      .createSignedUrl(filePath, 3600);
+
+  if (!signedError && signedData?.signedUrl) {
+    if (type === "stamp") {
+      setStampPreview(signedData.signedUrl);
+    } else {
+      setSignaturePreview(signedData.signedUrl);
+    }
+  }
+
+  setMessage(
+    type === "stamp"
+      ? "Cachet numérique enregistré."
+      : "Signature enregistrée."
+  );
+
+  await onRefresh();
+
+  setBrandingSaving(false);
+}
+useEffect(() => {
+  async function loadBranding() {
+    if (!school?.id) return;
+
+    if (school.stamp_url) {
+      const { data } = await supabase.storage
+        .from("school-branding")
+        .createSignedUrl(school.stamp_url, 3600);
+
+      if (data?.signedUrl) {
+        setStampPreview(data.signedUrl);
+      }
+    }
+
+    if (school.signature_url) {
+      const { data } = await supabase.storage
+        .from("school-branding")
+        .createSignedUrl(school.signature_url, 3600);
+
+      if (data?.signedUrl) {
+        setSignaturePreview(data.signedUrl);
+      }
+    }
+  }
+
+  loadBranding();
+}, [
+  school?.id,
+  school?.stamp_url,
+  school?.signature_url,
+]);
 return (
 <div className="ec-page">
 
