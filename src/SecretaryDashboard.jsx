@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import SecretaryBilling from "./SecretaryBilling";
+import SecretaryTeacherCommunicationPage from "./SecretaryTeacherCommunicationPage";
 
 /*
   ============================================================
@@ -32,6 +33,11 @@ const MENU = [
   { id: "attendance", label: "Présences", icon: "📋" },
   { id: "enrollments", label: "Inscriptions", icon: "📝" },
   { id: "communication", label: "Communication", icon: "📢" },
+  {
+  id: "teacher_communication",
+  label: "Professeurs",
+  icon: "👨‍🏫",
+},
   { id: "notifications", label: "Notifications", icon: "🔔" },
   { id: "services", label: "Services administratifs", icon: "🗂️" },
   { id: "profile", label: "Mon profil", icon: "👤" },
@@ -3699,6 +3705,13 @@ function renderCommunication() {
 
       case "communication":
         return renderCommunication();
+        case "teacher_communication":
+  return (
+    <SecretaryTeacherCommunicationPage
+      schoolId={schoolId}
+      secretaryId={session?.user?.id}
+    />
+  );
 
       case "notifications":
         return renderNotifications();
