@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import TeacherGradesPage from "./TeacherGradesPage";
 import TeacherExercisesPage from "./TeacherExercisesPage";
+import TeacherCommunicationPage from "./TeacherCommunicationPage";
 
 /* =========================================================
    ÉCOLE CONNECTÉE V4
@@ -4508,13 +4509,14 @@ export default function TeacherDashboard({
   );
 
       case "communication":
-        return (
-          <ComingSoonPage
-            icon="💬"
-            title="Communication"
-            description="Communication professeur ↔ élèves et parents."
-          />
-        );
+  return (
+    <TeacherCommunicationPage
+      schoolId={schoolId}
+      teacherId={teacherId}
+      classes={classes}
+      students={students}
+    />
+  );
 
       case "profile":
         return (
