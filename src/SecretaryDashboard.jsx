@@ -3708,7 +3708,7 @@ function renderCommunication() {
         case "teacher_communication":
   return (
     <SecretaryTeacherCommunicationPage
-      schoolId={schoolId}
+      schoolId={profile?.school_id}
       secretaryId={session?.user?.id}
     />
   );
