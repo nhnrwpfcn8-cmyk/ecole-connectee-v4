@@ -4485,13 +4485,15 @@ export default function TeacherDashboard({
   );
 
       case "assessments":
-        return (
-          <ComingSoonPage
-            icon="📊"
-            title="Évaluations"
-            description="Création et gestion des évaluations."
-          />
-        );
+  return (
+    <GradesPage
+      schoolId={schoolId}
+      teacherId={teacherId}
+      classes={classes}
+      students={students}
+      subjects={subjects}
+    />
+  );
 
       case "exercises":
         return (
