@@ -3,6 +3,7 @@ import { supabase } from "./lib/supabase";
 import TeacherGradesPage from "./TeacherGradesPage";
 import TeacherExercisesPage from "./TeacherExercisesPage";
 import TeacherCommunicationPage from "./TeacherCommunicationPage";
+import TeacherSecretaryCommunicationPage from "./TeacherSecretaryCommunicationPage";
 
 /* =========================================================
    ÉCOLE CONNECTÉE V4
@@ -21,6 +22,11 @@ const MENU = [
   { id: "assessments", icon: "📊", label: "Évaluations" },
   { id: "exercises", icon: "✏️", label: "Exercices" },
   { id: "communication", icon: "💬", label: "Communication" },
+   {
+  id: "teacher_secretary_communication",
+  icon: "📢",
+  label: "Secrétariat",
+},
   { id: "profile", icon: "👤", label: "Mon profil" },
 ];
 
@@ -4517,7 +4523,13 @@ export default function TeacherDashboard({
       students={students}
     />
   );
-
+case "teacher_secretary_communication":
+  return (
+    <TeacherSecretaryCommunicationPage
+      schoolId={schoolId}
+      teacherId={teacherId}
+    />
+  );
       case "profile":
         return (
           <ProfilePage
