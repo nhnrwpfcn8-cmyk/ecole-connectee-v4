@@ -28,7 +28,7 @@ export default function TeacherSecretaryCommunicationPage({
 
     const { data, error } = await supabase
       .from("secretaries")
-      .select("id, profile_id, school_id, active")
+      .select("id, school_id, active")
       .eq("school_id", schoolId)
       .eq("active", true)
       .order("created_at", { ascending: true });
