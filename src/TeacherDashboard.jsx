@@ -4496,11 +4496,10 @@ export default function TeacherDashboard({
 
       case "assessments":
   return (
-    <GradesPage
+    <TeacherAssessmentsPage
       schoolId={schoolId}
       teacherId={teacherId}
       classes={classes}
-      students={students}
       subjects={subjects}
     />
   );
