@@ -30,7 +30,7 @@ export default function SecretaryTeacherCommunicationPage({
 
     const { data, error } = await supabase
       .from("teachers")
-      .select("id, profile_id, school_id, active")
+      .select("id, school_id, display_name, active")
       .eq("school_id", schoolId)
       .eq("active", true)
       .order("created_at", {
