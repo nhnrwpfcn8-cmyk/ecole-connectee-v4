@@ -809,26 +809,11 @@ refreshAll(schoolId)
 );
 
 case "grades":
-return (
-<GradesPage
-schoolId={schoolId}
-teachers={teachers}
-classes={classes}
-subjects={subjects}
-students={students}
-assessments={assessments}
-grades={grades}
-onRefresh={() => refreshAll(schoolId)}
-/>
-);
-
 case "bulletins":
 return (
-<ReportCardsPage
-school={school}
-students={students}
-teachers={teachers}
-grades={grades}
+<AdminEcoleNotesBulletinsPage
+schoolId={currentProfile?.school_id}
+profile={currentProfile}
 />
 );
 
