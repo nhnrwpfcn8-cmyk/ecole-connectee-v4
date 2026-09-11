@@ -283,7 +283,7 @@ export default function AdminEcoleNotesBulletinsPage({
   ]);
 
   /* =========================================================
-     STORAGE : CACHEt / SIGNATURE
+     STORAGE : CACHET / SIGNATURE
   ========================================================= */
 
   async function createSignedBrandingUrl(path) {
@@ -399,6 +399,18 @@ export default function AdminEcoleNotesBulletinsPage({
           ascending: false,
         }),
 
+      /* =====================================================
+         NOTES DES PROFESSEURS
+         
+         IMPORTANT :
+         Les informations class_id, subject_id,
+         trimester, max_score et coefficient
+         appartiennent à assessments, pas à grades.
+
+         La liaison se fait par :
+         grades.assessment_id = assessments.id
+      ===================================================== */
+
       supabase
         .from("grades")
         .select(
@@ -408,15 +420,20 @@ export default function AdminEcoleNotesBulletinsPage({
           student_id,
           teacher_id,
           assessment_id,
-          class_id,
-          subject_id,
           score,
           stars,
           appreciation,
           comment,
           created_at,
-          updated_at
-        `
+          updated_at,
+          assessments!inner(
+            class_id,
+            subject_id,
+            trimester,
+            max_score,
+            coefficient
+          )
+          `
         )
         .eq("school_id", schoolId)
         .order("updated_at", {
@@ -490,9 +507,41 @@ export default function AdminEcoleNotesBulletinsPage({
       assessmentsResult.data || []
     );
 
-    setGrades(
+    /* =====================================================
+       NORMALISATION DES NOTES
+
+       On conserve la structure utilisée par le reste
+       du composant, mais les informations viennent
+       maintenant de la table assessments.
+    ===================================================== */
+
+    const normalizedGrades = (
       gradesResult.data || []
-    );
+    ).map((grade) => {
+      const assessment =
+        grade.assessments || null;
+
+      return {
+        ...grade,
+
+        class_id:
+          assessment?.class_id || null,
+
+        subject_id:
+          assessment?.subject_id || null,
+
+        trimester:
+          assessment?.trimester || null,
+
+        max_score:
+          assessment?.max_score ?? null,
+
+        coefficient:
+          assessment?.coefficient ?? 1,
+      };
+    });
+
+    setGrades(normalizedGrades);
 
     setBulletins(
       bulletinsResult.data || []
