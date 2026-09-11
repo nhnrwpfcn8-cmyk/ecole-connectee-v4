@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
+import TeacherGradesPage from "./TeacherGradesPage";
 
 /* =========================================================
    ÉCOLE CONNECTÉE V4
@@ -4475,7 +4476,7 @@ export default function TeacherDashboard({
 
       case "grades":
   return (
-    <GradesPage
+    <TeacherGradesPage
       schoolId={schoolId}
       teacherId={teacherId}
       classes={classes}
