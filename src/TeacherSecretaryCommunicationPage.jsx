@@ -359,6 +359,7 @@ export default function TeacherSecretaryCommunicationPage({
                 borderRadius: 10,
                 border: "1px solid #cbd5e1",
                 background: "#ffffff",
+                color: "#000000",
               }}
             >
               {secretaries.map((item) => (
