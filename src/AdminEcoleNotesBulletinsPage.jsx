@@ -437,11 +437,12 @@ export default function AdminEcoleNotesBulletinsPage({
           created_at,
           updated_at,
           assessments!inner(
-            class_id,
-            subject_id,
-            trimester,
-            max_score,
-            coefficient
+          class_id,
+          subject_id,
+          trimester,
+          max_score,
+          coefficient,
+          assessment_slot
           )
           `
         )
