@@ -83,6 +83,7 @@ export default function AdminEcoleNotesBulletinsPage({
   const [selectedBulletin, setSelectedBulletin] = useState(null);
   const [stampUrl, setStampUrl] = useState("");
   const [signatureUrl, setSignatureUrl] = useState("");
+  const [printRow, setPrintRow] = useState(null);
 
   const activeStudents = useMemo(
     () => students.filter((student) => student.active !== false),
@@ -611,30 +612,43 @@ export default function AdminEcoleNotesBulletinsPage({
   }
 
   function printBulletin(row) {
-    if (!row?.student?.id) return;
+  if (!row?.student?.id) return;
 
-    setStudentId(row.student.id);
-    setSelectedBulletin(
-      bulletins.find(
-        (bulletin) =>
-          bulletin.student_id === row.student.id &&
-          bulletin.trimester === trimester
-      ) || {
-        student_id: row.student.id,
-        trimester,
-      }
-    );
+  // On mémorise exactement la ligne affichée
+  // pour éviter qu'une ancienne sélection soit imprimée.
+  setPrintRow(row);
 
-    setTimeout(() => window.print(), 250);
-  }
+  setStudentId(row.student.id);
+
+  setSelectedBulletin(
+    bulletins.find(
+      (bulletin) =>
+        bulletin.student_id === row.student.id &&
+        bulletin.trimester === trimester
+    ) || {
+      student_id: row.student.id,
+      trimester,
+    }
+  );
+
+  setTimeout(() => window.print(), 300);
+}
 
   const selectedBulletinRow = useMemo(() => {
-    if (!selectedStudent) return null;
-    return (
-      bulletinRows.find((row) => row.student.id === selectedStudent.id) ||
-      null
-    );
-  }, [bulletinRows, selectedStudent]);
+  // Pour l'impression, utiliser directement la ligne
+  // qui vient d'être sélectionnée dans le tableau.
+  if (printRow) {
+    return printRow;
+  }
+
+  if (!selectedStudent) return null;
+
+  return (
+    bulletinRows.find(
+      (row) => row.student.id === selectedStudent.id
+    ) || null
+  );
+}, [printRow, bulletinRows, selectedStudent]);
 
   const trimesterLabel =
     TRIMESTERS.find((item) => item.value === trimester)?.label || trimester;
