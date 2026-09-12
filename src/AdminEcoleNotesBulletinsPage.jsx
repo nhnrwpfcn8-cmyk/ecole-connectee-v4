@@ -458,6 +458,7 @@ export default function AdminEcoleNotesBulletinsPage({
           title,
           description,
           assessment_type,
+          assessment_slot,
           trimester,
           max_score,
           evaluation_date,
