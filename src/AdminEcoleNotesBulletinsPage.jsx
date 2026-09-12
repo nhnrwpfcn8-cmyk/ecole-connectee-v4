@@ -47,7 +47,21 @@ function formatAverage(value) {
 
   return Number(value).toFixed(2).replace(".", ",");
 }
+function getAssessmentLabel(assessment) {
+  if (assessment?.assessment_slot === "devoir_1") {
+    return "Devoir 1";
+  }
 
+  if (assessment?.assessment_slot === "devoir_2") {
+    return "Devoir 2";
+  }
+
+  if (assessment?.assessment_slot === "composition") {
+    return "Composition";
+  }
+
+  return assessment?.title || "Évaluation";
+}
 function formatCoefficient(value) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) {
     return "-";
