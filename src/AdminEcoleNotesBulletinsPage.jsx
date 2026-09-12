@@ -649,20 +649,16 @@ export default function AdminEcoleNotesBulletinsPage({
 }
 
   const selectedBulletinRow = useMemo(() => {
-  // Pour l'impression, utiliser directement la ligne
-  // qui vient d'être sélectionnée dans le tableau.
-  if (printRow) {
-    return printRow;
-  }
-
   if (!selectedStudent) return null;
 
-  return (
-    bulletinRows.find(
-      (row) => row.student.id === selectedStudent.id
-    ) || null
+  // Toujours rechercher la ligne correspondant
+  // à l'élève actuellement sélectionné et au trimestre choisi.
+  const currentRow = bulletinRows.find(
+    (row) => row.student.id === selectedStudent.id
   );
-}, [printRow, bulletinRows, selectedStudent]);
+
+  return currentRow || null;
+}, [bulletinRows, selectedStudent]);
 
   const trimesterLabel =
     TRIMESTERS.find((item) => item.value === trimester)?.label || trimester;
