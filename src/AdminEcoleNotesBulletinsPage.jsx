@@ -499,13 +499,14 @@ export default function AdminEcoleNotesBulletinsPage({
       const assessment = grade.assessments || null;
 
       return {
-        ...grade,
-        class_id: assessment?.class_id || null,
-        subject_id: assessment?.subject_id || null,
-        trimester: assessment?.trimester || null,
-        max_score: assessment?.max_score ?? null,
-        coefficient: assessment?.coefficient ?? 1,
-      };
+  ...grade,
+  class_id: assessment?.class_id || null,
+  subject_id: assessment?.subject_id || null,
+  trimester: assessment?.trimester || null,
+  max_score: assessment?.max_score || null,
+  coefficient: assessment?.coefficient || null,
+  assessment_slot: assessment?.assessment_slot || null,
+};
     });
 
     setGrades(normalizedGrades);
