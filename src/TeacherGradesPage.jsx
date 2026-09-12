@@ -69,17 +69,19 @@ export default function TeacherGradesPage({
     setMessage(null);
 
     let query = supabase
-      .from("assessments")
-      .select(
-        "id, school_id, teacher_id, class_id, subject_id, title, description, assessment_type, trimester, max_score, evaluation_date, coefficient, published, created_at, updated_at"
-      )
-      .eq("school_id", schoolId)
-      .eq("teacher_id", teacherId)
-      .eq("class_id", selectedClass)
-      .eq("trimester", selectedTrimester)
-      .order("evaluation_date", {
-        ascending: false,
-      });
+  .from("assessments")
+  .select(
+    "id, school_id, teacher_id, class_id, subject_id, title, description, assessment_type, assessment_slot, trimester, max_score, evaluation_date, coefficient, published, created_at, updated_at"
+  )
+  .eq("school_id", schoolId)
+  .eq("teacher_id", teacherId)
+  .eq("class_id", selectedClass)
+  .eq("trimester", selectedTrimester)
+  .in("assessment_slot", [
+    "devoir_1",
+    "devoir_2",
+    "composition",
+  ]);
 
     if (selectedSubject) {
       query = query.eq(
