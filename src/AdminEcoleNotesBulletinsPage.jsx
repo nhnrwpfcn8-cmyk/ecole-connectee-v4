@@ -1130,7 +1130,7 @@ export default function AdminEcoleNotesBulletinsPage({
                           {fullStudentName(student)}
                         </td>
                         <td style={{ padding: 10 }}>
-                          {assessment?.title || "-"}
+                          {getAssessmentLabel(assessment)}
                         </td>
                         <td style={{ padding: 10 }}>
                           {subjectMap[grade.subject_id]?.name || "-"}
