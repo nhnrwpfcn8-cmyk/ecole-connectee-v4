@@ -170,13 +170,9 @@ export default function AdminEcoleNotesBulletinsPage({
     row.assessment_slot === "devoir_2"
 );
 
-          const compositionRow = rows.find((row) => {
-            const assessment = assessments.find(
-              (item) => item.id === row.assessment_id
-            );
-
-            return assessment?.assessment_slot === "composition";
-          });
+          const compositionRow = rows.find(
+  (row) => row.assessment_slot === "composition"
+);
 
           const devoirScores = devoirRows
             .map((row) => {
