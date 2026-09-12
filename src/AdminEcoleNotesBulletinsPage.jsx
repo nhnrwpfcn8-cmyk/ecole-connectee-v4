@@ -164,16 +164,11 @@ export default function AdminEcoleNotesBulletinsPage({
 
       const subjectsRows = Object.entries(bySubject).map(
         ([subjectKey, rows]) => {
-          const devoirRows = rows.filter((row) => {
-            const assessment = assessments.find(
-              (item) => item.id === row.assessment_id
-            );
-
-            return (
-              assessment?.assessment_slot === "devoir_1" ||
-              assessment?.assessment_slot === "devoir_2"
-            );
-          });
+          const devoirRows = rows.filter(
+  (row) =>
+    row.assessment_slot === "devoir_1" ||
+    row.assessment_slot === "devoir_2"
+);
 
           const compositionRow = rows.find((row) => {
             const assessment = assessments.find(
