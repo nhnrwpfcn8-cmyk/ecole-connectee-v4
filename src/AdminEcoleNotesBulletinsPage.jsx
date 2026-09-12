@@ -204,54 +204,126 @@ export default function AdminEcoleNotesBulletinsPage({
       });
 
       const subjectsRows = Object.entries(
-        bySubject
-      ).map(([subjectKey, rows]) => {
-        const weighted = rows.reduce(
-          (sum, row) => {
-            const score = Number(row.score);
-            const max =
-              Number(row.max_score) || 20;
-            const coefficient =
-              Number(row.coefficient) || 1;
+  bySubject
+).map(([subjectKey, rows]) => {
+  const devoirRows = rows.filter((row) => {
+    const assessment = assessments.find(
+      (item) => item.id === row.assessment_id
+    );
 
-            if (!Number.isFinite(score)) {
-              return sum;
-            }
+    return (
+      assessment?.assessment_slot === "devoir_1" ||
+      assessment?.assessment_slot === "devoir_2"
+    );
+  });
 
-            return (
-              sum +
-              (score / max) *
-                20 *
-                coefficient
-            );
-          },
+  const compositionRow = rows.find((row) => {
+    const assessment = assessments.find(
+      (item) => item.id === row.assessment_id
+    );
+
+    return (
+      assessment?.assessment_slot ===
+      "composition"
+    );
+  });
+
+  const devoirScores = devoirRows
+    .map((row) => {
+      const score = Number(row.score);
+      const max =
+        Number(row.max_score) || 20;
+
+      if (
+        !Number.isFinite(score) ||
+        max <= 0
+      ) {
+        return null;
+      }
+
+      return (score / max) * 20;
+    })
+    .filter(
+      (value) => value !== null
+    );
+
+  const devoir =
+    devoirScores.length > 0
+      ? devoirScores.reduce(
+          (sum, value) => sum + value,
           0
-        );
+        ) / devoirScores.length
+      : null;
 
-        const coefficients = rows.reduce(
-          (sum, row) =>
-            sum +
-            (Number(row.coefficient) || 1),
-          0
-        );
+  const comp =
+    compositionRow &&
+    Number.isFinite(
+      Number(compositionRow.score)
+    )
+      ? (Number(compositionRow.score) /
+          (Number(compositionRow.max_score) || 20)) *
+        20
+      : null;
 
-        return {
-          subjectId:
-            subjectKey === "unknown"
-              ? null
-              : subjectKey,
+  const weighted = rows.reduce(
+    (sum, row) => {
+      const score = Number(row.score);
+      const max =
+        Number(row.max_score) || 20;
+      const coefficient =
+        Number(row.coefficient) || 1;
 
-          subjectName:
-            subjectMap[subjectKey]?.name ||
-            "Matière",
+      if (
+        !Number.isFinite(score) ||
+        max <= 0
+      ) {
+        return sum;
+      }
 
-          average: coefficients
-            ? weighted / coefficients
-            : null,
+      return (
+        sum +
+        (score / max) *
+          20 *
+          coefficient
+      );
+    },
+    0
+  );
 
-          coefficient: coefficients || 1,
-        };
-      });
+  const coefficients = rows.reduce(
+    (sum, row) =>
+      sum +
+      (Number(row.coefficient) || 1),
+    0
+  );
+
+  const average =
+    coefficients > 0
+      ? weighted / coefficients
+      : null;
+
+  return {
+    subjectId:
+      subjectKey === "unknown"
+        ? null
+        : subjectKey,
+
+    subjectName:
+      subjectMap[subjectKey]?.name ||
+      "Matière",
+
+    devoir,
+
+    comp,
+
+    average,
+
+    coefficient:
+      coefficients || 1,
+
+    weighted,
+  };
+});
 
       const allScores = subjectsRows
         .filter(
