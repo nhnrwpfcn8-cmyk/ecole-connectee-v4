@@ -520,8 +520,8 @@ export default function AdminEcoleNotesBulletinsPage({
   }
 
   useEffect(() => {
-    loadAll();
-  }, [schoolId]);
+  loadAll();
+}, [schoolId, trimester, activeTab]);
 
   /* =========================================================
      BULLETIN
