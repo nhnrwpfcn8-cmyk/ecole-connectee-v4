@@ -16,7 +16,9 @@ export default function AdminEcoleInscriptionsPage({
     parent_phone: "",
     parent_email: "",
     parent_address: "",
-  });
+student_photo: null,
+});
+  
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -202,7 +204,41 @@ export default function AdminEcoleInscriptionsPage({
             </p>
           </div>
         </div>
+<div
+  className="ec-panel-header"
+  style={{ marginTop: "32px" }}
+>
+  <div>
+    <h3>Photo de l'élève</h3>
+    <p>
+      Ajouter une photo récente qui sera utilisée pour la fiche et la future carte scolaire.
+    </p>
+  </div>
+</div>
 
+<div className="ec-form-grid">
+  <div className="ec-field">
+    <label>Photo de l'élève *</label>
+
+    <input
+      type="file"
+      accept="image/*"
+      name="student_photo"
+      onChange={(event) => {
+        const file = event.target.files?.[0] || null;
+
+        setForm((current) => ({
+          ...current,
+          student_photo: file,
+        }));
+      }}
+    />
+
+    <small>
+      Format conseillé : JPG ou PNG. Photo récente et claire.
+    </small>
+  </div>
+</div>
         <div className="ec-form-grid">
           <div className="ec-field">
             <label>Identifiant familial *</label>
