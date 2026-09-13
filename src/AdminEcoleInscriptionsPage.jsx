@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
+import StudentSchoolCard from "./StudentSchoolCard";
 
 export default function AdminEcoleInscriptionsPage({
   schoolId,
@@ -43,6 +44,7 @@ export default function AdminEcoleInscriptionsPage({
   const [selectedParent, setSelectedParent] = useState(null);
   const [loadingStudentDetails, setLoadingStudentDetails] =
     useState(false);
+  const [showSchoolCard, setShowSchoolCard] = useState(false);
 
   const selectedClass = useMemo(
     () => classes.find((item) => item.id === form.class_id),
@@ -1179,33 +1181,59 @@ async function resetFamilyPassword(accountType, accountId) {
             </div>
           </div>
 
-          {/* Zone réservée à la future carte */}
-          <div
-            style={{
-              marginTop: "24px",
-              padding: "18px",
-              borderRadius: "12px",
-              border:
-                "1px dashed rgba(59, 130, 246, 0.5)",
-            }}
-          >
-            <strong>
-              🪪 Carte scolaire
-            </strong>
+          {/* Carte scolaire */}
+<div
+  style={{
+    marginTop: "24px",
+    padding: "18px",
+    borderRadius: "12px",
+    border:
+      "1px solid rgba(59, 130, 246, 0.35)",
+  }}
+>
+  <strong>
+    🎓 Carte scolaire
+  </strong>
 
-            <p
-              style={{
-                marginBottom: 0,
-              }}
-            >
-              La génération de la carte scolaire avec
-              photo et QR Code sera ajoutée à l'étape
-              suivante.
-            </p>
-          </div>
-        </div>
-      )}
+  <p
+    style={{
+      marginBottom: "12px",
+    }}
+  >
+    Générer et consulter la carte scolaire de
+    l'élève avec photo et QR Code.
+  </p>
 
+  <button
+    type="button"
+    onClick={() => setShowSchoolCard(true)}
+    style={{
+      padding: "10px 16px",
+      border: "none",
+      borderRadius: "8px",
+      background: "#111827",
+      color: "#ffffff",
+      cursor: "pointer",
+      fontWeight: "600",
+    }}
+  >
+    🎓 Voir la carte scolaire
+  </button>
+</div>
+    )}
+{showSchoolCard && selectedStudent && (
+  <StudentSchoolCard
+    student={selectedStudent}
+    schoolName="École Connectée"
+    className={
+      classes.find(
+        (item) =>
+          item.id === selectedStudent.class_id
+      )?.name || ""
+    }
+    onClose={() => setShowSchoolCard(false)}
+  />
+)}
       {/* =========================================================
           MESSAGES APRÈS INSCRIPTION
           ========================================================= */}
