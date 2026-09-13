@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import AdminEcoleNotesBulletinsPage from "./AdminEcoleNotesBulletinsPage";
+import AdminEcoleInscriptionsPage from "./AdminEcoleInscriptionsPage";
 
 /* =========================================================
 CONFIGURATION
