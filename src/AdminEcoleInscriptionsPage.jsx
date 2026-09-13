@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import StudentSchoolCard from "./StudentSchoolCard";
 
@@ -45,6 +45,25 @@ export default function AdminEcoleInscriptionsPage({
   const [loadingStudentDetails, setLoadingStudentDetails] =
     useState(false);
   const [showSchoolCard, setShowSchoolCard] = useState(false);
+  const [schoolName, setSchoolName] = useState("École Connectée");
+
+useEffect(() => {
+  const loadSchoolName = async () => {
+    if (!schoolId) return;
+
+    const { data, error } = await supabase
+      .from("schools")
+      .select("name")
+      .eq("id", schoolId)
+      .maybeSingle();
+
+    if (!error && data?.name) {
+      setSchoolName(data.name);
+    }
+  };
+
+  loadSchoolName();
+}, [schoolId]);
 
   const selectedClass = useMemo(
     () => classes.find((item) => item.id === form.class_id),
@@ -1232,7 +1251,7 @@ export default function AdminEcoleInscriptionsPage({
           {showSchoolCard && selectedStudent && (
             <StudentSchoolCard
               student={selectedStudent}
-              schoolName="École Connectée"
+              schoolName={schoolName}
               className={
                 classes.find(
                   (item) =>
