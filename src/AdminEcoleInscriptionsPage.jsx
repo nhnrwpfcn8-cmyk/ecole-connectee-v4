@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import StudentSchoolCard from "./StudentSchoolCard";
+import {
+  uploadStudentPhoto,
+  getStudentPhotoUrl,
+} from "./lib/studentPhotoStorage";
 
 export default function AdminEcoleInscriptionsPage({
   schoolId,
@@ -47,23 +51,23 @@ export default function AdminEcoleInscriptionsPage({
   const [showSchoolCard, setShowSchoolCard] = useState(false);
   const [schoolName, setSchoolName] = useState("École Connectée");
 
-useEffect(() => {
-  const loadSchoolName = async () => {
-    if (!schoolId) return;
+  useEffect(() => {
+    const loadSchoolName = async () => {
+      if (!schoolId) return;
 
-    const { data, error } = await supabase
-      .from("schools")
-      .select("name")
-      .eq("id", schoolId)
-      .maybeSingle();
+      const { data, error } = await supabase
+        .from("schools")
+        .select("name")
+        .eq("id", schoolId)
+        .maybeSingle();
 
-    if (!error && data?.name) {
-      setSchoolName(data.name);
-    }
-  };
+      if (!error && data?.name) {
+        setSchoolName(data.name);
+      }
+    };
 
-  loadSchoolName();
-}, [schoolId]);
+    loadSchoolName();
+  }, [schoolId]);
 
   const selectedClass = useMemo(
     () => classes.find((item) => item.id === form.class_id),
@@ -172,6 +176,37 @@ useEffect(() => {
 
       if (data.credentials) {
         setCredentials(data.credentials);
+      }
+
+      // Enregistrer la photo après la création réussie
+      // de l'élève.
+      //
+      // Une erreur concernant la photo ne bloque pas
+      // l'inscription de la famille.
+      if (
+        form.student_photo &&
+        data?.family?.student?.id
+      ) {
+        try {
+          await uploadStudentPhoto({
+            schoolId,
+            studentId: data.family.student.id,
+            file: form.student_photo,
+          });
+
+          setMessage(
+            "L'élève, son responsable et sa photo ont été enregistrés avec succès."
+          );
+        } catch (photoError) {
+          console.error(
+            "Erreur upload photo élève :",
+            photoError
+          );
+
+          setMessage(
+            "L'élève et son responsable ont été créés avec succès, mais la photo n'a pas pu être enregistrée."
+          );
+        }
       }
 
       setForm({
@@ -492,7 +527,25 @@ useEffect(() => {
         }
       }
 
-      setSelectedStudent(student);
+      // Générer une URL temporaire sécurisée pour la photo
+      // stockée dans le bucket privé.
+      let studentForFolder = student;
+
+      if (student.photo_url) {
+        const signedPhotoUrl =
+          await getStudentPhotoUrl(
+            student.photo_url
+          );
+
+        if (signedPhotoUrl) {
+          studentForFolder = {
+            ...student,
+            photo_url: signedPhotoUrl,
+          };
+        }
+      }
+
+      setSelectedStudent(studentForFolder);
       setSelectedParent(parent);
     } catch (err) {
       console.error(
