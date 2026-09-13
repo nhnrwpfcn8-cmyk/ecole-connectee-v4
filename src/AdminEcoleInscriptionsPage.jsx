@@ -1220,7 +1220,25 @@ async function resetFamilyPassword(accountType, accountId) {
     🎓 Voir la carte scolaire
   </button>
 </div>
-    )}
+    </button>
+</div>
+
+{showSchoolCard && selectedStudent && (
+  <StudentSchoolCard
+    student={selectedStudent}
+    schoolName="École Connectée"
+    className={
+      classes.find(
+        (item) =>
+          item.id === selectedStudent.class_id
+      )?.name || ""
+    }
+    onClose={() => setShowSchoolCard(false)}
+  />
+)}
+
+    )}      
+    
 
       {/* =========================================================
           MESSAGES APRÈS INSCRIPTION
