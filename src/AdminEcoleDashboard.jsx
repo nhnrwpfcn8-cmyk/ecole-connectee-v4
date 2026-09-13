@@ -1281,7 +1281,7 @@ document.querySelectorAll(".ec-menu-item")
 
 const targetButton = menuButtons.find(
 (button) =>
-button.textContent?.trim().endsWith(label)
+button.textContent?.includes(label)
 );
 
 if (targetButton) {
@@ -1311,7 +1311,6 @@ cursor: "pointer",
 }}
 title={`Ouvrir ${label}`}
 >
-
 <div className="ec-stat-icon">
 {icon}
 </div>
@@ -1320,7 +1319,6 @@ title={`Ouvrir ${label}`}
 <span>{label}</span>
 <strong>{value}</strong>
 </div>
-
 </div>
 );
 }
