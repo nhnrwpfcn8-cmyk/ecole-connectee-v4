@@ -1274,8 +1274,43 @@ icon,
 label,
 value,
 }) {
+function handleClick() {
+const menuButtons = Array.from(
+document.querySelectorAll(".ec-menu-item")
+);
+
+const targetButton = menuButtons.find(
+(button) =>
+button.textContent?.trim().endsWith(label)
+);
+
+if (targetButton) {
+targetButton.click();
+}
+}
+
+function handleKeyDown(event) {
+if (
+event.key === "Enter" ||
+event.key === " "
+) {
+event.preventDefault();
+handleClick();
+}
+}
+
 return (
-<div className="ec-stat-card">
+<div
+className="ec-stat-card"
+role="button"
+tabIndex={0}
+onClick={handleClick}
+onKeyDown={handleKeyDown}
+style={{
+cursor: "pointer",
+}}
+title={`Ouvrir ${label}`}
+>
 
 <div className="ec-stat-icon">
 {icon}
