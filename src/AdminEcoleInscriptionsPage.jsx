@@ -207,19 +207,16 @@ export default function AdminEcoleInscriptionsPage({
   try {
     setSearching(true);
 
-    // Normalisation de la recherche :
-    // permet de mieux gérer les majuscules, accents et espaces.
     const normalize = (text) =>
       String(text || "")
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
         .trim();
 
     const searchValue = normalize(value);
 
-    // On récupère uniquement les élèves
-    // appartenant à l'école de l'Admin connecté.
     const { data: students, error } = await supabase
       .from("students")
       .select(
@@ -250,38 +247,27 @@ export default function AdminEcoleInscriptionsPage({
       throw error;
     }
 
+    console.log("DIAGNOSTIC RECHERCHE ÉLÈVES");
+    console.log("schoolId reçu :", schoolId);
+    console.log("terme recherché :", value);
+    console.log("nombre d'élèves reçus :", students?.length || 0);
+    console.log("élèves reçus :", students);
+
     const filteredStudents = (students || []).filter(
       (student) => {
-        const firstName = normalize(
-          student.first_name
-        );
-
-        const lastName = normalize(
-          student.last_name
-        );
+        const firstName = normalize(student.first_name);
+        const lastName = normalize(student.last_name);
 
         const fullName = normalize(
-          `${student.first_name || ""} ${
-            student.last_name || ""
-          }`
+          `${student.first_name || ""} ${student.last_name || ""}`
         );
 
         const reverseName = normalize(
-          `${student.last_name || ""} ${
-            student.first_name || ""
-          }`
+          `${student.last_name || ""} ${student.first_name || ""}`
         );
 
-        const studentCode = normalize(
-          student.student_code
-        );
+        const studentCode = normalize(student.student_code);
 
-        // Recherche :
-        // Pierre
-        // Gomis
-        // Pierre Gomis
-        // Gomis Pierre
-        // ELV-BWDNAY
         return (
           firstName.includes(searchValue) ||
           lastName.includes(searchValue) ||
@@ -292,13 +278,18 @@ export default function AdminEcoleInscriptionsPage({
       }
     );
 
+    console.log(
+      "nombre de résultats après filtrage :",
+      filteredStudents.length
+    );
+    console.log(
+      "résultats :",
+      filteredStudents
+    );
+
     filteredStudents.sort((a, b) =>
-      `${a.last_name || ""} ${
-        a.first_name || ""
-      }`.localeCompare(
-        `${b.last_name || ""} ${
-          b.first_name || ""
-        }`,
+      `${a.last_name || ""} ${a.first_name || ""}`.localeCompare(
+        `${b.last_name || ""} ${b.first_name || ""}`,
         "fr",
         {
           sensitivity: "base",
@@ -307,11 +298,15 @@ export default function AdminEcoleInscriptionsPage({
     );
 
     setSearchResults(filteredStudents);
+
+    if (filteredStudents.length === 0) {
+      setSearchError(
+        `Aucun élève trouvé pour "${value}". ` +
+        `Diagnostic : ${students?.length || 0} élève(s) reçu(s) depuis Supabase.`
+      );
+    }
   } catch (err) {
-    console.error(
-      "Erreur recherche élève :",
-      err
-    );
+    console.error("Erreur recherche élève :", err);
 
     setSearchResults([]);
 
