@@ -31,6 +31,12 @@ export default function AdminEcoleInscriptionsPage({
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searchError, setSearchError] = useState("");
+  const [resettingPassword, setResettingPassword] = useState("");
+  const [generatedPasswords, setGeneratedPasswords] = useState({
+  student: "",
+  parent: "",
+});
+  const [passwordResetMessage, setPasswordResetMessage] = useState("");
 
   // Dossier élève
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -184,7 +190,75 @@ export default function AdminEcoleInscriptionsPage({
       setLoading(false);
     }
   }
+async function resetFamilyPassword(accountType, accountId) {
+  if (!accountId) {
+    setPasswordResetMessage(
+      "Impossible de déterminer le compte à modifier."
+    );
+    return;
+  }
 
+  const label =
+    accountType === "student"
+      ? "élève"
+      : "parent";
+
+  const confirmed = window.confirm(
+    `Voulez-vous vraiment générer un nouveau mot de passe pour ce ${label} ?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setResettingPassword(accountType);
+    setPasswordResetMessage("");
+
+    const { data, error } =
+      await supabase.functions.invoke(
+        "reset-family-password",
+        {
+          body: {
+            accountType,
+            accountId,
+          },
+        }
+      );
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data?.success || !data?.password) {
+      throw new Error(
+        data?.error ||
+          "Le nouveau mot de passe n'a pas pu être généré."
+      );
+    }
+
+    setGeneratedPasswords((current) => ({
+      ...current,
+      [accountType]: data.password,
+    }));
+
+    setPasswordResetMessage(
+      `Nouveau mot de passe ${label} généré avec succès.`
+    );
+  } catch (error) {
+    console.error(
+      "Erreur régénération mot de passe :",
+      error
+    );
+
+    setPasswordResetMessage(
+      error?.message ||
+        "Impossible de régénérer le mot de passe."
+    );
+  } finally {
+    setResettingPassword("");
+  }
+}
   async function searchStudents(term = searchTerm) {
   const value = term.trim();
 
@@ -858,41 +932,217 @@ export default function AdminEcoleInscriptionsPage({
               </p>
             </div>
                         {/* Identifiants de connexion */}
-            <div
-              style={{
-                padding: "20px",
-                borderRadius: "12px",
-                background:
-                  "rgba(148, 163, 184, 0.08)",
-              }}
-            >
-              <h4>
-                🔐 Identifiants de connexion
-              </h4>
+<div
+  style={{
+    padding: "20px",
+    borderRadius: "12px",
+    background:
+      "rgba(148, 163, 184, 0.08)",
+  }}
+>
+  <h4>
+    🔐 Identifiants de connexion
+  </h4>
 
-              <p>
-                <strong>Mail familial :</strong>{" "}
-                {selectedParent?.email ||
-                  "Non renseigné"}
-              </p>
+  <p>
+    <strong>Mail familial :</strong>{" "}
+    {selectedParent?.email ||
+      "Non renseigné"}
+  </p>
 
-              <p>
-                <strong>Identifiant élève :</strong>{" "}
-                {selectedStudent.login_identifier ||
-                  "Non renseigné"}
-              </p>
+  <p>
+    <strong>Identifiant élève :</strong>{" "}
+    {selectedStudent.login_identifier ||
+      "Non renseigné"}
+  </p>
 
-              <p>
-                <strong>Identifiant parent :</strong>{" "}
-                {selectedParent?.login_identifier ||
-                  "Non renseigné"}
-              </p>
+  <p>
+    <strong>Identifiant parent :</strong>{" "}
+    {selectedParent?.login_identifier ||
+      "Non renseigné"}
+  </p>
 
-              <p>
-                <strong>Mot de passe :</strong>{" "}
-                Créé lors de l'inscription
-              </p>
-            </div>
+  {/* Mot de passe élève */}
+  <div
+    style={{
+      marginTop: "18px",
+      paddingTop: "15px",
+      borderTop:
+        "1px solid rgba(148, 163, 184, 0.2)",
+    }}
+  >
+    <strong>
+      🔑 Mot de passe élève
+    </strong>
+
+    {generatedPasswords.student ? (
+      <div
+        style={{
+          marginTop: "8px",
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <code
+          style={{
+            padding: "8px 10px",
+            borderRadius: "8px",
+            background:
+              "rgba(15, 23, 42, 0.08)",
+            fontSize: "14px",
+          }}
+        >
+          {generatedPasswords.student}
+        </code>
+
+        <button
+          type="button"
+          className="ec-btn"
+          onClick={() =>
+            navigator.clipboard.writeText(
+              generatedPasswords.student
+            )
+          }
+        >
+          📋 Copier
+        </button>
+      </div>
+    ) : (
+      <p
+        style={{
+          marginTop: "8px",
+          marginBottom: "8px",
+        }}
+      >
+        Aucun nouveau mot de passe généré.
+      </p>
+    )}
+
+    <button
+      type="button"
+      className="ec-btn"
+      onClick={() =>
+        resetFamilyPassword(
+          "student",
+          selectedStudent.id
+        )
+      }
+      disabled={
+        resettingPassword === "student"
+      }
+      style={{
+        marginTop: "8px",
+      }}
+    >
+      {resettingPassword === "student"
+        ? "Génération..."
+        : "🔑 Nouveau mot de passe élève"}
+    </button>
+  </div>
+
+  {/* Mot de passe parent */}
+  <div
+    style={{
+      marginTop: "20px",
+      paddingTop: "15px",
+      borderTop:
+        "1px solid rgba(148, 163, 184, 0.2)",
+    }}
+  >
+    <strong>
+      🔑 Mot de passe parent
+    </strong>
+
+    {generatedPasswords.parent ? (
+      <div
+        style={{
+          marginTop: "8px",
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
+        <code
+          style={{
+            padding: "8px 10px",
+            borderRadius: "8px",
+            background:
+              "rgba(15, 23, 42, 0.08)",
+            fontSize: "14px",
+          }}
+        >
+          {generatedPasswords.parent}
+        </code>
+
+        <button
+          type="button"
+          className="ec-btn"
+          onClick={() =>
+            navigator.clipboard.writeText(
+              generatedPasswords.parent
+            )
+          }
+        >
+          📋 Copier
+        </button>
+      </div>
+    ) : (
+      <p
+        style={{
+          marginTop: "8px",
+          marginBottom: "8px",
+        }}
+      >
+        Aucun nouveau mot de passe généré.
+      </p>
+    )}
+
+    {selectedParent?.id ? (
+      <button
+        type="button"
+        className="ec-btn"
+        onClick={() =>
+          resetFamilyPassword(
+            "parent",
+            selectedParent.id
+          )
+        }
+        disabled={
+          resettingPassword === "parent"
+        }
+        style={{
+          marginTop: "8px",
+        }}
+      >
+        {resettingPassword === "parent"
+          ? "Génération..."
+          : "🔑 Nouveau mot de passe parent"}
+      </button>
+    ) : (
+      <p
+        style={{
+          marginTop: "8px",
+        }}
+      >
+        Aucun compte parent associé.
+      </p>
+    )}
+  </div>
+
+  {passwordResetMessage && (
+    <p
+      style={{
+        marginTop: "16px",
+        fontWeight: "600",
+      }}
+    >
+      {passwordResetMessage}
+    </p>
+  )}
+</div>
             {/* Adresse */}
             <div
               style={{
