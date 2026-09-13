@@ -857,7 +857,42 @@ export default function AdminEcoleInscriptionsPage({
                   "Non renseigné"}
               </p>
             </div>
+                        {/* Identifiants de connexion */}
+            <div
+              style={{
+                padding: "20px",
+                borderRadius: "12px",
+                background:
+                  "rgba(148, 163, 184, 0.08)",
+              }}
+            >
+              <h4>
+                🔐 Identifiants de connexion
+              </h4>
 
+              <p>
+                <strong>Mail familial :</strong>{" "}
+                {selectedParent?.email ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Identifiant élève :</strong>{" "}
+                {selectedStudent.login_identifier ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Identifiant parent :</strong>{" "}
+                {selectedParent?.login_identifier ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Mot de passe :</strong>{" "}
+                Créé lors de l'inscription
+              </p>
+            </div>
             {/* Adresse */}
             <div
               style={{
