@@ -2473,364 +2473,411 @@ FORMULAIRE ENSEIGNANT
 ========================================================= */
 
 function TeacherFormModal({
-schoolId,
-classes,
-subjects,
-onClose,
-onSuccess,
+  schoolId,
+  classes,
+  subjects,
+  onClose,
+  onSuccess,
 }) {
-const [name, setName] =
-useState("");
+  const [name, setName] =
+    useState("");
 
-const [email, setEmail] =
-useState("");
+  const [email, setEmail] =
+    useState("");
 
-const [password, setPassword] =
-useState("");
+  const [phone, setPhone] =
+    useState("");
 
-const [selectedClasses, setSelectedClasses] =
-useState([]);
+  const [password, setPassword] =
+    useState("");
 
-const [selectedSubjects, setSelectedSubjects] =
-useState([]);
+  const [selectedClasses, setSelectedClasses] =
+    useState([]);
 
-const [saving, setSaving] =
-useState(false);
+  const [selectedSubjects, setSelectedSubjects] =
+    useState([]);
 
-const [error, setError] =
-useState("");
+  const [saving, setSaving] =
+    useState(false);
 
-function toggleSelection(
-value,
-setter,
-current
-) {
-setter(
-current.includes(value)
-? current.filter(
-(item) =>
-item !== value
-)
-: [...current, value]
-);
-}
+  const [error, setError] =
+    useState("");
 
-async function handleSubmit(
-event
-) {
-event.preventDefault();
+  function toggleSelection(
+    value,
+    setter,
+    current
+  ) {
+    setter(
+      current.includes(value)
+        ? current.filter(
+            (item) =>
+              item !== value
+          )
+        : [...current, value]
+    );
+  }
 
-setError("");
+  async function handleSubmit(
+    event
+  ) {
+    event.preventDefault();
 
-const cleanName =
-name.trim();
+    setError("");
 
-const cleanEmail =
-email.trim().toLowerCase();
+    const cleanName =
+      name.trim();
 
-if (cleanName.length < 2) {
-setError(
-"Le nom de l'enseignant doit contenir au moins 2 caractères."
-);
-return;
-}
+    const cleanEmail =
+      email.trim().toLowerCase();
 
-if (
-!cleanEmail.includes("@") ||
-!cleanEmail.includes(".")
-) {
-setError(
-"Veuillez saisir une adresse email valide."
-);
-return;
-}
+    const cleanPhone =
+      phone.trim();
 
-if (password.length < 6) {
-setError(
-"Le mot de passe doit contenir au moins 6 caractères."
-);
-return;
-}
+    if (cleanName.length < 2) {
+      setError(
+        "Le nom de l'enseignant doit contenir au moins 2 caractères."
+      );
+      return;
+    }
 
-setSaving(true);
+    if (
+      !cleanEmail.includes("@") ||
+      !cleanEmail.includes(".")
+    ) {
+      setError(
+        "Veuillez saisir une adresse email valide."
+      );
+      return;
+    }
 
-try {
-const {
-data: { session },
-error: sessionError,
-} =
-await supabase.auth.getSession();
+    if (!cleanPhone) {
+      setError(
+        "Veuillez saisir le numéro de téléphone de l'enseignant."
+      );
+      return;
+    }
 
-if (
-sessionError ||
-!session
-) {
-throw new Error(
-"Votre session a expiré."
-);
-}
+    if (password.length < 6) {
+      setError(
+        "Le mot de passe doit contenir au moins 6 caractères."
+      );
+      return;
+    }
 
-const {
-data,
-error: functionError,
-} =
-await supabase.functions.invoke(
-"create-teacher",
-{
-body: {
-name: cleanName,
-email: cleanEmail,
-password,
-school_id: schoolId,
-},
-headers: {
-Authorization: `Bearer ${session.access_token}`,
-},
-}
-);
+    setSaving(true);
 
-if (functionError) {
-throw new Error(
-functionError.message ||
-"Impossible de créer l'enseignant."
-);
-}
+    try {
+      const {
+        data: {
+          session,
+        },
+        error: sessionError,
+      } =
+        await supabase.auth.getSession();
 
-if (data?.error) {
-throw new Error(
-data.error
-);
-}
+      if (
+        sessionError ||
+        !session
+      ) {
+        throw new Error(
+          "Votre session a expiré."
+        );
+      }
 
-if (!data?.success) {
-throw new Error(
-"La création de l'enseignant n'a pas abouti."
-);
-}
+      const {
+        data,
+        error: functionError,
+      } =
+        await supabase.functions.invoke(
+          "create-teacher",
+          {
+            body: {
+              name: cleanName,
+              email: cleanEmail,
+              phone: cleanPhone,
+              password,
+              school_id: schoolId,
+            },
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
 
-const teacherId =
-data?.teacher?.id;
+      if (functionError) {
+        throw new Error(
+          functionError.message ||
+            "Impossible de créer l'enseignant."
+        );
+      }
 
-if (!teacherId) {
-throw new Error(
-"L'enseignant a été créé mais son identifiant est introuvable."
-);
-}
+      if (data?.error) {
+        throw new Error(
+          data.error
+        );
+      }
 
-if (
-selectedClasses.length > 0
-) {
-const classRows =
-selectedClasses.map(
-(classId) => ({
-teacher_id:
-teacherId,
-class_id:
-classId,
-})
-);
+      if (!data?.success) {
+        throw new Error(
+          "La création de l'enseignant n'a pas abouti."
+        );
+      }
 
-const {
-error: classError,
-} =
-await supabase
-.from("teacher_classes")
-.insert(classRows);
+      const teacherId =
+        data?.teacher?.id;
 
-if (classError) {
-console.error(
-"Erreur affectation classes :",
-classError
-);
-}
-}
+      if (!teacherId) {
+        throw new Error(
+          "L'enseignant a été créé mais son identifiant est introuvable."
+        );
+      }
 
-if (
-selectedSubjects.length > 0
-) {
-const subjectRows =
-selectedSubjects.map(
-(subjectId) => ({
-teacher_id:
-teacherId,
-subject_id:
-Number(subjectId),
-})
-);
+      /* =====================================================
+         AFFECTATION CLASSES
+      ===================================================== */
 
-const {
-error: subjectError,
-} =
-await supabase
-.from("teacher_subjects")
-.insert(subjectRows);
+      if (
+        selectedClasses.length > 0
+      ) {
+        const classRows =
+          selectedClasses.map(
+            (classId) => ({
+              teacher_id:
+                teacherId,
+              class_id:
+                classId,
+            })
+          );
 
-if (subjectError) {
-console.error(
-"Erreur affectation matières :",
-subjectError
-);
-}
-}
+        const {
+          error: classError,
+        } =
+          await supabase
+            .from(
+              "teacher_classes"
+            )
+            .insert(classRows);
 
-alert(
-"Enseignant créé avec succès !"
-);
+        if (classError) {
+          console.error(
+            "Erreur affectation classes :",
+            classError
+          );
+        }
+      }
 
-await onSuccess();
+      /* =====================================================
+         AFFECTATION MATIERES
+      ===================================================== */
 
-} catch (error) {
-console.error(
-"Erreur création enseignant:",
-error
-);
+      if (
+        selectedSubjects.length > 0
+      ) {
+        const subjectRows =
+          selectedSubjects.map(
+            (subjectId) => ({
+              teacher_id:
+                teacherId,
+              subject_id:
+                Number(subjectId),
+            })
+          );
 
-setError(
-error.message ||
-"Une erreur est survenue."
-);
-} finally {
-setSaving(false);
-}
-}
+        const {
+          error: subjectError,
+        } =
+          await supabase
+            .from(
+              "teacher_subjects"
+            )
+            .insert(
+              subjectRows
+            );
 
-return (
-<div
-className="ec-modal-overlay"
-onMouseDown={(event) => {
-if (
-event.target ===
-event.currentTarget
-) {
-onClose();
-}
-}}
->
+        if (subjectError) {
+          console.error(
+            "Erreur affectation matières :",
+            subjectError
+          );
+        }
+      }
 
-<div className="ec-modal">
+      alert(
+        "Enseignant créé avec succès !"
+      );
 
-<div className="ec-modal-header">
+      await onSuccess();
 
-<div>
-<span className="ec-eyebrow">
-NOUVEL ENSEIGNANT
-</span>
+    } catch (error) {
+      console.error(
+        "Erreur création enseignant:",
+        error
+      );
 
-<h2>
-Ajouter un enseignant
-</h2>
+      setError(
+        error.message ||
+          "Une erreur est survenue."
+      );
 
-<p>
-Créez le compte et préparez ses affectations.
-</p>
-</div>
+    } finally {
+      setSaving(false);
+    }
+  }
 
-<button
-className="ec-modal-close"
-onClick={onClose}
->
-×
-</button>
+  return (
+    <div
+      className="ec-modal-overlay"
+      onMouseDown={(event) => {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
+    >
 
-</div>
+      <div className="ec-modal">
 
-<form
-className="ec-form"
-onSubmit={handleSubmit}
->
+        <div className="ec-modal-header">
 
-{error && (
-<div className="ec-form-error">
-⚠️ {error}
-</div>
-)}
+          <div>
+            <span className="ec-eyebrow">
+              NOUVEL ENSEIGNANT
+            </span>
 
-<FormInput
-label="Nom complet"
-placeholder="Ex : Sophia Ndiaye"
-value={name}
-onChange={setName}
-disabled={saving}
-/>
+            <h2>
+              Ajouter un enseignant
+            </h2>
 
-<FormInput
-label="Email"
-type="email"
-placeholder="enseignant@ecole.com"
-value={email}
-onChange={setEmail}
-disabled={saving}
-/>
+            <p>
+              Créez le compte et préparez ses affectations.
+            </p>
+          </div>
 
-<FormInput
-label="Mot de passe"
-type="password"
-placeholder="Minimum 6 caractères"
-value={password}
-onChange={setPassword}
-disabled={saving}
-/>
+          <button
+            className="ec-modal-close"
+            onClick={onClose}
+          >
+            ×
+          </button>
 
-<MultiSelectBox
-label="Classes"
-items={classes}
-selected={selectedClasses}
-onToggle={(id) =>
-toggleSelection(
-id,
-setSelectedClasses,
-selectedClasses
-)
-}
-getId={(item) =>
-item.id
-}
-getLabel={(item) =>
-`${item.name}${item.level ? ` — ${item.level}` : ""}`
-}
-emptyText="Aucune classe disponible."
-/>
+        </div>
 
-<MultiSelectBox
-label="Matières"
-items={subjects}
-selected={selectedSubjects}
-onToggle={(id) =>
-toggleSelection(
-id,
-setSelectedSubjects,
-selectedSubjects
-)
-}
-getId={(item) =>
-String(item.id)
-}
-getLabel={(item) =>
-item.name
-}
-emptyText="Aucune matière disponible."
-/>
+        <form
+          className="ec-form"
+          onSubmit={handleSubmit}
+        >
 
-<div className="ec-form-info">
-<span>🔐</span>
-<p>
-Le compte sera créé avec le rôle
-<strong> Enseignant</strong>.
-</p>
-</div>
+          {error && (
+            <div className="ec-form-error">
+              ⚠️ {error}
+            </div>
+          )}
 
-<ModalActions
-onClose={onClose}
-saving={saving}
-submitText="Créer l'enseignant"
-/>
+          <FormInput
+            label="Nom complet"
+            placeholder="Ex : Sophia Ndiaye"
+            value={name}
+            onChange={setName}
+            disabled={saving}
+          />
 
-</form>
+          <FormInput
+            label="Email"
+            type="email"
+            placeholder="enseignant@ecole.com"
+            value={email}
+            onChange={setEmail}
+            disabled={saving}
+          />
 
-</div>
+          <FormInput
+            label="Numéro de téléphone"
+            type="tel"
+            placeholder="Ex : 77 123 45 67"
+            value={phone}
+            onChange={setPhone}
+            disabled={saving}
+          />
 
-</div>
-);
+          <FormInput
+            label="Mot de passe"
+            type="password"
+            placeholder="Minimum 6 caractères"
+            value={password}
+            onChange={setPassword}
+            disabled={saving}
+          />
+
+          <MultiSelectBox
+            label="Classes"
+            items={classes}
+            selected={selectedClasses}
+            onToggle={(id) =>
+              toggleSelection(
+                id,
+                setSelectedClasses,
+                selectedClasses
+              )
+            }
+            getId={(item) =>
+              item.id
+            }
+            getLabel={(item) =>
+              `${item.name}${
+                item.level
+                  ? ` — ${item.level}`
+                  : ""
+              }`
+            }
+            emptyText="Aucune classe disponible."
+          />
+
+          <MultiSelectBox
+            label="Matières"
+            items={subjects}
+            selected={selectedSubjects}
+            onToggle={(id) =>
+              toggleSelection(
+                id,
+                setSelectedSubjects,
+                selectedSubjects
+              )
+            }
+            getId={(item) =>
+              String(item.id)
+            }
+            getLabel={(item) =>
+              item.name
+            }
+            emptyText="Aucune matière disponible."
+          />
+
+          <div className="ec-form-info">
+            <span>🔐</span>
+
+            <p>
+              Le compte sera créé avec le rôle
+              <strong>
+                {" "}Enseignant
+              </strong>.
+            </p>
+          </div>
+
+          <ModalActions
+            onClose={onClose}
+            saving={saving}
+            submitText="Créer l'enseignant"
+          />
+
+        </form>
+
+      </div>
+
+    </div>
+  );
 }
 
 /* =========================================================
