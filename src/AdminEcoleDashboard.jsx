@@ -251,33 +251,95 @@ ENSEIGNANTS
 --------------------------------------------------------- */
 
 async function loadTeachers(schoolId) {
-if (!schoolId) return;
+  if (!schoolId) return;
 
-const { data, error } = await supabase
-.from("teachers")
-.select(
-`
-id,
-school_id,
-display_name,
-active,
-created_at
-`
-)
-.eq("school_id", schoolId)
-.order("display_name", {
-ascending: true,
-});
+  const { data, error } = await supabase
+    .from("teachers")
+    .select(`
+      id,
+      school_id,
+      display_name,
+      active,
+      created_at
+    `)
+    .eq("school_id", schoolId)
+    .order("display_name", {
+      ascending: true,
+    });
 
-if (error) {
-console.error(
-"Erreur chargement enseignants :",
-error
-);
-return;
-}
+  if (error) {
+    console.error(
+      "Erreur chargement enseignants :",
+      error
+    );
+    return;
+  }
 
-setTeachers(data || []);
+  const teachersData = data || [];
+
+  // Récupération des informations complémentaires
+  // depuis les profils correspondants.
+  const teacherIds = teachersData.map(
+    (teacher) => teacher.id
+  );
+
+  let profilesData = [];
+
+  if (teacherIds.length > 0) {
+    const {
+      data: profileRows,
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .select(`
+        id,
+        full_name,
+        phone,
+        username,
+        active,
+        school_id
+      `)
+      .eq("school_id", schoolId)
+      .in("id", teacherIds);
+
+    if (profileError) {
+      console.error(
+        "Erreur chargement profils enseignants :",
+        profileError
+      );
+    } else {
+      profilesData = profileRows || [];
+    }
+  }
+
+  const mergedTeachers = teachersData.map(
+    (teacher) => {
+      const profile = profilesData.find(
+        (item) => item.id === teacher.id
+      );
+
+      return {
+        ...teacher,
+        full_name:
+          profile?.full_name ||
+          teacher.display_name ||
+          "Nom non renseigné",
+
+        phone:
+          profile?.phone ||
+          "",
+
+        email:
+          profile?.username ||
+          "",
+
+        profile_active:
+          profile?.active ?? teacher.active,
+      };
+    }
+  );
+
+  setTeachers(mergedTeachers);
 }
 
 /* ---------------------------------------------------------
@@ -286,35 +348,100 @@ MODULE CONSERVÉ
 --------------------------------------------------------- */
 
 async function loadSecretaries(schoolId) {
-if (!schoolId) return;
+  if (!schoolId) return;
 
-const { data, error } = await supabase
-.from("secretaries")
-.select(
-`
-id,
-school_id,
-display_name,
-email,
-active,
-created_at,
-updated_at
-`
-)
-.eq("school_id", schoolId)
-.order("display_name", {
-ascending: true,
-});
+  const { data, error } = await supabase
+    .from("secretaries")
+    .select(`
+      id,
+      school_id,
+      display_name,
+      email,
+      active,
+      created_at,
+      updated_at
+    `)
+    .eq("school_id", schoolId)
+    .order("display_name", {
+      ascending: true,
+    });
 
-if (error) {
-console.error(
-"Erreur chargement secrétaires :",
-error
-);
-return;
-}
+  if (error) {
+    console.error(
+      "Erreur chargement secrétaires :",
+      error
+    );
+    return;
+  }
 
-setSecretaries(data || []);
+  const secretariesData = data || [];
+
+  // Récupération des téléphones depuis profiles.
+  const secretaryIds = secretariesData.map(
+    (secretary) => secretary.id
+  );
+
+  let profilesData = [];
+
+  if (secretaryIds.length > 0) {
+    const {
+      data: profileRows,
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .select(`
+        id,
+        full_name,
+        phone,
+        username,
+        active,
+        school_id
+      `)
+      .eq("school_id", schoolId)
+      .in("id", secretaryIds);
+
+    if (profileError) {
+      console.error(
+        "Erreur chargement profils secrétaires :",
+        profileError
+      );
+    } else {
+      profilesData = profileRows || [];
+    }
+  }
+
+  const mergedSecretaries =
+    secretariesData.map((secretary) => {
+      const profile = profilesData.find(
+        (item) => item.id === secretary.id
+      );
+
+      return {
+        ...secretary,
+
+        full_name:
+          profile?.full_name ||
+          secretary.display_name ||
+          "Nom non renseigné",
+
+        phone:
+          profile?.phone ||
+          "",
+
+        profile_active:
+          profile?.active ??
+          secretary.active,
+
+        // L'email de la table secretaries
+        // reste prioritaire.
+        email:
+          secretary.email ||
+          profile?.username ||
+          "",
+      };
+    });
+
+  setSecretaries(mergedSecretaries);
 }
 
 /* ---------------------------------------------------------
@@ -1040,249 +1167,364 @@ VUE D'ENSEMBLE
 ========================================================= */
 
 function OverviewPage({
-school,
-stats,
-teachers,
-secretaries,
+  school,
+  stats,
+  teachers,
+  secretaries,
 }) {
-return (
-<div className="ec-page">
+  const [teamSearch, setTeamSearch] =
+    useState("");
 
-<div className="ec-welcome">
+  const normalizedSearch =
+    teamSearch.trim().toLowerCase();
 
-<div>
-<span className="ec-eyebrow">
-TABLEAU DE BORD
-</span>
+  const matchingTeachers =
+    normalizedSearch === ""
+      ? []
+      : teachers.filter((teacher) =>
+          (
+            teacher.full_name ||
+            teacher.display_name ||
+            ""
+          )
+            .toLowerCase()
+            .includes(normalizedSearch)
+        );
 
-<h2>
-Bienvenue dans votre espace administratif 👋
-</h2>
+  const matchingSecretaries =
+    normalizedSearch === ""
+      ? []
+      : secretaries.filter((secretary) =>
+          (
+            secretary.full_name ||
+            secretary.display_name ||
+            ""
+          )
+            .toLowerCase()
+            .includes(normalizedSearch)
+        );
 
-<p>
-Gérez votre établissement depuis un seul espace.
-</p>
-</div>
+  const matchingTeam = [
+    ...matchingTeachers.map((teacher) => ({
+      ...teacher,
+      team_role: "Enseignant",
+    })),
 
-<div className="ec-date-card">
-<span>
-Aujourd'hui
-</span>
+    ...matchingSecretaries.map((secretary) => ({
+      ...secretary,
+      team_role: "Secrétaire",
+    })),
+  ];
 
-<strong>
-{formatDate(new Date())}
-</strong>
-</div>
+  return (
+    <div className="ec-page">
 
-</div>
+      <div className="ec-welcome">
 
-<div className="ec-stats-grid">
+        <div>
+          <span className="ec-eyebrow">
+            TABLEAU DE BORD
+          </span>
 
-<StatCard
-icon="👨‍🏫"
-label="Enseignants"
-value={stats.teachers}
-/>
+          <h2>
+            Bienvenue dans votre espace administratif 👋
+          </h2>
 
-<StatCard
-icon="🗂️"
-label="Secrétaires"
-value={stats.secretaries}
-/>
+          <p>
+            Gérez votre établissement depuis un seul espace.
+          </p>
+        </div>
 
-<StatCard
-icon="🎓"
-label="Élèves"
-value={stats.students}
-/>
+        <div className="ec-date-card">
+          <span>
+            Aujourd'hui
+          </span>
 
-<StatCard
-icon="👨‍👩‍👧"
-label="Parents"
-value={stats.parents}
-/>
+          <strong>
+            {formatDate(new Date())}
+          </strong>
+        </div>
 
-<StatCard
-icon="🏫"
-label="Classes"
-value={stats.classes}
-/>
+      </div>
 
-<StatCard
-icon="📚"
-label="Matières"
-value={stats.subjects}
-/>
+      <div className="ec-stats-grid">
 
-</div>
+        <StatCard
+          icon="👨‍🏫"
+          label="Enseignants"
+          value={stats.teachers}
+        />
 
-<div className="ec-dashboard-grid">
+        <StatCard
+          icon="🗂️"
+          label="Secrétaires"
+          value={stats.secretaries}
+        />
 
-<div className="ec-panel">
+        <StatCard
+          icon="🎓"
+          label="Élèves"
+          value={stats.students}
+        />
 
-<div className="ec-panel-header">
-<div>
-<h3>
-Établissement
-</h3>
+        <StatCard
+          icon="👨‍👩‍👧"
+          label="Parents"
+          value={stats.parents}
+        />
 
-<p>
-Informations principales
-</p>
-</div>
+        <StatCard
+          icon="🏫"
+          label="Classes"
+          value={stats.classes}
+        />
 
-<span className="ec-status">
-● Actif
-</span>
-</div>
+        <StatCard
+          icon="📚"
+          label="Matières"
+          value={stats.subjects}
+        />
 
-<div className="ec-school-info">
+      </div>
 
-<div className="ec-school-large">
-{getInitial(
-school?.name,
-"E"
-)}
-</div>
+      <div className="ec-dashboard-grid">
 
-<div>
-<h3>
-{school?.name ||
-"École Connectée"}
-</h3>
+        {/* ÉTABLISSEMENT */}
 
-<p>
-📍{" "}
-{school?.address ||
-"Adresse non renseignée"}
-</p>
+        <div className="ec-panel">
 
-<p>
-📞{" "}
-{school?.phone ||
-"Téléphone non renseigné"}
-</p>
+          <div className="ec-panel-header">
 
-<p>
-✉️{" "}
-{school?.email ||
-"Email non renseigné"}
-</p>
-</div>
+            <div>
+              <h3>
+                Établissement
+              </h3>
 
-</div>
+              <p>
+                Informations principales
+              </p>
+            </div>
 
-</div>
+            <span className="ec-status">
+              ● Actif
+            </span>
 
-<div className="ec-panel">
+          </div>
 
-<div className="ec-panel-header">
-<div>
-<h3>
-Équipe administrative
-</h3>
+          <div className="ec-school-info">
 
-<p>
-Personnel actuellement enregistré
-</p>
-</div>
-</div>
+            <div className="ec-school-large">
+              {getInitial(
+                school?.name,
+                "E"
+              )}
+            </div>
 
-<div className="ec-team-list">
+            <div>
 
-{teachers.slice(0, 3).map(
-(teacher) => (
-<div
-className="ec-team-row"
-key={teacher.id}
->
+              <h3>
+                {school?.name ||
+                  "École Connectée"}
+              </h3>
 
-<div className="ec-avatar teacher">
-{getInitial(
-teacher.display_name
-)}
-</div>
+              <p>
+                📍{" "}
+                {school?.address ||
+                  "Adresse non renseignée"}
+              </p>
 
-<div>
-<strong>
-{teacher.display_name}
-</strong>
+              <p>
+                📞{" "}
+                {school?.phone ||
+                  "Téléphone non renseigné"}
+              </p>
 
-<span>
-Enseignant
-</span>
-</div>
+              <p>
+                ✉️{" "}
+                {school?.email ||
+                  "Email non renseigné"}
+              </p>
 
-<span
-className={
-teacher.active
-? "ec-badge success"
-: "ec-badge danger"
-}
->
-{teacher.active
-? "Actif"
-: "Inactif"}
-</span>
+            </div>
 
-</div>
-)
-)}
+          </div>
 
-{secretaries.slice(0, 3).map(
-(secretary) => (
-<div
-className="ec-team-row"
-key={secretary.id}
->
+        </div>
 
-<div className="ec-avatar secretary">
-{getInitial(
-secretary.display_name,
-"S"
-)}
-</div>
 
-<div>
-<strong>
-{secretary.display_name}
-</strong>
+        {/* RECHERCHE ÉQUIPE ADMINISTRATIVE */}
 
-<span>
-Secrétaire
-</span>
-</div>
+        <div className="ec-panel">
 
-<span
-className={
-secretary.active
-? "ec-badge success"
-: "ec-badge danger"
-}
->
-{secretary.active
-? "Actif"
-: "Inactif"}
-</span>
+          <div className="ec-panel-header">
 
-</div>
-)
-)}
+            <div>
+              <h3>
+                Équipe administrative
+              </h3>
 
-{teachers.length === 0 &&
-secretaries.length === 0 && (
-<div className="ec-empty">
-Aucun membre du personnel enregistré.
-</div>
-)}
+              <p>
+                Rechercher un enseignant ou un secrétaire
+              </p>
+            </div>
 
-</div>
+          </div>
 
-</div>
 
-</div>
-</div>
-);
+          {/* BARRE DE RECHERCHE */}
+
+          <div
+            style={{
+              marginBottom: "18px",
+            }}
+          >
+
+            <input
+              type="text"
+              value={teamSearch}
+              onChange={(event) =>
+                setTeamSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Rechercher par nom..."
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                border: "1px solid #d1d5db",
+                borderRadius: "10px",
+                fontSize: "14px",
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+
+          </div>
+
+
+          {/* AVANT RECHERCHE */}
+
+          {teamSearch.trim() === "" && (
+            <div className="ec-empty">
+              Saisissez le nom d'un membre de l'équipe
+              pour afficher ses informations.
+            </div>
+          )}
+
+
+          {/* AUCUN RÉSULTAT */}
+
+          {teamSearch.trim() !== "" &&
+            matchingTeam.length === 0 && (
+              <div className="ec-empty">
+                Aucun membre trouvé.
+              </div>
+            )}
+
+
+          {/* RÉSULTATS */}
+
+          {matchingTeam.length > 0 && (
+            <div className="ec-team-list">
+
+              {matchingTeam.map((member) => {
+
+                const isActive =
+                  member.profile_active ??
+                  member.active;
+
+                return (
+                  <div
+                    className="ec-team-row"
+                    key={`${member.team_role}-${member.id}`}
+                    style={{
+                      alignItems: "flex-start",
+                      gap: "12px",
+                    }}
+                  >
+
+                    {/* AVATAR */}
+
+                    <div
+                      className={
+                        member.team_role ===
+                        "Enseignant"
+                          ? "ec-avatar teacher"
+                          : "ec-avatar secretary"
+                      }
+                    >
+                      {getInitial(
+                        member.full_name ||
+                          member.display_name,
+                        member.team_role ===
+                          "Enseignant"
+                          ? "E"
+                          : "S"
+                      )}
+                    </div>
+
+
+                    {/* INFORMATIONS */}
+
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+
+                      <strong>
+                        {member.full_name ||
+                          member.display_name ||
+                          "Nom non renseigné"}
+                      </strong>
+
+                      <span>
+                        {member.team_role}
+                      </span>
+
+                      <span>
+                        📞{" "}
+                        {member.phone ||
+                          "Téléphone non renseigné"}
+                      </span>
+
+                      <span>
+                        ✉️{" "}
+                        {member.email ||
+                          "Email non renseigné"}
+                      </span>
+
+                    </div>
+
+
+                    {/* STATUT */}
+
+                    <span
+                      className={
+                        isActive
+                          ? "ec-badge success"
+                          : "ec-badge danger"
+                      }
+                    >
+                      {isActive
+                        ? "Actif"
+                        : "Inactif"}
+                    </span>
+
+                  </div>
+                );
+              })}
+
+            </div>
+          )}
+
+        </div>
+
+      </div>
+
+    </div>
+  );
 }
 
 /* =========================================================
