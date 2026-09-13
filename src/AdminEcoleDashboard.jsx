@@ -12,7 +12,7 @@ const MENU = [
 { id: "teachers", label: "Enseignants", icon: "👨‍🏫" },
 { id: "secretaries", label: "Secrétaires", icon: "🗂️" },
 { id: "secretary_tracking", label: "Suivi secrétaire", icon: "📋" },
-{ id: "students", label: "Élèves", icon: "🎓" },
+{ id: "students", label: "Élèves", icon: "🎓" }, { id: "inscriptions", label: "Inscriptions", icon: "📝" },
 { id: "parents", label: "Parents", icon: "👨‍👩‍👧" },
 { id: "classes", label: "Classes", icon: "🏫" },
 { id: "subjects", label: "Matières", icon: "📚" },
@@ -762,7 +762,13 @@ refreshAll(schoolId)
 }
 />
 );
-
+case "inscriptions":
+  return (
+    <AdminEcoleInscriptionsPage
+      schoolId={schoolId}
+      classes={classes}
+    />
+  );
 case "parents":
 return (
 <ParentsPage
