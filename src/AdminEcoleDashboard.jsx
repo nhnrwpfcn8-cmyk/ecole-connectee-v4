@@ -1914,248 +1914,250 @@ FORMULAIRE SECRÉTAIRE
 ========================================================= */
 
 function SecretaryFormModal({
-schoolId,
-onClose,
-onSuccess,
+  schoolId,
+  onClose,
+  onSuccess,
 }) {
-const [name, setName] =
-useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
 
-const [email, setEmail] =
-useState("");
+  const [saving, setSaving] = useState(false);
+  const [stampFile, setStampFile] = useState(null);
+  const [signatureFile, setSignatureFile] = useState(null);
+  const [stampPreview, setStampPreview] = useState("");
+  const [signaturePreview, setSignaturePreview] = useState("");
+  const [brandingSaving, setBrandingSaving] = useState(false);
+  const [error, setError] = useState("");
 
-const [password, setPassword] =
-useState("");
+  async function handleSubmit(event) {
+    event.preventDefault();
 
-const [saving, setSaving] =
-useState(false);
-const [stampFile, setStampFile] = useState(null);
-const [signatureFile, setSignatureFile] = useState(null);
-const [stampPreview, setStampPreview] = useState("");
-const [signaturePreview, setSignaturePreview] = useState("");
-const [brandingSaving, setBrandingSaving] = useState(false);
-const [error, setError] =
-useState("");
+    setError("");
 
-async function handleSubmit(
-event
-) {
-event.preventDefault();
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.trim();
 
-setError("");
+    if (cleanName.length < 2) {
+      setError(
+        "Le nom du secrétaire doit contenir au moins 2 caractères."
+      );
+      return;
+    }
 
-const cleanName =
-name.trim();
+    if (
+      !cleanEmail.includes("@") ||
+      !cleanEmail.includes(".")
+    ) {
+      setError(
+        "Veuillez saisir une adresse email valide."
+      );
+      return;
+    }
 
-const cleanEmail =
-email.trim().toLowerCase();
+    if (!cleanPhone) {
+      setError(
+        "Veuillez saisir le numéro de téléphone du secrétaire."
+      );
+      return;
+    }
 
-if (cleanName.length < 2) {
-setError(
-"Le nom du secrétaire doit contenir au moins 2 caractères."
-);
-return;
-}
+    if (password.length < 6) {
+      setError(
+        "Le mot de passe doit contenir au moins 6 caractères."
+      );
+      return;
+    }
 
-if (
-!cleanEmail.includes("@") ||
-!cleanEmail.includes(".")
-) {
-setError(
-"Veuillez saisir une adresse email valide."
-);
-return;
-}
+    setSaving(true);
 
-if (password.length < 6) {
-setError(
-"Le mot de passe doit contenir au moins 6 caractères."
-);
-return;
-}
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
 
-setSaving(true);
+      if (
+        sessionError ||
+        !session
+      ) {
+        throw new Error(
+          "Votre session a expiré. Veuillez vous reconnecter."
+        );
+      }
 
-try {
-const {
-data: { session },
-error: sessionError,
-} =
-await supabase.auth.getSession();
+      const {
+        data,
+        error: functionError,
+      } =
+        await supabase.functions.invoke(
+          "create-secretary",
+          {
+            body: {
+              name: cleanName,
+              email: cleanEmail,
+              phone: cleanPhone,
+              password,
+              school_id: schoolId,
+            },
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
 
-if (
-sessionError ||
-!session
-) {
-throw new Error(
-"Votre session a expiré. Veuillez vous reconnecter."
-);
-}
+      if (functionError) {
+        console.error(
+          "Erreur Edge Function create-secretary:",
+          functionError
+        );
 
-const {
-data,
-error: functionError,
-} =
-await supabase.functions.invoke(
-"create-secretary",
-{
-body: {
-name: cleanName,
-email: cleanEmail,
-password,
-school_id: schoolId,
-},
-headers: {
-Authorization: `Bearer ${session.access_token}`,
-},
-}
-);
+        throw new Error(
+          functionError.message ||
+            "Impossible de créer le secrétaire."
+        );
+      }
 
-if (functionError) {
-console.error(
-"Erreur Edge Function create-secretary:",
-functionError
-);
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
-throw new Error(
-functionError.message ||
-"Impossible de créer le secrétaire."
-);
-}
+      if (!data?.success) {
+        throw new Error(
+          "La création du secrétaire n'a pas abouti."
+        );
+      }
 
-if (data?.error) {
-throw new Error(
-data.error
-);
-}
+      alert(
+        "Secrétaire créé avec succès !"
+      );
 
-if (!data?.success) {
-throw new Error(
-"La création du secrétaire n'a pas abouti."
-);
-}
+      await onSuccess();
 
-alert(
-"Secrétaire créé avec succès !"
-);
+    } catch (error) {
+      console.error(
+        "Erreur création secrétaire:",
+        error
+      );
 
-await onSuccess();
+      setError(
+        error.message ||
+          "Une erreur est survenue lors de la création."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
-} catch (error) {
-console.error(
-"Erreur création secrétaire:",
-error
-);
+  return (
+    <div
+      className="ec-modal-overlay"
+      onMouseDown={(event) => {
+        if (
+          event.target ===
+          event.currentTarget
+        ) {
+          onClose();
+        }
+      }}
+    >
+      <div className="ec-modal">
 
-setError(
-error.message ||
-"Une erreur est survenue lors de la création."
-);
-} finally {
-setSaving(false);
-}
-}
+        <div className="ec-modal-header">
 
-return (
-<div
-className="ec-modal-overlay"
-onMouseDown={(event) => {
-if (
-event.target ===
-event.currentTarget
-) {
-onClose();
-}
-}}
->
+          <div>
+            <span className="ec-eyebrow">
+              NOUVEAU COMPTE
+            </span>
 
-<div className="ec-modal">
+            <h2>
+              Ajouter un secrétaire
+            </h2>
 
-<div className="ec-modal-header">
+            <p>
+              Créez un compte pour le secrétariat de votre école.
+            </p>
+          </div>
 
-<div>
-<span className="ec-eyebrow">
-NOUVEAU COMPTE
-</span>
+          <button
+            className="ec-modal-close"
+            onClick={onClose}
+          >
+            ×
+          </button>
 
-<h2>
-Ajouter un secrétaire
-</h2>
+        </div>
 
-<p>
-Créez un compte pour le secrétariat de votre école.
-</p>
-</div>
+        <form
+          className="ec-form"
+          onSubmit={handleSubmit}
+        >
 
-<button
-className="ec-modal-close"
-onClick={onClose}
->
-×
-</button>
+          {error && (
+            <div className="ec-form-error">
+              ⚠️ {error}
+            </div>
+          )}
 
-</div>
+          <FormInput
+            label="Nom complet"
+            placeholder="Ex : Fatou Ndiaye"
+            value={name}
+            onChange={setName}
+            disabled={saving}
+          />
 
-<form
-className="ec-form"
-onSubmit={handleSubmit}
->
+          <FormInput
+            label="Adresse email"
+            type="email"
+            placeholder="Ex : secretaire@ecole.com"
+            value={email}
+            onChange={setEmail}
+            disabled={saving}
+          />
 
-{error && (
-<div className="ec-form-error">
-⚠️ {error}
-</div>
-)}
+          <FormInput
+            label="Numéro de téléphone"
+            type="tel"
+            placeholder="Ex : 77 123 45 67"
+            value={phone}
+            onChange={setPhone}
+            disabled={saving}
+          />
 
-<FormInput
-label="Nom complet"
-placeholder="Ex : Fatou Ndiaye"
-value={name}
-onChange={setName}
-disabled={saving}
-/>
+          <FormInput
+            label="Mot de passe"
+            type="password"
+            placeholder="Minimum 6 caractères"
+            value={password}
+            onChange={setPassword}
+            disabled={saving}
+          />
 
-<FormInput
-label="Adresse email"
-type="email"
-placeholder="Ex : secretaire@ecole.com"
-value={email}
-onChange={setEmail}
-disabled={saving}
-/>
+          <div className="ec-form-info">
 
-<FormInput
-label="Mot de passe"
-type="password"
-placeholder="Minimum 6 caractères"
-value={password}
-onChange={setPassword}
-disabled={saving}
-/>
+            <span>🔐</span>
 
-<div className="ec-form-info">
+            <p>
+              Le compte sera automatiquement associé à votre établissement avec le rôle
+              <strong> Secrétaire</strong>.
+            </p>
 
-<span>🔐</span>
+          </div>
 
-<p>
-Le compte sera automatiquement associé à votre établissement avec le rôle
-<strong> Secrétaire</strong>.
-</p>
+          <ModalActions
+            onClose={onClose}
+            saving={saving}
+            submitText="Créer le secrétaire"
+          />
 
-</div>
+        </form>
 
-<ModalActions
-onClose={onClose}
-saving={saving}
-submitText="Créer le secrétaire"
-/>
-
-</form>
-
-</div>
-
-</div>
-);
+      </div>
+    </div>
+  );
 }
 
 /* =========================================================
