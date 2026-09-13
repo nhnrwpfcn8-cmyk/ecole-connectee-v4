@@ -1221,19 +1221,7 @@ async function resetFamilyPassword(accountType, accountId) {
   </button>
 </div>
     )}
-{showSchoolCard && selectedStudent && (
-  <StudentSchoolCard
-    student={selectedStudent}
-    schoolName="École Connectée"
-    className={
-      classes.find(
-        (item) =>
-          item.id === selectedStudent.class_id
-      )?.name || ""
-    }
-    onClose={() => setShowSchoolCard(false)}
-  />
-)}
+
       {/* =========================================================
           MESSAGES APRÈS INSCRIPTION
           ========================================================= */}
