@@ -186,123 +186,143 @@ export default function AdminEcoleInscriptionsPage({
   }
 
   async function searchStudents(term = searchTerm) {
-    const value = term.trim();
+  const value = term.trim();
 
-    setSearchError("");
-    setSelectedStudent(null);
-    setSelectedParent(null);
+  setSearchError("");
+  setSelectedStudent(null);
+  setSelectedParent(null);
 
-    if (!schoolId) {
-      setSearchError(
-        "Aucune école n'est associée à cet administrateur."
-      );
-      return;
-    }
-
-    if (!value) {
-      setSearchResults([]);
-      return;
-    }
-
-    try {
-      setSearching(true);
-
-      const safeValue = value.replace(/,/g, "");
-
-      const [
-        { data: byFirstName, error: firstNameError },
-        { data: byLastName, error: lastNameError },
-        { data: byCode, error: codeError },
-      ] = await Promise.all([
-        supabase
-          .from("students")
-          .select(
-            "id, profile_id, school_id, class_id, first_name, last_name, student_code, date_of_birth, birth_place, family_identifier, login_identifier, active, photo_url, created_at"
-          )
-          .eq("school_id", schoolId)
-          .ilike(
-            "first_name",
-            `%${safeValue}%`
-          )
-          .limit(20),
-
-        supabase
-          .from("students")
-          .select(
-            "id, profile_id, school_id, class_id, first_name, last_name, student_code, date_of_birth, birth_place, family_identifier, login_identifier, active, photo_url, created_at"
-          )
-          .eq("school_id", schoolId)
-          .ilike(
-            "last_name",
-            `%${safeValue}%`
-          )
-          .limit(20),
-
-        supabase
-          .from("students")
-          .select(
-            "id, profile_id, school_id, class_id, first_name, last_name, student_code, date_of_birth, birth_place, family_identifier, login_identifier, active, photo_url, created_at"
-          )
-          .eq("school_id", schoolId)
-          .ilike(
-            "student_code",
-            `%${safeValue}%`
-          )
-          .limit(20),
-      ]);
-
-      if (firstNameError) {
-        throw firstNameError;
-      }
-
-      if (lastNameError) {
-        throw lastNameError;
-      }
-
-      if (codeError) {
-        throw codeError;
-      }
-
-      const combined = [
-        ...(byFirstName || []),
-        ...(byLastName || []),
-        ...(byCode || []),
-      ];
-
-      const uniqueStudents = Array.from(
-        new Map(
-          combined.map((student) => [
-            student.id,
-            student,
-          ])
-        ).values()
-      );
-
-      uniqueStudents.sort((a, b) =>
-        `${a.last_name || ""} ${a.first_name || ""}`.localeCompare(
-          `${b.last_name || ""} ${b.first_name || ""}`,
-          "fr",
-          { sensitivity: "base" }
-        )
-      );
-
-      setSearchResults(uniqueStudents);
-    } catch (err) {
-      console.error(
-        "Erreur recherche élève :",
-        err
-      );
-
-      setSearchResults([]);
-
-      setSearchError(
-        err?.message ||
-          "Impossible d'effectuer la recherche."
-      );
-    } finally {
-      setSearching(false);
-    }
+  if (!schoolId) {
+    setSearchError(
+      "Aucune école n'est associée à cet administrateur."
+    );
+    return;
   }
+
+  if (!value) {
+    setSearchResults([]);
+    return;
+  }
+
+  try {
+    setSearching(true);
+
+    // Normalisation de la recherche :
+    // permet de mieux gérer les majuscules, accents et espaces.
+    const normalize = (text) =>
+      String(text || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+
+    const searchValue = normalize(value);
+
+    // On récupère uniquement les élèves
+    // appartenant à l'école de l'Admin connecté.
+    const { data: students, error } = await supabase
+      .from("students")
+      .select(
+        `
+        id,
+        profile_id,
+        school_id,
+        class_id,
+        first_name,
+        last_name,
+        student_code,
+        date_of_birth,
+        birth_place,
+        family_identifier,
+        login_identifier,
+        active,
+        photo_url,
+        created_at
+        `
+      )
+      .eq("school_id", schoolId)
+      .order("last_name", {
+        ascending: true,
+      })
+      .limit(500);
+
+    if (error) {
+      throw error;
+    }
+
+    const filteredStudents = (students || []).filter(
+      (student) => {
+        const firstName = normalize(
+          student.first_name
+        );
+
+        const lastName = normalize(
+          student.last_name
+        );
+
+        const fullName = normalize(
+          `${student.first_name || ""} ${
+            student.last_name || ""
+          }`
+        );
+
+        const reverseName = normalize(
+          `${student.last_name || ""} ${
+            student.first_name || ""
+          }`
+        );
+
+        const studentCode = normalize(
+          student.student_code
+        );
+
+        // Recherche :
+        // Pierre
+        // Gomis
+        // Pierre Gomis
+        // Gomis Pierre
+        // ELV-BWDNAY
+        return (
+          firstName.includes(searchValue) ||
+          lastName.includes(searchValue) ||
+          fullName.includes(searchValue) ||
+          reverseName.includes(searchValue) ||
+          studentCode.includes(searchValue)
+        );
+      }
+    );
+
+    filteredStudents.sort((a, b) =>
+      `${a.last_name || ""} ${
+        a.first_name || ""
+      }`.localeCompare(
+        `${b.last_name || ""} ${
+          b.first_name || ""
+        }`,
+        "fr",
+        {
+          sensitivity: "base",
+        }
+      )
+    );
+
+    setSearchResults(filteredStudents);
+  } catch (err) {
+    console.error(
+      "Erreur recherche élève :",
+      err
+    );
+
+    setSearchResults([]);
+
+    setSearchError(
+      err?.message ||
+        "Impossible d'effectuer la recherche."
+    );
+  } finally {
+    setSearching(false);
+  }
+}
 
   async function openStudentFolder(student) {
     setSelectedStudent(null);
