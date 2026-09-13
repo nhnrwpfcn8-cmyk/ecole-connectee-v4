@@ -762,13 +762,15 @@ refreshAll(schoolId)
 }
 />
 );
+
 case "inscriptions":
-  return (
-    <AdminEcoleInscriptionsPage
-      schoolId={schoolId}
-      classes={classes}
-    />
-  );
+return (
+<AdminEcoleInscriptionsPage
+schoolId={schoolId}
+classes={classes}
+/>
+);
+
 case "parents":
 return (
 <ParentsPage
@@ -843,8 +845,6 @@ parents={parents}
 teachers={teachers}
 />
 );
-
-
 
 case "settings":
 return (
@@ -965,6 +965,23 @@ window.location.reload();
 <header className="ec-topbar">
 
 <div>
+
+{activePage !== "overview" && (
+<button
+type="button"
+className="ec-btn ec-btn-secondary"
+onClick={() => setActivePage("overview")}
+style={{
+marginBottom: "10px",
+display: "inline-flex",
+alignItems: "center",
+gap: "6px",
+}}
+>
+← Retour
+</button>
+)}
+
 <h1>
 {
 MENU.find(
@@ -978,6 +995,7 @@ item.id === activePage
 {school?.name ||
 "Administration de votre établissement"}
 </p>
+
 </div>
 
 <div className="ec-user">
@@ -1005,7 +1023,9 @@ Admin École
 </header>
 
 <section className="ec-content">
-<DashboardPageErrorBoundary>{renderPage()}</DashboardPageErrorBoundary>
+<DashboardPageErrorBoundary>
+{renderPage()}
+</DashboardPageErrorBoundary>
 </section>
 
 </main>
