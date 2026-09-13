@@ -26,6 +26,18 @@ export default function AdminEcoleInscriptionsPage({
   const [error, setError] = useState("");
   const [credentials, setCredentials] = useState(null);
 
+  // Recherche
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchError, setSearchError] = useState("");
+
+  // Dossier élève
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedParent, setSelectedParent] = useState(null);
+  const [loadingStudentDetails, setLoadingStudentDetails] =
+    useState(false);
+
   const selectedClass = useMemo(
     () => classes.find((item) => item.id === form.class_id),
     [classes, form.class_id]
@@ -48,7 +60,9 @@ export default function AdminEcoleInscriptionsPage({
     setCredentials(null);
 
     if (!schoolId) {
-      setError("Aucune école n'est associée à cet administrateur.");
+      setError(
+        "Aucune école n'est associée à cet administrateur."
+      );
       return;
     }
 
@@ -62,51 +76,65 @@ export default function AdminEcoleInscriptionsPage({
       !form.parent_full_name.trim() ||
       !form.parent_phone.trim()
     ) {
-      setError("Veuillez remplir tous les champs obligatoires.");
+      setError(
+        "Veuillez remplir tous les champs obligatoires."
+      );
       return;
     }
 
     if (
       form.parent_email &&
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.parent_email)
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        form.parent_email
+      )
     ) {
-      setError("L'adresse email du parent n'est pas valide.");
+      setError(
+        "L'adresse email du parent n'est pas valide."
+      );
       return;
     }
 
     try {
       setLoading(true);
 
-      /*
-       * Le mot de passe n'est pas envoyé par le formulaire.
-       * La fonction Supabase génère les identifiants automatiquement.
-       */
       const { data, error: functionError } =
-        await supabase.functions.invoke("create-family-enrollment", {
-          body: {
-            firstName: form.first_name.trim(),
-            lastName: form.last_name.trim(),
-            dateOfBirth: form.date_of_birth,
-            birthPlace: form.birth_place.trim(),
-            classId: form.class_id,
-            studentCode: form.student_code.trim(),
-            familyIdentifier: form.family_identifier.trim(),
-            parentFullName: form.parent_full_name.trim(),
-            parentPhone: form.parent_phone.trim(),
-            parentEmail: form.parent_email.trim().toLowerCase(),
-            parentAddress: form.parent_address.trim(),
-          },
-        });
+        await supabase.functions.invoke(
+          "create-family-enrollment",
+          {
+            body: {
+              firstName: form.first_name.trim(),
+              lastName: form.last_name.trim(),
+              dateOfBirth: form.date_of_birth,
+              birthPlace: form.birth_place.trim(),
+              classId: form.class_id,
+              studentCode: form.student_code.trim(),
+              familyIdentifier:
+                form.family_identifier.trim(),
+              parentFullName:
+                form.parent_full_name.trim(),
+              parentPhone:
+                form.parent_phone.trim(),
+              parentEmail:
+                form.parent_email
+                  .trim()
+                  .toLowerCase(),
+              parentAddress:
+                form.parent_address.trim(),
+            },
+          }
+        );
 
       if (functionError) {
         throw new Error(
-          functionError.message || "Impossible de créer l'inscription."
+          functionError.message ||
+            "Impossible de créer l'inscription."
         );
       }
 
       if (!data?.success) {
         throw new Error(
-          data?.error || "La création de l'inscription a échoué."
+          data?.error ||
+            "La création de l'inscription a échoué."
         );
       }
 
@@ -134,11 +162,19 @@ export default function AdminEcoleInscriptionsPage({
         student_photo: null,
       });
 
+      // Actualiser la liste de recherche après une nouvelle inscription.
+      if (searchTerm.trim()) {
+        await searchStudents(searchTerm);
+      }
+
       if (onSuccess) {
         onSuccess();
       }
     } catch (err) {
-      console.error("Erreur inscription :", err);
+      console.error(
+        "Erreur inscription :",
+        err
+      );
 
       setError(
         err?.message ||
@@ -146,6 +182,242 @@ export default function AdminEcoleInscriptionsPage({
       );
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function searchStudents(term = searchTerm) {
+    const value = term.trim();
+
+    setSearchError("");
+    setSelectedStudent(null);
+    setSelectedParent(null);
+
+    if (!schoolId) {
+      setSearchError(
+        "Aucune école n'est associée à cet administrateur."
+      );
+      return;
+    }
+
+    if (!value) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setSearching(true);
+
+      const safeValue = value.replace(/,/g, "");
+
+      const [
+        { data: byFirstName, error: firstNameError },
+        { data: byLastName, error: lastNameError },
+        { data: byCode, error: codeError },
+      ] = await Promise.all([
+        supabase
+          .from("students")
+          .select(
+            "id, profile_id, school_id, class_id, first_name, last_name, student_code, date_of_birth, birth_place, family_identifier, login_identifier, active, photo_url, created_at"
+          )
+          .eq("school_id", schoolId)
+          .ilike(
+            "first_name",
+            `%${safeValue}%`
+          )
+          .limit(20),
+
+        supabase
+          .from("students")
+          .select(
+            "id, profile_id, school_id, class_id, first_name, last_name, student_code, date_of_birth, birth_place, family_identifier, login_identifier, active, photo_url, created_at"
+          )
+          .eq("school_id", schoolId)
+          .ilike(
+            "last_name",
+            `%${safeValue}%`
+          )
+          .limit(20),
+
+        supabase
+          .from("students")
+          .select(
+            "id, profile_id, school_id, class_id, first_name, last_name, student_code, date_of_birth, birth_place, family_identifier, login_identifier, active, photo_url, created_at"
+          )
+          .eq("school_id", schoolId)
+          .ilike(
+            "student_code",
+            `%${safeValue}%`
+          )
+          .limit(20),
+      ]);
+
+      if (firstNameError) {
+        throw firstNameError;
+      }
+
+      if (lastNameError) {
+        throw lastNameError;
+      }
+
+      if (codeError) {
+        throw codeError;
+      }
+
+      const combined = [
+        ...(byFirstName || []),
+        ...(byLastName || []),
+        ...(byCode || []),
+      ];
+
+      const uniqueStudents = Array.from(
+        new Map(
+          combined.map((student) => [
+            student.id,
+            student,
+          ])
+        ).values()
+      );
+
+      uniqueStudents.sort((a, b) =>
+        `${a.last_name || ""} ${a.first_name || ""}`.localeCompare(
+          `${b.last_name || ""} ${b.first_name || ""}`,
+          "fr",
+          { sensitivity: "base" }
+        )
+      );
+
+      setSearchResults(uniqueStudents);
+    } catch (err) {
+      console.error(
+        "Erreur recherche élève :",
+        err
+      );
+
+      setSearchResults([]);
+
+      setSearchError(
+        err?.message ||
+          "Impossible d'effectuer la recherche."
+      );
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function openStudentFolder(student) {
+    setSelectedStudent(null);
+    setSelectedParent(null);
+    setSearchError("");
+    setLoadingStudentDetails(true);
+
+    try {
+      // Sécurité supplémentaire :
+      // on vérifie toujours que l'élève appartient
+      // à l'école de l'Admin École connecté.
+      if (
+        !schoolId ||
+        student.school_id !== schoolId
+      ) {
+        throw new Error(
+          "Cet élève n'appartient pas à votre établissement."
+        );
+      }
+
+      const { data: parentLinks, error: linkError } =
+        await supabase
+          .from("parent_students")
+          .select(
+            "parent_id, relationship, is_primary"
+          )
+          .eq("student_id", student.id);
+
+      if (linkError) {
+        throw linkError;
+      }
+
+      let parent = null;
+
+      if (
+        parentLinks &&
+        parentLinks.length > 0
+      ) {
+        const parentIds = parentLinks
+          .map((item) => item.parent_id)
+          .filter(Boolean);
+
+        if (parentIds.length > 0) {
+          const {
+            data: parents,
+            error: parentError,
+          } = await supabase
+            .from("parents")
+            .select(
+              "id, profile_id, school_id, full_name, phone, email, address, family_identifier, login_identifier, active"
+            )
+            .eq("school_id", schoolId)
+            .in("id", parentIds);
+
+          if (parentError) {
+            throw parentError;
+          }
+
+          if (parents && parents.length > 0) {
+            const primaryLink =
+              parentLinks.find(
+                (item) => item.is_primary === true
+              );
+
+            parent =
+              parents.find(
+                (item) =>
+                  item.id ===
+                  primaryLink?.parent_id
+              ) || parents[0];
+          }
+        }
+      }
+
+      setSelectedStudent(student);
+      setSelectedParent(parent);
+    } catch (err) {
+      console.error(
+        "Erreur ouverture dossier élève :",
+        err
+      );
+
+      setSearchError(
+        err?.message ||
+          "Impossible d'ouvrir le dossier de l'élève."
+      );
+    } finally {
+      setLoadingStudentDetails(false);
+    }
+  }
+
+  function closeStudentFolder() {
+    setSelectedStudent(null);
+    setSelectedParent(null);
+  }
+
+  function getClassName(classId) {
+    const item = classes.find(
+      (entry) => entry.id === classId
+    );
+
+    return item?.name || "Classe non définie";
+  }
+
+  function formatDate(date) {
+    if (!date) {
+      return "Non renseignée";
+    }
+
+    try {
+      return new Intl.DateTimeFormat(
+        "fr-FR"
+      ).format(new Date(`${date}T00:00:00`));
+    } catch {
+      return date;
     }
   }
 
@@ -158,19 +430,490 @@ export default function AdminEcoleInscriptionsPage({
           </span>
 
           <h2>
-            Nouvelle inscription élève
+            Gestion des inscriptions
           </h2>
 
           <p>
-            Enregistrer l'élève et sa famille dans votre établissement.
+            Enregistrer une nouvelle famille ou retrouver
+            le dossier d'un élève déjà inscrit.
           </p>
         </div>
       </div>
 
+      {/* =========================================================
+          RECHERCHE DES ÉLÈVES
+          ========================================================= */}
+
+      {!selectedStudent && (
+        <div
+          className="ec-panel"
+          style={{ marginBottom: "24px" }}
+        >
+          <div className="ec-panel-header">
+            <div>
+              <h3>
+                🔎 Rechercher un élève
+              </h3>
+
+              <p>
+                Recherchez par nom, prénom ou matricule.
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <div
+              className="ec-field"
+              style={{
+                flex: "1 1 300px",
+                margin: 0,
+              }}
+            >
+              <label>
+                Nom, prénom ou code élève
+              </label>
+
+              <input
+                value={searchTerm}
+                onChange={(event) => {
+                  setSearchTerm(
+                    event.target.value
+                  );
+
+                  if (
+                    !event.target.value.trim()
+                  ) {
+                    setSearchResults([]);
+                    setSearchError("");
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    searchStudents();
+                  }
+                }}
+                placeholder="Ex : Awa Diop ou ELV-123456"
+                disabled={searching}
+              />
+            </div>
+
+            <button
+              type="button"
+              className="ec-btn ec-btn-primary"
+              onClick={() =>
+                searchStudents()
+              }
+              disabled={
+                searching ||
+                !searchTerm.trim()
+              }
+              style={{
+                marginTop: "24px",
+              }}
+            >
+              {searching
+                ? "Recherche..."
+                : "🔎 Rechercher"}
+            </button>
+          </div>
+
+          {searchError && (
+            <div
+              className="ec-error-card"
+              style={{
+                marginTop: "16px",
+              }}
+            >
+              ⚠️ {searchError}
+            </div>
+          )}
+
+          {searchTerm.trim() &&
+            !searching &&
+            searchResults.length === 0 &&
+            !searchError && (
+              <div
+                style={{
+                  marginTop: "20px",
+                  padding: "16px",
+                  borderRadius: "10px",
+                  background:
+                    "rgba(148, 163, 184, 0.10)",
+                }}
+              >
+                Aucun élève trouvé pour{" "}
+                <strong>
+                  "{searchTerm}"
+                </strong>
+                .
+              </div>
+            )}
+
+          {searchResults.length > 0 && (
+            <div
+              style={{
+                marginTop: "24px",
+                overflowX: "auto",
+              }}
+            >
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse:
+                    "collapse",
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "12px",
+                      }}
+                    >
+                      Élève
+                    </th>
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "12px",
+                      }}
+                    >
+                      Classe
+                    </th>
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "12px",
+                      }}
+                    >
+                      Matricule
+                    </th>
+
+                    <th
+                      style={{
+                        textAlign: "right",
+                        padding: "12px",
+                      }}
+                    >
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {searchResults.map(
+                    (student) => (
+                      <tr
+                        key={student.id}
+                        style={{
+                          borderTop:
+                            "1px solid rgba(148, 163, 184, 0.20)",
+                        }}
+                      >
+                        <td
+                          style={{
+                            padding: "12px",
+                          }}
+                        >
+                          <strong>
+                            {student.first_name}{" "}
+                            {student.last_name}
+                          </strong>
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "12px",
+                          }}
+                        >
+                          {getClassName(
+                            student.class_id
+                          )}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "12px",
+                          }}
+                        >
+                          {student.student_code ||
+                            "Non renseigné"}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "12px",
+                            textAlign: "right",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="ec-btn"
+                            onClick={() =>
+                              openStudentFolder(
+                                student
+                              )
+                            }
+                            disabled={
+                              loadingStudentDetails
+                            }
+                          >
+                            👁️ Voir le dossier
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =========================================================
+          DOSSIER ÉLÈVE
+          ========================================================= */}
+
+      {selectedStudent && (
+        <div
+          className="ec-panel"
+          style={{
+            marginBottom: "24px",
+          }}
+        >
+          <div className="ec-panel-header">
+            <div>
+              <span className="ec-eyebrow">
+                DOSSIER ÉLÈVE
+              </span>
+
+              <h3>
+                {selectedStudent.first_name}{" "}
+                {selectedStudent.last_name}
+              </h3>
+
+              <p>
+                Informations administratives et familiales.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="ec-btn"
+              onClick={closeStudentFolder}
+            >
+              ← Retour à la recherche
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "20px",
+            }}
+          >
+            {/* Identité */}
+            <div
+              style={{
+                padding: "20px",
+                borderRadius: "12px",
+                background:
+                  "rgba(148, 163, 184, 0.08)",
+              }}
+            >
+              <h4>
+                👤 Identité de l'élève
+              </h4>
+
+              <p>
+                <strong>Prénom :</strong>{" "}
+                {selectedStudent.first_name ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Nom :</strong>{" "}
+                {selectedStudent.last_name ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Date de naissance :</strong>{" "}
+                {formatDate(
+                  selectedStudent.date_of_birth
+                )}
+              </p>
+
+              <p>
+                <strong>Lieu de naissance :</strong>{" "}
+                {selectedStudent.birth_place ||
+                  "Non renseigné"}
+              </p>
+            </div>
+
+            {/* Scolarité */}
+            <div
+              style={{
+                padding: "20px",
+                borderRadius: "12px",
+                background:
+                  "rgba(148, 163, 184, 0.08)",
+              }}
+            >
+              <h4>
+                🎓 Scolarité
+              </h4>
+
+              <p>
+                <strong>Classe :</strong>{" "}
+                {getClassName(
+                  selectedStudent.class_id
+                )}
+              </p>
+
+              <p>
+                <strong>Matricule :</strong>{" "}
+                {selectedStudent.student_code ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Statut :</strong>{" "}
+                {selectedStudent.active
+                  ? "Actif"
+                  : "Inactif"}
+              </p>
+
+              <p>
+                <strong>Identifiant élève :</strong>{" "}
+                {selectedStudent.login_identifier ||
+                  "Non renseigné"}
+              </p>
+            </div>
+
+            {/* Famille */}
+            <div
+              style={{
+                padding: "20px",
+                borderRadius: "12px",
+                background:
+                  "rgba(148, 163, 184, 0.08)",
+              }}
+            >
+              <h4>
+                👨‍👩‍👧 Famille
+              </h4>
+
+              <p>
+                <strong>Identifiant familial :</strong>{" "}
+                {selectedStudent.family_identifier ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Responsable :</strong>{" "}
+                {selectedParent?.full_name ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Téléphone :</strong>{" "}
+                {selectedParent?.phone ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Email :</strong>{" "}
+                {selectedParent?.email ||
+                  "Non renseigné"}
+              </p>
+            </div>
+
+            {/* Adresse */}
+            <div
+              style={{
+                padding: "20px",
+                borderRadius: "12px",
+                background:
+                  "rgba(148, 163, 184, 0.08)",
+              }}
+            >
+              <h4>
+                📍 Coordonnées
+              </h4>
+
+              <p>
+                <strong>Adresse :</strong>{" "}
+                {selectedParent?.address ||
+                  "Non renseignée"}
+              </p>
+
+              <p>
+                <strong>Identifiant parent :</strong>{" "}
+                {selectedParent?.login_identifier ||
+                  "Non renseigné"}
+              </p>
+
+              <p>
+                <strong>Responsable actif :</strong>{" "}
+                {selectedParent?.active
+                  ? "Oui"
+                  : "Non"}
+              </p>
+            </div>
+          </div>
+
+          {/* Zone réservée à la future carte */}
+          <div
+            style={{
+              marginTop: "24px",
+              padding: "18px",
+              borderRadius: "12px",
+              border:
+                "1px dashed rgba(59, 130, 246, 0.5)",
+            }}
+          >
+            <strong>
+              🪪 Carte scolaire
+            </strong>
+
+            <p
+              style={{
+                marginBottom: 0,
+              }}
+            >
+              La génération de la carte scolaire avec
+              photo et QR Code sera ajoutée à l'étape
+              suivante.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          MESSAGES APRÈS INSCRIPTION
+          ========================================================= */}
+
       {error && (
         <div
           className="ec-error-card"
-          style={{ marginBottom: "20px" }}
+          style={{
+            marginBottom: "20px",
+          }}
         >
           ⚠️ {error}
         </div>
@@ -188,6 +931,10 @@ export default function AdminEcoleInscriptionsPage({
         </div>
       )}
 
+      {/* =========================================================
+          IDENTIFIANTS GÉNÉRÉS
+          ========================================================= */}
+
       {credentials && (
         <div
           className="ec-panel"
@@ -198,9 +945,13 @@ export default function AdminEcoleInscriptionsPage({
         >
           <div className="ec-panel-header">
             <div>
-              <h3>🔐 Identifiants générés</h3>
+              <h3>
+                🔐 Identifiants générés
+              </h3>
+
               <p>
-                Conservez ces informations pour les remettre à la famille.
+                Conservez ces informations pour les
+                remettre à la famille.
               </p>
             </div>
           </div>
@@ -208,7 +959,9 @@ export default function AdminEcoleInscriptionsPage({
           <div className="ec-form-grid">
             {credentials.student && (
               <div className="ec-field">
-                <label>Compte élève</label>
+                <label>
+                  Compte élève
+                </label>
 
                 <div>
                   <strong>
@@ -228,7 +981,9 @@ export default function AdminEcoleInscriptionsPage({
 
             {credentials.parent && (
               <div className="ec-field">
-                <label>Compte parent</label>
+                <label>
+                  Compte parent
+                </label>
 
                 <div>
                   <strong>
@@ -249,22 +1004,33 @@ export default function AdminEcoleInscriptionsPage({
         </div>
       )}
 
+      {/* =========================================================
+          FORMULAIRE NOUVELLE INSCRIPTION
+          ========================================================= */}
+
       <form
         onSubmit={handleSubmit}
         className="ec-panel"
       >
         <div className="ec-panel-header">
           <div>
-            <h3>Informations de l'élève</h3>
+            <h3>
+              Nouvelle inscription
+            </h3>
+
             <p>
-              Informations scolaires et état civil
+              Enregistrer un nouvel élève et sa famille
+              dans votre établissement.
             </p>
           </div>
         </div>
 
         <div className="ec-form-grid">
           <div className="ec-field">
-            <label>Prénom *</label>
+            <label>
+              Prénom *
+            </label>
+
             <input
               name="first_name"
               value={form.first_name}
@@ -275,7 +1041,10 @@ export default function AdminEcoleInscriptionsPage({
           </div>
 
           <div className="ec-field">
-            <label>Nom *</label>
+            <label>
+              Nom *
+            </label>
+
             <input
               name="last_name"
               value={form.last_name}
@@ -286,7 +1055,10 @@ export default function AdminEcoleInscriptionsPage({
           </div>
 
           <div className="ec-field">
-            <label>Date de naissance *</label>
+            <label>
+              Date de naissance *
+            </label>
+
             <input
               type="date"
               name="date_of_birth"
@@ -297,7 +1069,10 @@ export default function AdminEcoleInscriptionsPage({
           </div>
 
           <div className="ec-field">
-            <label>Lieu de naissance *</label>
+            <label>
+              Lieu de naissance *
+            </label>
+
             <input
               name="birth_place"
               value={form.birth_place}
@@ -308,7 +1083,9 @@ export default function AdminEcoleInscriptionsPage({
           </div>
 
           <div className="ec-field">
-            <label>Classe *</label>
+            <label>
+              Classe *
+            </label>
 
             <select
               name="class_id"
@@ -339,7 +1116,9 @@ export default function AdminEcoleInscriptionsPage({
           </div>
 
           <div className="ec-field">
-            <label>Matricule élève</label>
+            <label>
+              Matricule élève
+            </label>
 
             <input
               name="student_code"
@@ -350,27 +1129,36 @@ export default function AdminEcoleInscriptionsPage({
             />
 
             <small>
-              Laissez vide pour laisser le système le gérer.
+              Laissez vide pour laisser le système
+              générer automatiquement le matricule.
             </small>
           </div>
         </div>
 
+        {/* PHOTO */}
         <div
           className="ec-panel-header"
-          style={{ marginTop: "32px" }}
+          style={{
+            marginTop: "32px",
+          }}
         >
           <div>
-            <h3>Photo de l'élève</h3>
+            <h3>
+              Photo de l'élève
+            </h3>
 
             <p>
-              Ajouter une photo récente pour la future carte scolaire.
+              Ajouter une photo récente pour la future
+              carte scolaire.
             </p>
           </div>
         </div>
 
         <div className="ec-form-grid">
           <div className="ec-field">
-            <label>Photo de l'élève</label>
+            <label>
+              Photo de l'élève
+            </label>
 
             <input
               type="file"
@@ -378,7 +1166,8 @@ export default function AdminEcoleInscriptionsPage({
               name="student_photo"
               onChange={(event) => {
                 const file =
-                  event.target.files?.[0] || null;
+                  event.target.files?.[0] ||
+                  null;
 
                 setForm((current) => ({
                   ...current,
@@ -394,15 +1183,21 @@ export default function AdminEcoleInscriptionsPage({
           </div>
         </div>
 
+        {/* IDENTIFICATION FAMILIALE */}
         <div
           className="ec-panel-header"
-          style={{ marginTop: "32px" }}
+          style={{
+            marginTop: "32px",
+          }}
         >
           <div>
-            <h3>Identification familiale</h3>
+            <h3>
+              Identification familiale
+            </h3>
 
             <p>
-              Identifiant permettant de relier les comptes de la famille.
+              Identifiant permettant de relier les
+              comptes de la famille.
             </p>
           </div>
         </div>
@@ -422,17 +1217,23 @@ export default function AdminEcoleInscriptionsPage({
             />
 
             <small>
-              Cet identifiant sera commun aux comptes liés à cette famille.
+              Cet identifiant sera commun aux comptes
+              liés à cette famille.
             </small>
           </div>
         </div>
 
+        {/* PARENT */}
         <div
           className="ec-panel-header"
-          style={{ marginTop: "32px" }}
+          style={{
+            marginTop: "32px",
+          }}
         >
           <div>
-            <h3>Parent / Responsable</h3>
+            <h3>
+              Parent / Responsable
+            </h3>
 
             <p>
               Informations du responsable légal.
