@@ -992,6 +992,7 @@ async function resetFamilyPassword(accountType, accountId) {
             background:
               "rgba(15, 23, 42, 0.08)",
             fontSize: "14px",
+            color: "#000000",
           }}
         >
           {generatedPasswords.student}
@@ -1072,6 +1073,7 @@ async function resetFamilyPassword(accountType, accountId) {
             background:
               "rgba(15, 23, 42, 0.08)",
             fontSize: "14px",
+            color: "#000000",
           }}
         >
           {generatedPasswords.parent}
