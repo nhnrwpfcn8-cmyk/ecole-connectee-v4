@@ -1,776 +1,152 @@
-import { useState } from 'react'
+import React, { useState } from "react";
 
-function StudentDashboard({
-  profile,
-  session,
-  onLogout,
-}) {
-  const [activePage, setActivePage] = useState('home')
+/* =========================================================
+   STUDENT DASHBOARD
+   Version interface
+   - Menus réellement cliquables
+   - Navigation interne
+   - Bouton Retour fonctionnel
+   - Aucune modification/suppression pour l'élève
+   - Pas encore de synchronisation Supabase
+========================================================= */
 
-  const menuItems = [
-    {
-      id: 'home',
-      label: 'Accueil',
-      icon: '🏠',
-    },
-    {
-      id: 'courses',
-      label: 'Cours',
-      icon: '📚',
-    },
-    {
-      id: 'exercises',
-      label: 'Exercices',
-      icon: '✏️',
-    },
-    {
-      id: 'assessments',
-      label: 'Évaluations',
-      icon: '📝',
-    },
-    {
-      id: 'grades',
-      label: 'Mes notes',
-      icon: '📊',
-    },
-    {
-      id: 'attendance',
-      label: 'Présences',
-      icon: '🕘',
-    },
-    {
-      id: 'bulletins',
-      label: 'Bulletins',
-      icon: '📄',
-    },
-    {
-      id: 'communication',
-      label: 'Communication',
-      icon: '💬',
-    },
-    {
-      id: 'school-card',
-      label: 'Ma carte scolaire',
-      icon: '🎫',
-    },
-  ]
+const MENU = [
+  { id: "home", label: "Accueil", icon: "🏠" },
+  { id: "courses", label: "Cours", icon: "📚" },
+  { id: "exercises", label: "Exercices", icon: "✏️" },
+  { id: "assessments", label: "Évaluations", icon: "📝" },
+  { id: "grades", label: "Notes", icon: "📊" },
+  { id: "attendance", label: "Présences", icon: "🕘" },
+  { id: "bulletins", label: "Bulletins", icon: "📄" },
+  { id: "communication", label: "Communication", icon: "💬" },
+  { id: "school-card", label: "Carte scolaire", icon: "🎫" },
+];
 
-  function renderPage() {
-    switch (activePage) {
-      case 'home':
-        return <HomePage profile={profile} />
+/* =========================================================
+   HELPERS
+========================================================= */
 
-      case 'courses':
-        return <CoursesPage />
+function getInitials(name = "") {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
 
-      case 'exercises':
-        return <ExercisesPage />
+  if (!parts.length) return "E";
 
-      case 'assessments':
-        return <AssessmentsPage />
-
-      case 'grades':
-        return <GradesPage />
-
-      case 'attendance':
-        return <AttendancePage />
-
-      case 'bulletins':
-        return <BulletinsPage />
-
-      case 'communication':
-        return <CommunicationPage />
-
-      case 'school-card':
-        return (
-          <SchoolCardPage
-            profile={profile}
-            session={session}
-          />
-        )
-
-      default:
-        return <HomePage profile={profile} />
-    }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
   }
 
-  const currentItem =
-    menuItems.find(
-      (item) => item.id === activePage
-    ) || menuItems[0]
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
+/* =========================================================
+   PAGE TITLE
+========================================================= */
+
+function PageTitle({ icon, title, description, onBack }) {
   return (
     <div
       style={{
-        minHeight: '100vh',
-        background: '#f5f7fb',
-        color: '#172033',
-        fontFamily:
-          'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        marginBottom: "24px",
       }}
     >
-      {/* =========================
-          SIDEBAR
-      ========================== */}
-      <aside
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width: '260px',
-          background: '#ffffff',
-          borderRight: '1px solid #e5e7eb',
-          padding: '20px 14px',
-          boxSizing: 'border-box',
-          overflowY: 'auto',
-          zIndex: 20,
-        }}
-      >
-        {/* Logo */}
-        <div
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '8px 10px 24px',
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "7px",
+            border: "1px solid #d1d5db",
+            background: "#ffffff",
+            color: "#374151",
+            padding: "9px 14px",
+            borderRadius: "9px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: 600,
+            marginBottom: "18px",
           }}
         >
-          <div
-            style={{
-              width: '44px',
-              height: '44px',
-              borderRadius: '12px',
-              background: '#2563eb',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 800,
-              fontSize: '16px',
-            }}
-          >
-            EC
-          </div>
-
-          <div>
-            <strong
-              style={{
-                display: 'block',
-                fontSize: '16px',
-              }}
-            >
-              École Connectée
-            </strong>
-
-            <span
-              style={{
-                fontSize: '12px',
-                color: '#64748b',
-              }}
-            >
-              Espace Élève
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav>
-          {menuItems.map((item) => {
-            const active =
-              activePage === item.id
-
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() =>
-                  setActivePage(item.id)
-                }
-                style={{
-                  width: '100%',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '12px 14px',
-                  marginBottom: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  background: active
-                    ? '#eaf2ff'
-                    : 'transparent',
-                  color: active
-                    ? '#2563eb'
-                    : '#334155',
-                  fontWeight: active
-                    ? 700
-                    : 500,
-                  fontSize: '14px',
-                }}
-              >
-                <span
-                  style={{
-                    width: '26px',
-                    textAlign: 'center',
-                    fontSize: '18px',
-                  }}
-                >
-                  {item.icon}
-                </span>
-
-                <span>
-                  {item.label}
-                </span>
-              </button>
-            )
-          })}
-        </nav>
-
-        {/* Déconnexion */}
-        <div
-          style={{
-            borderTop:
-              '1px solid #e5e7eb',
-            marginTop: '20px',
-            paddingTop: '20px',
-          }}
-        >
-          <button
-            type="button"
-            onClick={onLogout}
-            style={{
-              width: '100%',
-              border: '1px solid #fecaca',
-              background: '#fff7f7',
-              color: '#dc2626',
-              borderRadius: '10px',
-              padding: '11px 14px',
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-          >
-            🚪 Se déconnecter
-          </button>
-        </div>
-      </aside>
-
-      {/* =========================
-          CONTENU PRINCIPAL
-      ========================== */}
-      <main
-        style={{
-          marginLeft: '260px',
-          minHeight: '100vh',
-        }}
-      >
-        {/* Header */}
-        <header
-          style={{
-            background: '#ffffff',
-            borderBottom:
-              '1px solid #e5e7eb',
-            padding: '18px 28px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '20px',
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: '13px',
-                color: '#64748b',
-                marginBottom: '4px',
-              }}
-            >
-              Espace Élève
-            </div>
-
-            <h1
-              style={{
-                margin: 0,
-                fontSize: '22px',
-              }}
-            >
-              {currentItem.icon}{' '}
-              {currentItem.label}
-            </h1>
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-            }}
-          >
-            <div
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '50%',
-                background: '#eaf2ff',
-                color: '#2563eb',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-              }}
-            >
-              {getInitials(
-                profile?.full_name
-              )}
-            </div>
-
-            <div>
-              <strong
-                style={{
-                  display: 'block',
-                  fontSize: '14px',
-                }}
-              >
-                {profile?.full_name ||
-                  'Élève'}
-              </strong>
-
-              <span
-                style={{
-                  fontSize: '12px',
-                  color: '#64748b',
-                }}
-              >
-                Élève
-              </span>
-            </div>
-          </div>
-        </header>
-
-        {/* Page */}
-        <section
-          style={{
-            padding: '28px',
-          }}
-        >
-          {renderPage()}
-        </section>
-      </main>
-    </div>
-  )
-}
-
-/* =====================================================
-   ACCUEIL
-===================================================== */
-
-function HomePage({ profile }) {
-  return (
-    <div>
-      <PageTitle
-        title={`Bonjour ${
-          profile?.full_name || 'Élève'
-        } 👋`}
-        description="Bienvenue dans ton espace scolaire."
-      />
+          ← Retour
+        </button>
+      )}
 
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '18px',
-          marginTop: '24px',
-        }}
-      >
-        <DashboardCard
-          icon="📚"
-          title="Mes cours"
-          text="Retrouve tes cours et documents scolaires."
-        />
-
-        <DashboardCard
-          icon="✏️"
-          title="Mes exercices"
-          text="Consulte les exercices qui te sont proposés."
-        />
-
-        <DashboardCard
-          icon="📊"
-          title="Mes notes"
-          text="Consulte tes résultats et tes moyennes."
-        />
-
-        <DashboardCard
-          icon="🕘"
-          title="Mes présences"
-          text="Consulte ton historique de présence."
-        />
-      </div>
-
-      <div
-        style={{
-          marginTop: '24px',
-          background: '#ffffff',
-          borderRadius: '16px',
-          padding: '22px',
-          border: '1px solid #e5e7eb',
-        }}
-      >
-        <h3
-          style={{
-            marginTop: 0,
-          }}
-        >
-          📌 Informations
-        </h3>
-
-        <p
-          style={{
-            color: '#64748b',
-            marginBottom: 0,
-          }}
-        >
-          Les différentes fonctionnalités de
-          ton espace seront connectées
-          progressivement aux données de ton
-          établissement.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-/* =====================================================
-   COURS
-===================================================== */
-
-function CoursesPage() {
-  return (
-    <PagePlaceholder
-      icon="📚"
-      title="Cours"
-      description="Tes cours, leçons, documents, vidéos et liens seront organisés ici par matière."
-    />
-  )
-}
-
-/* =====================================================
-   EXERCICES
-===================================================== */
-
-function ExercisesPage() {
-  return (
-    <PagePlaceholder
-      icon="✏️"
-      title="Exercices"
-      description="Les exercices proposés par tes professeurs seront disponibles ici."
-    />
-  )
-}
-
-/* =====================================================
-   ÉVALUATIONS
-===================================================== */
-
-function AssessmentsPage() {
-  return (
-    <PagePlaceholder
-      icon="📝"
-      title="Évaluations"
-      description="Tes interrogations, devoirs et évaluations seront regroupés ici."
-    />
-  )
-}
-
-/* =====================================================
-   NOTES
-===================================================== */
-
-function GradesPage() {
-  return (
-    <PagePlaceholder
-      icon="📊"
-      title="Mes notes"
-      description="Tes notes, moyennes et résultats seront affichés ici."
-    />
-  )
-}
-
-/* =====================================================
-   PRÉSENCES
-===================================================== */
-
-function AttendancePage() {
-  return (
-    <PagePlaceholder
-      icon="🕘"
-      title="Présences"
-      description="Ton historique de présences, absences et retards sera disponible ici."
-    />
-  )
-}
-
-/* =====================================================
-   BULLETINS
-===================================================== */
-
-function BulletinsPage() {
-  return (
-    <PagePlaceholder
-      icon="📄"
-      title="Bulletins"
-      description="Tes bulletins scolaires seront organisés ici par trimestre."
-    />
-  )
-}
-
-/* =====================================================
-   COMMUNICATION
-===================================================== */
-
-function CommunicationPage() {
-  return (
-    <PagePlaceholder
-      icon="💬"
-      title="Communication"
-      description="Cette section permettra de communiquer avec tes professeurs."
-    />
-  )
-}
-
-/* =====================================================
-   CARTE SCOLAIRE
-===================================================== */
-
-function SchoolCardPage({
-  profile,
-  session,
-}) {
-  return (
-    <div>
-      <PageTitle
-        title="🎫 Ma carte scolaire"
-        description="Ta carte scolaire numérique sera disponible ici."
-      />
-
-      <div
-        style={{
-          maxWidth: '500px',
-          marginTop: '24px',
-          background:
-            'linear-gradient(135deg, #2563eb, #1d4ed8)',
-          color: '#ffffff',
-          borderRadius: '20px',
-          padding: '24px',
-          boxShadow:
-            '0 12px 30px rgba(37, 99, 235, 0.20)',
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "14px",
         }}
       >
         <div
           style={{
-            display: 'flex',
-            justifyContent:
-              'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <strong>
-            ÉCOLE CONNECTÉE
-          </strong>
-
-          <span
-            style={{
-              fontSize: '24px',
-            }}
-          >
-            🎓
-          </span>
-        </div>
-
-        <div
-          style={{
-            marginTop: '30px',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '12px',
-              opacity: 0.8,
-            }}
-          >
-            ÉLÈVE
-          </div>
-
-          <div
-            style={{
-              fontSize: '22px',
-              fontWeight: 800,
-              marginTop: '4px',
-            }}
-          >
-            {profile?.full_name ||
-              'Nom de l’élève'}
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: '18px',
-            fontSize: '13px',
-            opacity: 0.9,
-          }}
-        >
-          Identifiant :
-          {' '}
-          {profile?.username ||
-            session?.user?.email ||
-            '—'}
-        </div>
-
-        <div
-          style={{
-            marginTop: '24px',
-            background: '#ffffff',
-            color: '#172033',
-            width: '90px',
-            height: '90px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '44px',
-          }}
-        >
-          QR
-        </div>
-
-        <p
-          style={{
-            marginBottom: 0,
-            fontSize: '12px',
-            opacity: 0.8,
-          }}
-        >
-          Le QR code scolaire sera connecté
-          au système de présence et
-          d'entrée/sortie.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-/* =====================================================
-   COMPOSANTS VISUELS
-===================================================== */
-
-function PageTitle({
-  title,
-  description,
-}) {
-  return (
-    <div>
-      <h2
-        style={{
-          margin: 0,
-          fontSize: '26px',
-        }}
-      >
-        {title}
-      </h2>
-
-      <p
-        style={{
-          marginTop: '8px',
-          marginBottom: 0,
-          color: '#64748b',
-        }}
-      >
-        {description}
-      </p>
-    </div>
-  )
-}
-
-function PagePlaceholder({
-  icon,
-  title,
-  description,
-}) {
-  return (
-    <div>
-      <PageTitle
-        title={`${icon} ${title}`}
-        description={description}
-      />
-
-      <div
-        style={{
-          marginTop: '24px',
-          background: '#ffffff',
-          border: '1px solid #e5e7eb',
-          borderRadius: '16px',
-          padding: '40px 24px',
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '48px',
-            marginBottom: '12px',
+            width: "48px",
+            height: "48px",
+            borderRadius: "12px",
+            background: "#eef2ff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "23px",
+            flexShrink: 0,
           }}
         >
           {icon}
         </div>
 
-        <h3
-          style={{
-            margin: 0,
-            fontSize: '20px',
-          }}
-        >
-          {title}
-        </h3>
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "25px",
+              color: "#111827",
+            }}
+          >
+            {title}
+          </h2>
 
-        <p
-          style={{
-            maxWidth: '600px',
-            margin:
-              '10px auto 0',
-            color: '#64748b',
-            lineHeight: 1.6,
-          }}
-        >
-          {description}
-        </p>
+          {description && (
+            <p
+              style={{
+                margin: "6px 0 0",
+                color: "#6b7280",
+                fontSize: "14px",
+                lineHeight: 1.5,
+              }}
+            >
+              {description}
+            </p>
+          )}
+        </div>
       </div>
     </div>
-  )
+  );
 }
 
-function DashboardCard({
-  icon,
-  title,
-  text,
-}) {
+/* =========================================================
+   PLACEHOLDER
+   Utilisé temporairement avant la synchronisation Supabase
+========================================================= */
+
+function PagePlaceholder({ icon, title, text }) {
   return (
     <div
       style={{
-        background: '#ffffff',
-        border: '1px solid #e5e7eb',
-        borderRadius: '16px',
-        padding: '20px',
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
+        borderRadius: "14px",
+        padding: "32px",
+        textAlign: "center",
       }}
     >
       <div
         style={{
-          fontSize: '30px',
-          marginBottom: '12px',
+          fontSize: "42px",
+          marginBottom: "12px",
         }}
       >
         {icon}
@@ -778,8 +154,9 @@ function DashboardCard({
 
       <h3
         style={{
-          margin: 0,
-          fontSize: '17px',
+          margin: "0 0 8px",
+          color: "#111827",
+          fontSize: "20px",
         }}
       >
         {title}
@@ -787,35 +164,1002 @@ function DashboardCard({
 
       <p
         style={{
-          color: '#64748b',
-          lineHeight: 1.5,
-          marginBottom: 0,
+          margin: 0,
+          color: "#6b7280",
+          fontSize: "14px",
+          lineHeight: 1.6,
         }}
       >
         {text}
       </p>
     </div>
-  )
+  );
 }
 
-function getInitials(name) {
-  if (!name) return 'E'
+/* =========================================================
+   DASHBOARD CARD
+========================================================= */
 
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
+function DashboardCard({
+  icon,
+  title,
+  description,
+  onClick,
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        border: "1px solid #e5e7eb",
+        background: "#ffffff",
+        borderRadius: "14px",
+        padding: "20px",
+        cursor: "pointer",
+        transition: "all 0.2s ease",
+      }}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.borderColor = "#a5b4fc";
+        event.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.borderColor = "#e5e7eb";
+        event.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "14px",
+        }}
+      >
+        <div
+          style={{
+            width: "46px",
+            height: "46px",
+            borderRadius: "12px",
+            background: "#eef2ff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "22px",
+            flexShrink: 0,
+          }}
+        >
+          {icon}
+        </div>
 
-  if (parts.length === 1) {
-    return parts[0]
-      .slice(0, 2)
-      .toUpperCase()
-  }
+        <div>
+          <div
+            style={{
+              fontWeight: 700,
+              color: "#111827",
+              fontSize: "16px",
+            }}
+          >
+            {title}
+          </div>
+
+          <div
+            style={{
+              marginTop: "4px",
+              color: "#6b7280",
+              fontSize: "13px",
+              lineHeight: 1.4,
+            }}
+          >
+            {description}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* =========================================================
+   HOME PAGE
+========================================================= */
+
+function HomePage({
+  profile,
+  onNavigate,
+}) {
+  const fullName = profile?.full_name || "Élève";
 
   return (
-    parts[0][0] +
-    parts[parts.length - 1][0]
-  ).toUpperCase()
+    <div>
+      <div
+        style={{
+          background:
+            "linear-gradient(135deg, #eef2ff 0%, #ffffff 100%)",
+          border: "1px solid #e0e7ff",
+          borderRadius: "16px",
+          padding: "26px",
+          marginBottom: "24px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+          }}
+        >
+          <div
+            style={{
+              width: "62px",
+              height: "62px",
+              borderRadius: "50%",
+              background: "#4f46e5",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: "20px",
+              flexShrink: 0,
+            }}
+          >
+            {getInitials(fullName)}
+          </div>
+
+          <div>
+            <div
+              style={{
+                color: "#6b7280",
+                fontSize: "14px",
+                marginBottom: "4px",
+              }}
+            >
+              Bienvenue dans votre espace
+            </div>
+
+            <h2
+              style={{
+                margin: 0,
+                color: "#111827",
+                fontSize: "25px",
+              }}
+            >
+              {fullName}
+            </h2>
+
+            <div
+              style={{
+                marginTop: "5px",
+                color: "#6b7280",
+                fontSize: "13px",
+              }}
+            >
+              Espace Élève — École Connectée
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3
+        style={{
+          margin: "0 0 15px",
+          color: "#111827",
+          fontSize: "19px",
+        }}
+      >
+        Accès rapides
+      </h3>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "14px",
+        }}
+      >
+        <DashboardCard
+          icon="📚"
+          title="Mes cours"
+          description="Consulter les cours disponibles"
+          onClick={() => onNavigate("courses")}
+        />
+
+        <DashboardCard
+          icon="✏️"
+          title="Mes exercices"
+          description="Consulter les exercices"
+          onClick={() => onNavigate("exercises")}
+        />
+
+        <DashboardCard
+          icon="📝"
+          title="Mes évaluations"
+          description="Voir les évaluations"
+          onClick={() => onNavigate("assessments")}
+        />
+
+        <DashboardCard
+          icon="📊"
+          title="Mes notes"
+          description="Consulter vos résultats"
+          onClick={() => onNavigate("grades")}
+        />
+
+        <DashboardCard
+          icon="🕘"
+          title="Mes présences"
+          description="Voir vos présences et absences"
+          onClick={() => onNavigate("attendance")}
+        />
+
+        <DashboardCard
+          icon="📄"
+          title="Mes bulletins"
+          description="Consulter vos bulletins"
+          onClick={() => onNavigate("bulletins")}
+        />
+
+        <DashboardCard
+          icon="💬"
+          title="Communication"
+          description="Échanger avec votre établissement"
+          onClick={() => onNavigate("communication")}
+        />
+
+        <DashboardCard
+          icon="🎫"
+          title="Carte scolaire"
+          description="Voir votre carte scolaire"
+          onClick={() => onNavigate("school-card")}
+        />
+      </div>
+    </div>
+  );
 }
 
-export default StudentDashboard
+/* =========================================================
+   COURSES
+========================================================= */
+
+function CoursesPage({ onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="📚"
+        title="Mes cours"
+        description="Retrouvez les cours publiés par vos enseignants."
+        onBack={onBack}
+      />
+
+      <PagePlaceholder
+        icon="📚"
+        title="Cours"
+        text="Les cours de l'élève seront synchronisés avec les données de l'établissement à l'étape suivante."
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   EXERCISES
+========================================================= */
+
+function ExercisesPage({ onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="✏️"
+        title="Mes exercices"
+        description="Retrouvez les exercices proposés par vos enseignants."
+        onBack={onBack}
+      />
+
+      <PagePlaceholder
+        icon="✏️"
+        title="Exercices"
+        text="Les exercices seront synchronisés avec les données réelles de l'élève à l'étape suivante."
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   ASSESSMENTS
+========================================================= */
+
+function AssessmentsPage({ onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="📝"
+        title="Mes évaluations"
+        description="Consultez vos évaluations et leur calendrier."
+        onBack={onBack}
+      />
+
+      <PagePlaceholder
+        icon="📝"
+        title="Évaluations"
+        text="Les évaluations de l'élève seront synchronisées avec Supabase à l'étape suivante."
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   GRADES
+========================================================= */
+
+function GradesPage({ onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="📊"
+        title="Mes notes"
+        description="Consultez vos notes et vos résultats scolaires."
+        onBack={onBack}
+      />
+
+      <PagePlaceholder
+        icon="📊"
+        title="Notes"
+        text="Les notes et moyennes réelles seront récupérées depuis les données de l'établissement à l'étape suivante."
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   ATTENDANCE
+========================================================= */
+
+function AttendancePage({ onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="🕘"
+        title="Mes présences"
+        description="Consultez votre historique de présence et d'absence."
+        onBack={onBack}
+      />
+
+      <PagePlaceholder
+        icon="🕘"
+        title="Présences"
+        text="Les présences et absences seront synchronisées avec les données réelles de l'élève à l'étape suivante."
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   BULLETINS
+========================================================= */
+
+function BulletinsPage({ onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="📄"
+        title="Mes bulletins"
+        description="Consultez vos bulletins scolaires."
+        onBack={onBack}
+      />
+
+      <PagePlaceholder
+        icon="📄"
+        title="Bulletins"
+        text="Les bulletins de l'élève seront récupérés depuis les données de l'établissement à l'étape suivante."
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   COMMUNICATION
+========================================================= */
+
+function CommunicationPage({ onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="💬"
+        title="Communication"
+        description="Retrouvez vos échanges et communications scolaires."
+        onBack={onBack}
+      />
+
+      <PagePlaceholder
+        icon="💬"
+        title="Communication"
+        text="La communication sera connectée aux données réelles de l'application à l'étape suivante."
+      />
+    </div>
+  );
+}
+
+/* =========================================================
+   SCHOOL CARD
+========================================================= */
+
+function SchoolCardPage({ profile, onBack }) {
+  return (
+    <div>
+      <PageTitle
+        icon="🎫"
+        title="Carte scolaire"
+        description="Votre carte scolaire numérique."
+        onBack={onBack}
+      />
+
+      <div
+        style={{
+          maxWidth: "520px",
+          margin: "0 auto",
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: "18px",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            background:
+              "linear-gradient(135deg, #312e81, #4f46e5)",
+            color: "#ffffff",
+            padding: "22px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "13px",
+              opacity: 0.85,
+            }}
+          >
+            ÉCOLE CONNECTÉE
+          </div>
+
+          <div
+            style={{
+              marginTop: "5px",
+              fontSize: "20px",
+              fontWeight: 700,
+            }}
+          >
+            CARTE SCOLAIRE
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: "24px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "18px",
+              marginBottom: "22px",
+            }}
+          >
+            <div
+              style={{
+                width: "70px",
+                height: "70px",
+                borderRadius: "50%",
+                background: "#eef2ff",
+                color: "#4f46e5",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: "22px",
+              }}
+            >
+              {getInitials(profile?.full_name || "Élève")}
+            </div>
+
+            <div>
+              <div
+                style={{
+                  color: "#6b7280",
+                  fontSize: "12px",
+                }}
+              >
+                Élève
+              </div>
+
+              <div
+                style={{
+                  fontSize: "18px",
+                  fontWeight: 700,
+                  color: "#111827",
+                  marginTop: "3px",
+                }}
+              >
+                {profile?.full_name || "Élève"}
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px",
+                borderRadius: "10px",
+                background: "#f9fafb",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#6b7280",
+                }}
+              >
+                Identifiant
+              </div>
+
+              <div
+                style={{
+                  marginTop: "3px",
+                  fontWeight: 600,
+                  color: "#111827",
+                }}
+              >
+                {profile?.username || "—"}
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: "12px",
+                borderRadius: "10px",
+                background: "#f9fafb",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#6b7280",
+                }}
+              >
+                Statut
+              </div>
+
+              <div
+                style={{
+                  marginTop: "3px",
+                  fontWeight: 600,
+                  color: "#16a34a",
+                }}
+              >
+                Élève actif
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "18px",
+              borderRadius: "12px",
+              background: "#f9fafb",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "12px",
+                color: "#6b7280",
+                marginBottom: "8px",
+              }}
+            >
+              QR Code scolaire
+            </div>
+
+            <div
+              style={{
+                width: "130px",
+                height: "130px",
+                margin: "0 auto",
+                border: "2px dashed #c7d2fe",
+                borderRadius: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#6366f1",
+                fontSize: "13px",
+                padding: "10px",
+              }}
+            >
+              QR CODE
+            </div>
+
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: "12px",
+                color: "#6b7280",
+              }}
+            >
+              Le QR code sera connecté au système de carte scolaire à l'étape suivante.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   STUDENT DASHBOARD
+========================================================= */
+
+export default function StudentDashboard({
+  profile,
+  session,
+  onLogout,
+}) {
+  const [activePage, setActivePage] = useState("home");
+
+  /*
+   * Historique de navigation.
+   *
+   * Cela permet au bouton "Retour" de revenir à la page
+   * précédente plutôt que de forcer systématiquement
+   * le retour à l'accueil.
+   */
+  const [history, setHistory] = useState([]);
+
+  const navigateTo = (pageId) => {
+    if (!pageId || pageId === activePage) return;
+
+    setHistory((previous) => [
+      ...previous,
+      activePage,
+    ]);
+
+    setActivePage(pageId);
+  };
+
+  const goBack = () => {
+    setHistory((previous) => {
+      if (!previous.length) {
+        setActivePage("home");
+        return [];
+      }
+
+      const newHistory = [...previous];
+      const previousPage =
+        newHistory.pop() || "home";
+
+      setActivePage(previousPage);
+
+      return newHistory;
+    });
+  };
+
+  const handleLogout = async () => {
+    if (typeof onLogout === "function") {
+      await onLogout();
+    }
+  };
+
+  const currentMenu =
+    MENU.find((item) => item.id === activePage) ||
+    MENU[0];
+
+  const renderPage = () => {
+    switch (activePage) {
+      case "courses":
+        return (
+          <CoursesPage
+            onBack={goBack}
+          />
+        );
+
+      case "exercises":
+        return (
+          <ExercisesPage
+            onBack={goBack}
+          />
+        );
+
+      case "assessments":
+        return (
+          <AssessmentsPage
+            onBack={goBack}
+          />
+        );
+
+      case "grades":
+        return (
+          <GradesPage
+            onBack={goBack}
+          />
+        );
+
+      case "attendance":
+        return (
+          <AttendancePage
+            onBack={goBack}
+          />
+        );
+
+      case "bulletins":
+        return (
+          <BulletinsPage
+            onBack={goBack}
+          />
+        );
+
+      case "communication":
+        return (
+          <CommunicationPage
+            onBack={goBack}
+          />
+        );
+
+      case "school-card":
+        return (
+          <SchoolCardPage
+            profile={profile}
+            onBack={goBack}
+          />
+        );
+
+      case "home":
+      default:
+        return (
+          <HomePage
+            profile={profile}
+            onNavigate={navigateTo}
+          />
+        );
+    }
+  };
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f3f4f6",
+        color: "#111827",
+      }}
+    >
+      {/* =====================================================
+          SIDEBAR
+      ====================================================== */}
+
+      <aside
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: "250px",
+          background: "#111827",
+          color: "#ffffff",
+          padding: "18px 14px",
+          overflowY: "auto",
+          zIndex: 20,
+        }}
+      >
+        <div
+          style={{
+            padding: "10px 10px 20px",
+            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            marginBottom: "14px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "18px",
+              fontWeight: 800,
+            }}
+          >
+            École Connectée
+          </div>
+
+          <div
+            style={{
+              marginTop: "5px",
+              fontSize: "12px",
+              color: "#9ca3af",
+            }}
+          >
+            Espace Élève
+          </div>
+        </div>
+
+        <nav
+          style={{
+            display: "grid",
+            gap: "5px",
+          }}
+        >
+          {MENU.map((item) => {
+            const isActive =
+              activePage === item.id;
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => navigateTo(item.id)}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  borderRadius: "9px",
+                  padding: "11px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "11px",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  color: isActive
+                    ? "#ffffff"
+                    : "#d1d5db",
+                  background: isActive
+                    ? "#4f46e5"
+                    : "transparent",
+                  fontSize: "14px",
+                  fontWeight: isActive
+                    ? 700
+                    : 500,
+                }}
+              >
+                <span
+                  style={{
+                    width: "25px",
+                    textAlign: "center",
+                    fontSize: "17px",
+                  }}
+                >
+                  {item.icon}
+                </span>
+
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Déconnexion */}
+
+        <div
+          style={{
+            marginTop: "20px",
+            paddingTop: "14px",
+            borderTop:
+              "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={handleLogout}
+            style={{
+              width: "100%",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: "9px",
+              padding: "11px 12px",
+              background: "transparent",
+              color: "#fca5a5",
+              cursor: "pointer",
+              textAlign: "left",
+              fontSize: "14px",
+              fontWeight: 600,
+            }}
+          >
+            🚪 Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      {/* =====================================================
+          MAIN
+      ====================================================== */}
+
+      <main
+        style={{
+          marginLeft: "250px",
+          minHeight: "100vh",
+        }}
+      >
+        {/* HEADER */}
+
+        <header
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+            background: "#ffffff",
+            borderBottom: "1px solid #e5e7eb",
+            padding: "14px 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "15px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "#6b7280",
+              }}
+            >
+              Espace Élève
+            </div>
+
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: "17px",
+                color: "#111827",
+                marginTop: "2px",
+              }}
+            >
+              {currentMenu.icon}{" "}
+              {currentMenu.label}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <div
+              style={{
+                width: "38px",
+                height: "38px",
+                borderRadius: "50%",
+                background: "#eef2ff",
+                color: "#4f46e5",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: "13px",
+              }}
+            >
+              {getInitials(
+                profile?.full_name || "Élève"
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "none",
+              }}
+            >
+              {session?.user?.email}
+            </div>
+          </div>
+        </header>
+
+        {/* CONTENT */}
+
+        <section
+          style={{
+            padding: "26px",
+            maxWidth: "1200px",
+            margin: "0 auto",
+          }}
+        >
+          {renderPage()}
+        </section>
+      </main>
+    </div>
+  );
+}
