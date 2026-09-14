@@ -129,7 +129,6 @@ function PageTitle({ icon, title, description, onBack }) {
 
 /* =========================================================
    PLACEHOLDER
-   Utilisé temporairement avant la synchronisation Supabase
 ========================================================= */
 
 function PagePlaceholder({ icon, title, text }) {
@@ -586,8 +585,6 @@ function CommunicationPage({ onBack }) {
 function SchoolCardPage({ profile, onBack }) {
   const fullName = profile?.full_name || "Élève";
 
-  // Ces données seront alimentées par Supabase
-  // lors de la prochaine étape de synchronisation.
   const schoolName =
     profile?.school_name || "Maison des Anges";
 
@@ -610,10 +607,6 @@ function SchoolCardPage({ profile, onBack }) {
 
   const photoUrl =
     profile?.photo_url || null;
-
-  const qrValue =
-    profile?.student_qr_code ||
-    studentCode;
 
   return (
     <div>
@@ -752,37 +745,39 @@ function SchoolCardPage({ profile, onBack }) {
           </div>
 
           {/* =================================================
-    VRAI QR CODE ÉLÈVE
-================================================= */}
+              VRAI QR CODE ÉLÈVE
+          ================================================== */}
 
-<div
-  style={{
-    width: "118px",
-    height: "118px",
-    background: "#ffffff",
-    border: "5px solid #ffffff",
-    borderRadius: "10px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    flexShrink: 0,
-  }}
->
-  <img
-    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=4&data=${encodeURIComponent(
-      `ECOLE-CONNECTEE|ELEVE|${studentCode}`
-    )}`}
-    alt={`QR Code de ${fullName}`}
-    style={{
-      width: "108px",
-      height: "108px",
-      objectFit: "contain",
-      display: "block",
-    }}
-  />
-</div>
+          <div
+            style={{
+              width: "118px",
+              height: "118px",
+              background: "#ffffff",
+              border: "5px solid #ffffff",
+              borderRadius: "10px",
+              boxShadow:
+                "0 2px 8px rgba(0,0,0,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=4&data=${encodeURIComponent(
+                `ECOLE-CONNECTEE|ELEVE|${studentCode}`
+              )}`}
+              alt={`QR Code de ${fullName}`}
+              style={{
+                width: "108px",
+                height: "108px",
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
+          </div>
+        </div>
 
         {/* =================================================
             CORPS DE LA CARTE
@@ -1132,7 +1127,8 @@ export default function StudentDashboard({
         <div
           style={{
             padding: "10px 10px 20px",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            borderBottom:
+              "1px solid rgba(255,255,255,0.1)",
             marginBottom: "14px",
           }}
         >
@@ -1224,7 +1220,8 @@ export default function StudentDashboard({
             onClick={handleLogout}
             style={{
               width: "100%",
-              border: "1px solid rgba(255,255,255,0.15)",
+              border:
+                "1px solid rgba(255,255,255,0.15)",
               borderRadius: "9px",
               padding: "11px 12px",
               background: "transparent",
@@ -1258,7 +1255,8 @@ export default function StudentDashboard({
             top: 0,
             zIndex: 10,
             background: "#ffffff",
-            borderBottom: "1px solid #e5e7eb",
+            borderBottom:
+              "1px solid #e5e7eb",
             padding: "14px 24px",
             display: "flex",
             alignItems: "center",
