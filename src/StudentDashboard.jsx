@@ -1,19 +1,29 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 
 /* =========================================================
    STUDENT DASHBOARD
    ÉCOLE CONNECTÉE V4
 
+   CONSERVÉ :
    - Menus réellement cliquables
    - Navigation interne
    - Bouton Retour fonctionnel
-   - Synchronisation Supabase du dossier élève
+   - Synchronisation du dossier élève
    - Synchronisation classe + établissement
-   - Carte scolaire réelle
-   - QR Code de la carte
-   - Aucune modification/suppression pour l'élève
+   - Carte scolaire
+   - QR Code
+   - Déconnexion
    - Isolation par school_id
+   - Aucun bouton modifier/supprimer pour l'élève
+
+   AJOUTÉ :
+   - Cours réels
+   - Exercices réels
+   - Évaluations réelles
+   - Notes réelles
+   - Matières
+   - Filtrage par matière
 ========================================================= */
 
 const MENU = [
@@ -33,10 +43,7 @@ const MENU = [
 ========================================================= */
 
 function getInitials(name = "") {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const parts = name.trim().split(/\s+/).filter(Boolean);
 
   if (!parts.length) return "E";
 
@@ -59,22 +66,42 @@ function formatDate(dateValue) {
   return date.toLocaleDateString("fr-FR");
 }
 
+function formatDateTime(dateValue) {
+  if (!dateValue) return "Non renseigné";
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(dateValue);
+  }
+
+  return date.toLocaleString("fr-FR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
+function formatScore(score) {
+  if (score === null || score === undefined || score === "") {
+    return "—";
+  }
+
+  const number = Number(score);
+
+  if (Number.isNaN(number)) {
+    return String(score);
+  }
+
+  return Number.isInteger(number) ? String(number) : number.toFixed(2);
+}
+
 /* =========================================================
    PAGE TITLE
 ========================================================= */
 
-function PageTitle({
-  icon,
-  title,
-  description,
-  onBack,
-}) {
+function PageTitle({ icon, title, description, onBack }) {
   return (
-    <div
-      style={{
-        marginBottom: "24px",
-      }}
-    >
+    <div style={{ marginBottom: "24px" }}>
       {onBack && (
         <button
           type="button"
@@ -151,38 +178,74 @@ function PageTitle({
 }
 
 /* =========================================================
-   PLACEHOLDER
+   LOADING
 ========================================================= */
 
-function PagePlaceholder({
-  icon,
-  title,
-  text,
-}) {
+function LoadingBox({ text = "Chargement..." }) {
+  return (
+    <div
+      style={{
+        background: "#eff6ff",
+        border: "1px solid #bfdbfe",
+        color: "#1d4ed8",
+        padding: "14px 16px",
+        borderRadius: "10px",
+        fontSize: "14px",
+      }}
+    >
+      🔄 {text}
+    </div>
+  );
+}
+
+/* =========================================================
+   ERROR
+========================================================= */
+
+function ErrorBox({ text }) {
+  if (!text) return null;
+
+  return (
+    <div
+      style={{
+        background: "#fff7ed",
+        border: "1px solid #fed7aa",
+        color: "#9a3412",
+        padding: "14px 16px",
+        borderRadius: "10px",
+        marginBottom: "16px",
+        fontSize: "14px",
+      }}
+    >
+      ⚠️ {text}
+    </div>
+  );
+}
+
+/* =========================================================
+   EMPTY
+========================================================= */
+
+function EmptyBox({ icon, title, text }) {
   return (
     <div
       style={{
         background: "#ffffff",
         border: "1px solid #e5e7eb",
         borderRadius: "14px",
-        padding: "32px",
+        padding: "35px 20px",
         textAlign: "center",
       }}
     >
-      <div
-        style={{
-          fontSize: "42px",
-          marginBottom: "12px",
-        }}
-      >
+      <div style={{ fontSize: "42px", marginBottom: "10px" }}>
         {icon}
       </div>
 
       <h3
         style={{
-          margin: "0 0 8px",
+          margin: "0 0 7px",
           color: "#111827",
-          fontSize: "20px",
+          fontSize: "18px",
         }}
       >
         {title}
@@ -193,7 +256,7 @@ function PagePlaceholder({
           margin: 0,
           color: "#6b7280",
           fontSize: "14px",
-          lineHeight: 1.6,
+          lineHeight: 1.5,
         }}
       >
         {text}
@@ -286,6 +349,97 @@ function DashboardCard({
 }
 
 /* =========================================================
+   SUBJECT FILTER
+========================================================= */
+
+function SubjectFilter({
+  subjects,
+  selectedSubjectId,
+  onChange,
+}) {
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
+        borderRadius: "12px",
+        padding: "14px",
+        marginBottom: "18px",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 700,
+            color: "#374151",
+            fontSize: "14px",
+          }}
+        >
+          📚 Matière :
+        </div>
+
+        <select
+          value={selectedSubjectId}
+          onChange={(event) => onChange(event.target.value)}
+          style={{
+            minWidth: "220px",
+            maxWidth: "100%",
+            border: "1px solid #d1d5db",
+            borderRadius: "9px",
+            padding: "10px 12px",
+            background: "#ffffff",
+            color: "#111827",
+            fontSize: "14px",
+            outline: "none",
+          }}
+        >
+          <option value="all">Toutes les matières</option>
+
+          {subjects.map((subject) => (
+            <option
+              key={String(subject.id)}
+              value={String(subject.id)}
+            >
+              {subject.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   SUBJECT BADGE
+========================================================= */
+
+function SubjectBadge({ name }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        padding: "5px 9px",
+        borderRadius: "999px",
+        background: "#eef2ff",
+        color: "#4338ca",
+        fontSize: "12px",
+        fontWeight: 700,
+      }}
+    >
+      📚 {name || "Matière non renseignée"}
+    </span>
+  );
+}
+
+/* =========================================================
    HOME PAGE
 ========================================================= */
 
@@ -294,6 +448,7 @@ function HomePage({
   studentLoading,
   studentError,
   onNavigate,
+  contentCounts,
 }) {
   const fullName = profile?.full_name || "Élève";
 
@@ -399,35 +554,13 @@ function HomePage({
       </div>
 
       {studentLoading && (
-        <div
-          style={{
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            color: "#1d4ed8",
-            padding: "12px 15px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            fontSize: "14px",
-          }}
-        >
-          🔄 Synchronisation de votre dossier élève...
+        <div style={{ marginBottom: "20px" }}>
+          <LoadingBox text="Synchronisation de votre dossier élève..." />
         </div>
       )}
 
       {studentError && (
-        <div
-          style={{
-            background: "#fff7ed",
-            border: "1px solid #fed7aa",
-            color: "#9a3412",
-            padding: "12px 15px",
-            borderRadius: "10px",
-            marginBottom: "20px",
-            fontSize: "14px",
-          }}
-        >
-          ⚠️ {studentError}
-        </div>
+        <ErrorBox text={studentError} />
       )}
 
       <h3
@@ -450,29 +583,29 @@ function HomePage({
       >
         <DashboardCard
           icon="📚"
-          title="Mes cours"
-          description="Consulter les cours disponibles"
+          title={`Mes cours (${contentCounts.courses})`}
+          description="Cours publiés dans vos matières"
           onClick={() => onNavigate("courses")}
         />
 
         <DashboardCard
           icon="✏️"
-          title="Mes exercices"
-          description="Consulter les exercices"
+          title={`Mes exercices (${contentCounts.exercises})`}
+          description="Exercices de vos matières"
           onClick={() => onNavigate("exercises")}
         />
 
         <DashboardCard
           icon="📝"
-          title="Mes évaluations"
-          description="Voir les évaluations"
+          title={`Mes évaluations (${contentCounts.assessments})`}
+          description="Évaluations de votre classe"
           onClick={() => onNavigate("assessments")}
         />
 
         <DashboardCard
           icon="📊"
-          title="Mes notes"
-          description="Consulter vos résultats"
+          title={`Mes notes (${contentCounts.grades})`}
+          description="Vos résultats par matière"
           onClick={() => onNavigate("grades")}
         />
 
@@ -509,93 +642,825 @@ function HomePage({
 }
 
 /* =========================================================
-   COURSES
+   COURSES PAGE
 ========================================================= */
 
-function CoursesPage({ onBack }) {
+function CoursesPage({
+  onBack,
+  courses,
+  subjects,
+  loading,
+  error,
+}) {
+  const [selectedSubjectId, setSelectedSubjectId] =
+    useState("all");
+
+  const filteredCourses = useMemo(() => {
+    if (selectedSubjectId === "all") {
+      return courses;
+    }
+
+    return courses.filter(
+      (course) =>
+        String(course.subject_id) ===
+        String(selectedSubjectId)
+    );
+  }, [courses, selectedSubjectId]);
+
   return (
     <div>
       <PageTitle
         icon="📚"
         title="Mes cours"
-        description="Retrouvez les cours publiés par vos enseignants."
+        description="Les cours publiés pour votre classe, organisés par matière."
         onBack={onBack}
       />
 
-      <PagePlaceholder
-        icon="📚"
-        title="Cours"
-        text="Les cours seront synchronisés avec les données réelles de l'établissement."
+      <SubjectFilter
+        subjects={subjects}
+        selectedSubjectId={selectedSubjectId}
+        onChange={setSelectedSubjectId}
       />
+
+      <ErrorBox text={error} />
+
+      {loading ? (
+        <LoadingBox text="Chargement des cours..." />
+      ) : !filteredCourses.length ? (
+        <EmptyBox
+          icon="📚"
+          title="Aucun cours"
+          text={
+            selectedSubjectId === "all"
+              ? "Aucun cours publié n'est disponible pour votre classe."
+              : "Aucun cours disponible dans cette matière."
+          }
+        />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "16px",
+          }}
+        >
+          {filteredCourses.map((course) => (
+            <div
+              key={course.id}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
+                borderRadius: "14px",
+                padding: "20px",
+              }}
+            >
+              <SubjectBadge
+                name={course.subject_name}
+              />
+
+              <h3
+                style={{
+                  margin: "13px 0 7px",
+                  color: "#111827",
+                  fontSize: "18px",
+                }}
+              >
+                {course.title || "Cours sans titre"}
+              </h3>
+
+              {course.description && (
+                <p
+                  style={{
+                    margin: "0 0 12px",
+                    color: "#6b7280",
+                    fontSize: "14px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {course.description}
+                </p>
+              )}
+
+              <div
+                style={{
+                  color: "#6b7280",
+                  fontSize: "12px",
+                  marginBottom: "13px",
+                }}
+              >
+                📅 {formatDate(course.created_at)}
+              </div>
+
+              {course.content_type && (
+                <div
+                  style={{
+                    marginBottom: "12px",
+                    color: "#374151",
+                    fontSize: "13px",
+                  }}
+                >
+                  Type : <strong>{course.content_type}</strong>
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                }}
+              >
+                {course.file_url && (
+                  <a
+                    href={course.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      textDecoration: "none",
+                      background: "#4f46e5",
+                      color: "#ffffff",
+                      padding: "9px 13px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    📎 Ouvrir le fichier
+                  </a>
+                )}
+
+                {course.content_url && (
+                  <a
+                    href={course.content_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      textDecoration: "none",
+                      background: "#eef2ff",
+                      color: "#4338ca",
+                      padding: "9px 13px",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    🔗 Ouvrir le contenu
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 /* =========================================================
-   EXERCISES
+   EXERCISES PAGE
 ========================================================= */
 
-function ExercisesPage({ onBack }) {
+function ExercisesPage({
+  onBack,
+  exercises,
+  subjects,
+  loading,
+  error,
+}) {
+  const [selectedSubjectId, setSelectedSubjectId] =
+    useState("all");
+
+  const filteredExercises = useMemo(() => {
+    if (selectedSubjectId === "all") {
+      return exercises;
+    }
+
+    return exercises.filter(
+      (exercise) =>
+        String(exercise.subject_id) ===
+        String(selectedSubjectId)
+    );
+  }, [exercises, selectedSubjectId]);
+
   return (
     <div>
       <PageTitle
         icon="✏️"
         title="Mes exercices"
-        description="Retrouvez les exercices proposés par vos enseignants."
+        description="Les exercices publiés pour votre classe, organisés par matière."
         onBack={onBack}
       />
 
-      <PagePlaceholder
-        icon="✏️"
-        title="Exercices"
-        text="Les exercices seront synchronisés avec les données réelles de l'élève."
+      <SubjectFilter
+        subjects={subjects}
+        selectedSubjectId={selectedSubjectId}
+        onChange={setSelectedSubjectId}
       />
+
+      <ErrorBox text={error} />
+
+      {loading ? (
+        <LoadingBox text="Chargement des exercices..." />
+      ) : !filteredExercises.length ? (
+        <EmptyBox
+          icon="✏️"
+          title="Aucun exercice"
+          text={
+            selectedSubjectId === "all"
+              ? "Aucun exercice publié n'est disponible pour votre classe."
+              : "Aucun exercice disponible dans cette matière."
+          }
+        />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "16px",
+          }}
+        >
+          {filteredExercises.map((exercise) => (
+            <div
+              key={exercise.id}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
+                borderRadius: "14px",
+                padding: "20px",
+              }}
+            >
+              <SubjectBadge
+                name={exercise.subject_name}
+              />
+
+              <h3
+                style={{
+                  margin: "13px 0 7px",
+                  color: "#111827",
+                  fontSize: "18px",
+                }}
+              >
+                {exercise.title || "Exercice sans titre"}
+              </h3>
+
+              {exercise.description && (
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    color: "#6b7280",
+                    fontSize: "14px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {exercise.description}
+                </p>
+              )}
+
+              {exercise.instructions && (
+                <div
+                  style={{
+                    background: "#f8fafc",
+                    borderRadius: "9px",
+                    padding: "11px",
+                    marginBottom: "12px",
+                    color: "#374151",
+                    fontSize: "13px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong>Instructions :</strong>{" "}
+                  {exercise.instructions}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "5px",
+                  color: "#6b7280",
+                  fontSize: "12px",
+                  marginBottom: "13px",
+                }}
+              >
+                {exercise.duration_minutes && (
+                  <div>
+                    ⏱️ Durée :{" "}
+                    {exercise.duration_minutes} min
+                  </div>
+                )}
+
+                {exercise.due_at && (
+                  <div>
+                    📅 À rendre avant :{" "}
+                    {formatDateTime(exercise.due_at)}
+                  </div>
+                )}
+              </div>
+
+              {exercise.file_url && (
+                <a
+                  href={exercise.file_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    textDecoration: "none",
+                    background: "#4f46e5",
+                    color: "#ffffff",
+                    padding: "9px 13px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                >
+                  📎 Ouvrir l'exercice
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 /* =========================================================
-   ASSESSMENTS
+   ASSESSMENTS PAGE
 ========================================================= */
 
-function AssessmentsPage({ onBack }) {
+function AssessmentsPage({
+  onBack,
+  assessments,
+  subjects,
+  loading,
+  error,
+}) {
+  const [selectedSubjectId, setSelectedSubjectId] =
+    useState("all");
+
+  const filteredAssessments = useMemo(() => {
+    if (selectedSubjectId === "all") {
+      return assessments;
+    }
+
+    return assessments.filter(
+      (assessment) =>
+        String(assessment.subject_id) ===
+        String(selectedSubjectId)
+    );
+  }, [assessments, selectedSubjectId]);
+
   return (
     <div>
       <PageTitle
         icon="📝"
         title="Mes évaluations"
-        description="Consultez vos évaluations et leur calendrier."
+        description="Les évaluations prévues pour votre classe, organisées par matière."
         onBack={onBack}
       />
 
-      <PagePlaceholder
-        icon="📝"
-        title="Évaluations"
-        text="Les évaluations de l'élève seront synchronisées avec Supabase."
+      <SubjectFilter
+        subjects={subjects}
+        selectedSubjectId={selectedSubjectId}
+        onChange={setSelectedSubjectId}
       />
+
+      <ErrorBox text={error} />
+
+      {loading ? (
+        <LoadingBox text="Chargement des évaluations..." />
+      ) : !filteredAssessments.length ? (
+        <EmptyBox
+          icon="📝"
+          title="Aucune évaluation"
+          text={
+            selectedSubjectId === "all"
+              ? "Aucune évaluation publiée n'est disponible pour votre classe."
+              : "Aucune évaluation disponible dans cette matière."
+          }
+        />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "16px",
+          }}
+        >
+          {filteredAssessments.map((assessment) => (
+            <div
+              key={assessment.id}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
+                borderRadius: "14px",
+                padding: "20px",
+              }}
+            >
+              <SubjectBadge
+                name={assessment.subject_name}
+              />
+
+              <h3
+                style={{
+                  margin: "13px 0 7px",
+                  color: "#111827",
+                  fontSize: "18px",
+                }}
+              >
+                {assessment.title ||
+                  "Évaluation sans titre"}
+              </h3>
+
+              {assessment.description && (
+                <p
+                  style={{
+                    margin: "0 0 12px",
+                    color: "#6b7280",
+                    fontSize: "14px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {assessment.description}
+                </p>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "7px",
+                  fontSize: "13px",
+                  color: "#374151",
+                }}
+              >
+                <div>
+                  📅 Date :{" "}
+                  <strong>
+                    {formatDate(
+                      assessment.evaluation_date
+                    )}
+                  </strong>
+                </div>
+
+                {assessment.assessment_type && (
+                  <div>
+                    📌 Type :{" "}
+                    <strong>
+                      {assessment.assessment_type}
+                    </strong>
+                  </div>
+                )}
+
+                <div>
+                  🧮 Barème :{" "}
+                  <strong>
+                    {formatScore(
+                      assessment.max_score
+                    )}
+                  </strong>
+                </div>
+
+                <div>
+                  🔢 Coefficient :{" "}
+                  <strong>
+                    {formatScore(
+                      assessment.coefficient
+                    )}
+                  </strong>
+                </div>
+
+                {assessment.trimester && (
+                  <div>
+                    📚 Trimestre :{" "}
+                    <strong>
+                      {assessment.trimester}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 /* =========================================================
-   GRADES
+   GRADES PAGE
 ========================================================= */
 
-function GradesPage({ onBack }) {
+function GradesPage({
+  onBack,
+  grades,
+  subjects,
+  loading,
+  error,
+}) {
+  const [selectedSubjectId, setSelectedSubjectId] =
+    useState("all");
+
+  const filteredGrades = useMemo(() => {
+    if (selectedSubjectId === "all") {
+      return grades;
+    }
+
+    return grades.filter(
+      (grade) =>
+        String(grade.subject_id) ===
+        String(selectedSubjectId)
+    );
+  }, [grades, selectedSubjectId]);
+
+  const subjectAverages = useMemo(() => {
+    const result = {};
+
+    filteredGrades.forEach((grade) => {
+      const subjectId =
+        String(grade.subject_id || "unknown");
+
+      const score = Number(grade.score);
+
+      if (Number.isNaN(score)) return;
+
+      const maxScore =
+        Number(grade.max_score) || 20;
+
+      const scoreOn20 =
+        maxScore > 0
+          ? (score / maxScore) * 20
+          : score;
+
+      if (!result[subjectId]) {
+        result[subjectId] = {
+          total: 0,
+          count: 0,
+          name:
+            grade.subject_name ||
+            "Matière non renseignée",
+        };
+      }
+
+      result[subjectId].total += scoreOn20;
+      result[subjectId].count += 1;
+    });
+
+    return Object.values(result).map(
+      (item) => ({
+        ...item,
+        average:
+          item.count > 0
+            ? item.total / item.count
+            : 0,
+      })
+    );
+  }, [filteredGrades]);
+
   return (
     <div>
       <PageTitle
         icon="📊"
         title="Mes notes"
-        description="Consultez vos notes et vos résultats scolaires."
+        description="Vos résultats scolaires, toujours affichés dans leur matière."
         onBack={onBack}
       />
 
-      <PagePlaceholder
-        icon="📊"
-        title="Notes"
-        text="Les notes et moyennes réelles seront récupérées depuis les données de l'établissement."
+      <SubjectFilter
+        subjects={subjects}
+        selectedSubjectId={selectedSubjectId}
+        onChange={setSelectedSubjectId}
       />
+
+      <ErrorBox text={error} />
+
+      {loading ? (
+        <LoadingBox text="Chargement de vos notes..." />
+      ) : !filteredGrades.length ? (
+        <EmptyBox
+          icon="📊"
+          title="Aucune note"
+          text={
+            selectedSubjectId === "all"
+              ? "Aucune note n'est encore disponible."
+              : "Aucune note disponible dans cette matière."
+          }
+        />
+      ) : (
+        <>
+          {subjectAverages.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(210px, 1fr))",
+                gap: "12px",
+                marginBottom: "18px",
+              }}
+            >
+              {subjectAverages.map((item) => (
+                <div
+                  key={item.name}
+                  style={{
+                    background: "#ffffff",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "12px",
+                    padding: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: "#6b7280",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      marginBottom: "6px",
+                    }}
+                  >
+                    MATIÈRE
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#111827",
+                      fontWeight: 800,
+                      fontSize: "15px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {item.name}
+                  </div>
+
+                  <div
+                    style={{
+                      color: "#4f46e5",
+                      fontSize: "24px",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {item.average.toFixed(2)} / 20
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            {filteredGrades.map((grade) => (
+              <div
+                key={grade.id}
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "13px",
+                  padding: "17px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: "15px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <SubjectBadge
+                      name={grade.subject_name}
+                    />
+
+                    <h3
+                      style={{
+                        margin: "10px 0 4px",
+                        color: "#111827",
+                        fontSize: "17px",
+                      }}
+                    >
+                      {grade.assessment_title ||
+                        "Évaluation"}
+                    </h3>
+
+                    {grade.assessment_date && (
+                      <div
+                        style={{
+                          color: "#6b7280",
+                          fontSize: "12px",
+                        }}
+                      >
+                        📅{" "}
+                        {formatDate(
+                          grade.assessment_date
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      minWidth: "100px",
+                      textAlign: "center",
+                      background: "#eef2ff",
+                      borderRadius: "10px",
+                      padding: "10px 13px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        color: "#4338ca",
+                        fontSize: "22px",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {formatScore(grade.score)}
+                    </div>
+
+                    <div
+                      style={{
+                        color: "#6b7280",
+                        fontSize: "11px",
+                      }}
+                    >
+                      / {formatScore(grade.max_score)}
+                    </div>
+                  </div>
+                </div>
+
+                {(grade.appreciation ||
+                  grade.comment ||
+                  grade.stars) && (
+                  <div
+                    style={{
+                      marginTop: "13px",
+                      borderTop:
+                        "1px solid #f1f5f9",
+                      paddingTop: "12px",
+                    }}
+                  >
+                    {grade.stars && (
+                      <div
+                        style={{
+                          marginBottom: "6px",
+                          fontSize: "16px",
+                        }}
+                      >
+                        {"⭐".repeat(
+                          Math.min(
+                            5,
+                            Math.max(
+                              0,
+                              Number(grade.stars)
+                            )
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    {grade.appreciation && (
+                      <div
+                        style={{
+                          color: "#374151",
+                          fontSize: "13px",
+                          marginBottom: "5px",
+                        }}
+                      >
+                        <strong>
+                          Appréciation :
+                        </strong>{" "}
+                        {grade.appreciation}
+                      </div>
+                    )}
+
+                    {grade.comment && (
+                      <div
+                        style={{
+                          color: "#6b7280",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {grade.comment}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -614,7 +1479,7 @@ function AttendancePage({ onBack }) {
         onBack={onBack}
       />
 
-      <PagePlaceholder
+      <EmptyBox
         icon="🕘"
         title="Présences"
         text="Les présences et absences seront synchronisées avec les données réelles de l'élève."
@@ -625,6 +1490,7 @@ function AttendancePage({ onBack }) {
 
 /* =========================================================
    BULLETINS
+   NE PAS MODIFIER LA SECTION EXISTANTE
 ========================================================= */
 
 function BulletinsPage({ onBack }) {
@@ -637,7 +1503,7 @@ function BulletinsPage({ onBack }) {
         onBack={onBack}
       />
 
-      <PagePlaceholder
+      <EmptyBox
         icon="📄"
         title="Bulletins"
         text="Les bulletins de l'élève seront récupérés depuis les données de l'établissement."
@@ -660,10 +1526,10 @@ function CommunicationPage({ onBack }) {
         onBack={onBack}
       />
 
-      <PagePlaceholder
+      <EmptyBox
         icon="💬"
         title="Communication"
-        text="La communication sera connectée aux données réelles de l'application."
+        text="La communication reste disponible depuis l'espace élève."
       />
     </div>
   );
@@ -673,10 +1539,7 @@ function CommunicationPage({ onBack }) {
    CARD INFO
 ========================================================= */
 
-function CardInfo({
-  label,
-  value,
-}) {
+function CardInfo({ label, value }) {
   return (
     <div
       style={{
@@ -779,10 +1642,6 @@ function SchoolCardPage({
               "0 10px 30px rgba(15, 23, 42, 0.10)",
           }}
         >
-          {/* =================================================
-             EN-TÊTE DE LA CARTE
-          ================================================== */}
-
           <div
             style={{
               background:
@@ -826,11 +1685,7 @@ function SchoolCardPage({
                   EC
                 </div>
 
-                <div
-                  style={{
-                    minWidth: 0,
-                  }}
-                >
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
                       fontWeight: 800,
@@ -854,10 +1709,6 @@ function SchoolCardPage({
                   </div>
                 </div>
               </div>
-
-              {/* =================================================
-                 QR CODE RÉEL
-              ================================================== */}
 
               <div
                 style={{
@@ -891,10 +1742,6 @@ function SchoolCardPage({
             </div>
           </div>
 
-          {/* =================================================
-             CORPS DE LA CARTE
-          ================================================== */}
-
           <div
             style={{
               padding: "24px",
@@ -909,8 +1756,6 @@ function SchoolCardPage({
                 alignItems: "start",
               }}
             >
-              {/* PHOTO */}
-
               <div
                 style={{
                   width: "150px",
@@ -961,8 +1806,6 @@ function SchoolCardPage({
                   </div>
                 )}
               </div>
-
-              {/* INFORMATIONS */}
 
               <div>
                 <div
@@ -1030,10 +1873,6 @@ function SchoolCardPage({
             </div>
           </div>
 
-          {/* =================================================
-             PIED DE CARTE
-          ================================================== */}
-
           <div
             style={{
               padding: "14px 20px",
@@ -1066,10 +1905,6 @@ function SchoolCardPage({
             </div>
           </div>
         </div>
-
-        {/* =================================================
-           ACTIONS
-        ================================================== */}
 
         <div
           style={{
@@ -1141,8 +1976,29 @@ export default function StudentDashboard({
   const [studentError, setStudentError] =
     useState("");
 
+  const [subjects, setSubjects] =
+    useState([]);
+
+  const [courses, setCourses] =
+    useState([]);
+
+  const [exercises, setExercises] =
+    useState([]);
+
+  const [assessments, setAssessments] =
+    useState([]);
+
+  const [grades, setGrades] =
+    useState([]);
+
+  const [academicLoading, setAcademicLoading] =
+    useState(false);
+
+  const [academicError, setAcademicError] =
+    useState("");
+
   /* =======================================================
-     SYNCHRONISATION DU DOSSIER ÉLÈVE
+     DOSSIER ÉLÈVE
   ======================================================= */
 
   useEffect(() => {
@@ -1150,8 +2006,7 @@ export default function StudentDashboard({
 
     async function loadStudentDossier() {
       const connectedUserId =
-        profile?.id ||
-        session?.user?.id;
+        profile?.id || session?.user?.id;
 
       const schoolId =
         profile?.school_id;
@@ -1163,16 +2018,11 @@ export default function StudentDashboard({
             "Impossible d'identifier le compte élève connecté."
           );
         }
-
         return;
       }
 
       setStudentLoading(true);
       setStudentError("");
-
-      /* ===================================================
-         1. DOSSIER ÉLÈVE
-      =================================================== */
 
       const {
         data: student,
@@ -1198,10 +2048,7 @@ export default function StudentDashboard({
         `
         )
         .eq("profile_id", connectedUserId)
-        .eq(
-          "school_id",
-          schoolId
-        )
+        .eq("school_id", schoolId)
         .maybeSingle();
 
       if (studentQueryError) {
@@ -1231,10 +2078,6 @@ export default function StudentDashboard({
         return;
       }
 
-      /* ===================================================
-         2. CLASSE
-      =================================================== */
-
       let classData = null;
 
       if (student.class_id) {
@@ -1243,17 +2086,9 @@ export default function StudentDashboard({
           error: classQueryError,
         } = await supabase
           .from("classes")
-          .select(
-            "id, name, level"
-          )
-          .eq(
-            "id",
-            student.class_id
-          )
-          .eq(
-            "school_id",
-            student.school_id
-          )
+          .select("id, name, level")
+          .eq("id", student.class_id)
+          .eq("school_id", student.school_id)
           .maybeSingle();
 
         if (classQueryError) {
@@ -1265,10 +2100,6 @@ export default function StudentDashboard({
           classData = classRow;
         }
       }
-
-      /* ===================================================
-         3. ÉTABLISSEMENT
-      =================================================== */
 
       let schoolData = null;
 
@@ -1289,12 +2120,9 @@ export default function StudentDashboard({
             logo_url,
             stamp_url,
             signature_url
-            `
+          `
           )
-          .eq(
-            "id",
-            student.school_id
-          )
+          .eq("id", student.school_id)
           .maybeSingle();
 
         if (schoolQueryError) {
@@ -1307,13 +2135,8 @@ export default function StudentDashboard({
         }
       }
 
-      /* ===================================================
-         4. PROFIL SYNCHRONISÉ
-      =================================================== */
-
       const generatedFullName =
-        `${student.first_name || ""} ${student.last_name || ""}`
-          .trim();
+        `${student.first_name || ""} ${student.last_name || ""}`.trim();
 
       const synchronizedStudent = {
         ...student,
@@ -1324,12 +2147,10 @@ export default function StudentDashboard({
           "Élève",
 
         class_name:
-          classData?.name ||
-          "",
+          classData?.name || "",
 
         class_level:
-          classData?.level ||
-          "",
+          classData?.level || "",
 
         school_name:
           schoolData?.name ||
@@ -1337,38 +2158,29 @@ export default function StudentDashboard({
           "",
 
         school_logo_url:
-          schoolData?.logo_url ||
-          null,
+          schoolData?.logo_url || null,
 
         school_address:
-          schoolData?.address ||
-          "",
+          schoolData?.address || "",
 
         school_city:
-          schoolData?.city ||
-          "",
+          schoolData?.city || "",
 
         school_phone:
-          schoolData?.phone ||
-          "",
+          schoolData?.phone || "",
 
         school_email:
-          schoolData?.email ||
-          "",
+          schoolData?.email || "",
 
         school_stamp_url:
-          schoolData?.stamp_url ||
-          null,
+          schoolData?.stamp_url || null,
 
         school_signature_url:
-          schoolData?.signature_url ||
-          null,
+          schoolData?.signature_url || null,
       };
 
       if (!cancelled) {
-        setStudentData(
-          synchronizedStudent
-        );
+        setStudentData(synchronizedStudent);
         setStudentLoading(false);
         setStudentError("");
       }
@@ -1386,12 +2198,420 @@ export default function StudentDashboard({
   ]);
 
   /* =======================================================
-     PROFIL À UTILISER DANS L'INTERFACE
+     DONNÉES ACADÉMIQUES
+  ======================================================= */
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAcademicData() {
+      const connectedUserId =
+        profile?.id || session?.user?.id;
+
+      const schoolId =
+        profile?.school_id;
+
+      if (!connectedUserId || !schoolId) {
+        return;
+      }
+
+      setAcademicLoading(true);
+      setAcademicError("");
+
+      /* ---------------------------------------------------
+         1. RÉCUPÉRER LE DOSSIER ÉLÈVE
+      --------------------------------------------------- */
+
+      const {
+        data: student,
+        error: studentErrorQuery,
+      } = await supabase
+        .from("students")
+        .select(
+          "id, profile_id, school_id, class_id"
+        )
+        .eq("profile_id", connectedUserId)
+        .eq("school_id", schoolId)
+        .maybeSingle();
+
+      if (studentErrorQuery) {
+        console.error(
+          "Erreur académique - élève :",
+          studentErrorQuery
+        );
+
+        if (!cancelled) {
+          setAcademicError(
+            "Impossible de récupérer les données scolaires."
+          );
+          setAcademicLoading(false);
+        }
+
+        return;
+      }
+
+      if (!student) {
+        if (!cancelled) {
+          setAcademicError(
+            "Dossier élève introuvable."
+          );
+          setAcademicLoading(false);
+        }
+
+        return;
+      }
+
+      /* ---------------------------------------------------
+         2. MATIÈRES DE L'ÉTABLISSEMENT
+      --------------------------------------------------- */
+
+      const {
+        data: subjectRows,
+        error: subjectsError,
+      } = await supabase
+        .from("subjects")
+        .select(
+          "id, name, school_id"
+        )
+        .eq("school_id", schoolId)
+        .order("name", {
+          ascending: true,
+        });
+
+      if (subjectsError) {
+        console.error(
+          "Erreur matières :",
+          subjectsError
+        );
+      }
+
+      const subjectList =
+        subjectRows || [];
+
+      const subjectMap = new Map(
+        subjectList.map((subject) => [
+          String(subject.id),
+          subject,
+        ])
+      );
+
+      /* ---------------------------------------------------
+         3. COURS
+         RLS garantit que l'élève ne reçoit que
+         les cours autorisés pour sa classe/école.
+      --------------------------------------------------- */
+
+      let courseRows = [];
+
+      if (student.class_id) {
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("learning_contents")
+          .select(
+            `
+            id,
+            school_id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            content_type,
+            content_url,
+            file_url,
+            thumbnail_url,
+            published,
+            created_at,
+            updated_at
+          `
+          )
+          .eq("school_id", schoolId)
+          .eq("class_id", student.class_id)
+          .eq("published", true)
+          .order("created_at", {
+            ascending: false,
+          });
+
+        if (error) {
+          console.error(
+            "Erreur cours :",
+            error
+          );
+        } else {
+          courseRows = data || [];
+        }
+      }
+
+      const normalizedCourses =
+        courseRows.map((course) => ({
+          ...course,
+          subject_name:
+            subjectMap.get(
+              String(course.subject_id)
+            )?.name ||
+            "Matière non renseignée",
+        }));
+
+      /* ---------------------------------------------------
+         4. EXERCICES
+      --------------------------------------------------- */
+
+      let exerciseRows = [];
+
+      if (student.class_id) {
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("exercises")
+          .select(
+            `
+            id,
+            school_id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            instructions,
+            duration_minutes,
+            published,
+            due_at,
+            created_at,
+            updated_at,
+            file_url,
+            file_name
+          `
+          )
+          .eq("school_id", schoolId)
+          .eq("class_id", student.class_id)
+          .eq("published", true)
+          .order("created_at", {
+            ascending: false,
+          });
+
+        if (error) {
+          console.error(
+            "Erreur exercices :",
+            error
+          );
+        } else {
+          exerciseRows = data || [];
+        }
+      }
+
+      const normalizedExercises =
+        exerciseRows.map((exercise) => ({
+          ...exercise,
+          subject_name:
+            subjectMap.get(
+              String(exercise.subject_id)
+            )?.name ||
+            "Matière non renseignée",
+        }));
+
+      /* ---------------------------------------------------
+         5. ÉVALUATIONS
+      --------------------------------------------------- */
+
+      let assessmentRows = [];
+
+      if (student.class_id) {
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("assessments")
+          .select(
+            `
+            id,
+            school_id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            assessment_type,
+            max_score,
+            evaluation_date,
+            coefficient,
+            published,
+            created_at,
+            updated_at,
+            trimester,
+            assessment_slot
+          `
+          )
+          .eq("school_id", schoolId)
+          .eq("class_id", student.class_id)
+          .eq("published", true)
+          .order("evaluation_date", {
+            ascending: true,
+          });
+
+        if (error) {
+          console.error(
+            "Erreur évaluations :",
+            error
+          );
+        } else {
+          assessmentRows = data || [];
+        }
+      }
+
+      const normalizedAssessments =
+        assessmentRows.map((assessment) => ({
+          ...assessment,
+          subject_name:
+            subjectMap.get(
+              String(assessment.subject_id)
+            )?.name ||
+            "Matière non renseignée",
+        }));
+
+      /* ---------------------------------------------------
+         6. NOTES
+      --------------------------------------------------- */
+
+      const studentIdentifiers = [
+        student.id,
+        student.profile_id,
+      ].filter(Boolean);
+
+      let gradeRows = [];
+
+      if (studentIdentifiers.length) {
+        const {
+          data,
+          error,
+        } = await supabase
+          .from("grades")
+          .select(
+            `
+            id,
+            assessment_id,
+            student_id,
+            teacher_id,
+            school_id,
+            score,
+            appreciation,
+            stars,
+            comment,
+            created_at,
+            updated_at
+          `
+          )
+          .eq("school_id", schoolId)
+          .in(
+            "student_id",
+            studentIdentifiers
+          )
+          .order("created_at", {
+            ascending: false,
+          });
+
+        if (error) {
+          console.error(
+            "Erreur notes :",
+            error
+          );
+        } else {
+          gradeRows = data || [];
+        }
+      }
+
+      /* ---------------------------------------------------
+         7. RATTACHER CHAQUE NOTE À SON ÉVALUATION
+            PUIS À SA MATIÈRE
+      --------------------------------------------------- */
+
+      const assessmentMap =
+        new Map(
+          normalizedAssessments.map(
+            (assessment) => [
+              String(assessment.id),
+              assessment,
+            ]
+          )
+        );
+
+      const normalizedGrades =
+        gradeRows.map((grade) => {
+          const assessment =
+            assessmentMap.get(
+              String(grade.assessment_id)
+            );
+
+          return {
+            ...grade,
+
+            subject_id:
+              assessment?.subject_id ||
+              null,
+
+            subject_name:
+              assessment?.subject_name ||
+              "Matière non renseignée",
+
+            assessment_title:
+              assessment?.title ||
+              "Évaluation",
+
+            assessment_date:
+              assessment?.evaluation_date ||
+              null,
+
+            max_score:
+              assessment?.max_score ||
+              20,
+
+            coefficient:
+              assessment?.coefficient ||
+              1,
+          };
+        });
+
+      if (!cancelled) {
+        setSubjects(subjectList);
+        setCourses(normalizedCourses);
+        setExercises(normalizedExercises);
+        setAssessments(normalizedAssessments);
+        setGrades(normalizedGrades);
+        setAcademicLoading(false);
+      }
+    }
+
+    loadAcademicData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    profile?.id,
+    profile?.school_id,
+    session?.user?.id,
+  ]);
+
+  /* =======================================================
+     PROFIL
   ======================================================= */
 
   const dashboardProfile = {
     ...(profile || {}),
     ...(studentData || {}),
+  };
+
+  /* =======================================================
+     COMPTEURS
+  ======================================================= */
+
+  const contentCounts = {
+    courses: courses.length,
+    exercises: exercises.length,
+    assessments: assessments.length,
+    grades: grades.length,
   };
 
   /* =======================================================
@@ -1451,6 +2671,7 @@ export default function StudentDashboard({
             studentLoading={studentLoading}
             studentError={studentError}
             onNavigate={navigateTo}
+            contentCounts={contentCounts}
           />
         );
 
@@ -1458,6 +2679,10 @@ export default function StudentDashboard({
         return (
           <CoursesPage
             onBack={goBack}
+            courses={courses}
+            subjects={subjects}
+            loading={academicLoading}
+            error={academicError}
           />
         );
 
@@ -1465,6 +2690,10 @@ export default function StudentDashboard({
         return (
           <ExercisesPage
             onBack={goBack}
+            exercises={exercises}
+            subjects={subjects}
+            loading={academicLoading}
+            error={academicError}
           />
         );
 
@@ -1472,6 +2701,10 @@ export default function StudentDashboard({
         return (
           <AssessmentsPage
             onBack={goBack}
+            assessments={assessments}
+            subjects={subjects}
+            loading={academicLoading}
+            error={academicError}
           />
         );
 
@@ -1479,6 +2712,10 @@ export default function StudentDashboard({
         return (
           <GradesPage
             onBack={goBack}
+            grades={grades}
+            subjects={subjects}
+            loading={academicLoading}
+            error={academicError}
           />
         );
 
@@ -1518,6 +2755,7 @@ export default function StudentDashboard({
             studentLoading={studentLoading}
             studentError={studentError}
             onNavigate={navigateTo}
+            contentCounts={contentCounts}
           />
         );
     }
@@ -1547,7 +2785,7 @@ export default function StudentDashboard({
       }}
     >
       {/* =================================================
-         HEADER MOBILE / TOP
+         HEADER
       ================================================== */}
 
       <header
@@ -1556,14 +2794,15 @@ export default function StudentDashboard({
           top: 0,
           zIndex: 30,
           background: "#ffffff",
-          borderBottom: "1px solid #e5e7eb",
+          borderBottom:
+            "1px solid #e5e7eb",
           minHeight: "70px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent:
+            "space-between",
           gap: "15px",
-          padding:
-            "12px 18px",
+          padding: "12px 18px",
         }}
       >
         <div
@@ -1591,11 +2830,7 @@ export default function StudentDashboard({
             EC
           </div>
 
-          <div
-            style={{
-              minWidth: 0,
-            }}
-          >
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
                 fontWeight: 800,
@@ -1683,7 +2918,8 @@ export default function StudentDashboard({
           style={{
             width: "245px",
             background: "#ffffff",
-            borderRight: "1px solid #e5e7eb",
+            borderRight:
+              "1px solid #e5e7eb",
             padding: "18px 12px",
             flexShrink: 0,
           }}
@@ -1696,7 +2932,8 @@ export default function StudentDashboard({
               fontSize: "11px",
               fontWeight: 800,
               textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              letterSpacing:
+                "0.08em",
             }}
           >
             Espace Élève
@@ -1705,7 +2942,8 @@ export default function StudentDashboard({
           <nav
             style={{
               display: "flex",
-              flexDirection: "column",
+              flexDirection:
+                "column",
               gap: "5px",
             }}
           >
@@ -1718,7 +2956,9 @@ export default function StudentDashboard({
                   key={item.id}
                   type="button"
                   onClick={() =>
-                    handleMenuClick(item.id)
+                    handleMenuClick(
+                      item.id
+                    )
                   }
                   style={{
                     width: "100%",
@@ -1733,21 +2973,28 @@ export default function StudentDashboard({
                     padding:
                       "11px 12px",
                     display: "flex",
-                    alignItems: "center",
+                    alignItems:
+                      "center",
                     gap: "11px",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontSize: "14px",
-                    fontWeight: active
-                      ? 700
-                      : 500,
+                    cursor:
+                      "pointer",
+                    textAlign:
+                      "left",
+                    fontSize:
+                      "14px",
+                    fontWeight:
+                      active
+                        ? 700
+                        : 500,
                   }}
                 >
                   <span
                     style={{
                       width: "25px",
-                      textAlign: "center",
-                      fontSize: "18px",
+                      textAlign:
+                        "center",
+                      fontSize:
+                        "18px",
                     }}
                   >
                     {item.icon}
@@ -1774,15 +3021,22 @@ export default function StudentDashboard({
               onClick={onLogout}
               style={{
                 width: "100%",
-                border: "1px solid #fecaca",
-                background: "#fffafa",
-                color: "#dc2626",
-                borderRadius: "10px",
+                border:
+                  "1px solid #fecaca",
+                background:
+                  "#fffafa",
+                color:
+                  "#dc2626",
+                borderRadius:
+                  "10px",
                 padding:
                   "10px 12px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: 700,
+                cursor:
+                  "pointer",
+                fontSize:
+                  "14px",
+                fontWeight:
+                  700,
               }}
             >
               🚪 Déconnexion
@@ -1798,15 +3052,17 @@ export default function StudentDashboard({
           style={{
             flex: 1,
             minWidth: 0,
-            padding:
-              "28px",
-            overflowX: "hidden",
+            padding: "28px",
+            overflowX:
+              "hidden",
           }}
         >
           <div
             style={{
-              maxWidth: "1180px",
-              margin: "0 auto",
+              maxWidth:
+                "1180px",
+              margin:
+                "0 auto",
             }}
           >
             {renderPage()}
@@ -1815,14 +3071,18 @@ export default function StudentDashboard({
       </div>
 
       {/* =================================================
-         RESPONSIVE
+         RESPONSIVE + IMPRESSION
       ================================================== */}
 
       <style>
         {`
           @media (max-width: 760px) {
-            .student-dashboard-mobile-fix {
-              width: 100%;
+            aside {
+              width: 205px !important;
+            }
+
+            main {
+              padding: 18px !important;
             }
           }
 
