@@ -802,6 +802,175 @@ function CoursesPage({
 /* =========================================================
    EXERCICES
 ========================================================= */
+function AssessmentsPage({
+  assessments = [],
+  subjects = [],
+  onBack,
+}) {
+  const [selectedSubjectId, setSelectedSubjectId] =
+    useState("all");
+
+  const filteredAssessments =
+    selectedSubjectId === "all"
+      ? assessments
+      : assessments.filter(
+          (assessment) =>
+            String(assessment.subject_id) ===
+            String(selectedSubjectId)
+        );
+
+  return (
+    <div>
+      <PageTitle
+        icon="📝"
+        title="Mes évaluations"
+        description="Les évaluations publiées pour votre classe"
+        onBack={onBack}
+      />
+
+      <SubjectFilter
+        subjects={subjects}
+        selectedSubjectId={selectedSubjectId}
+        onChange={setSelectedSubjectId}
+      />
+
+      {!filteredAssessments.length ? (
+        <EmptyBox
+          icon="📝"
+          title="Aucune évaluation"
+          text="Aucune évaluation publiée n'est disponible pour votre classe."
+        />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gap: "14px",
+          }}
+        >
+          {filteredAssessments.map(
+            (assessment) => (
+              <div
+                key={assessment.id}
+                style={{
+                  background: "#ffffff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "14px",
+                  padding: "18px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h3
+                      style={{
+                        margin: "0 0 8px",
+                        color: "#111827",
+                        fontSize: "18px",
+                      }}
+                    >
+                      {assessment.title ||
+                        "Évaluation"}
+                    </h3>
+
+                    <SubjectBadge
+                      name={
+                        assessment.subject_name
+                      }
+                    />
+                  </div>
+
+                  <span
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: "999px",
+                      background: "#eef2ff",
+                      color: "#4338ca",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {assessment.assessment_type ||
+                      "Évaluation"}
+                  </span>
+                </div>
+
+                {assessment.description && (
+                  <p
+                    style={{
+                      margin: "14px 0",
+                      color: "#4b5563",
+                      fontSize: "14px",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {assessment.description}
+                  </p>
+                )}
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    flexWrap: "wrap",
+                    marginTop: "12px",
+                  }}
+                >
+                  <span
+                    style={{
+                      padding: "7px 10px",
+                      background: "#f9fafb",
+                      borderRadius: "8px",
+                      color: "#374151",
+                      fontSize: "13px",
+                    }}
+                  >
+                    📅{" "}
+                    {formatDate(
+                      assessment.evaluation_date
+                    )}
+                  </span>
+
+                  <span
+                    style={{
+                      padding: "7px 10px",
+                      background: "#f9fafb",
+                      borderRadius: "8px",
+                      color: "#374151",
+                      fontSize: "13px",
+                    }}
+                  >
+                    🎯 Note maximale :{" "}
+                    {assessment.max_score ?? 20}
+                  </span>
+
+                  <span
+                    style={{
+                      padding: "7px 10px",
+                      background: "#f9fafb",
+                      borderRadius: "8px",
+                      color: "#374151",
+                      fontSize: "13px",
+                    }}
+                  >
+                    Coefficient :{" "}
+                    {assessment.coefficient ?? 1}
+                  </span>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ExercisesPage({
   onBack,
