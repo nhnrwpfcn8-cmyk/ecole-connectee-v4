@@ -1822,11 +1822,35 @@ function BulletinsPage({ onBack }) {
 
 function CommunicationPage({
   onBack,
+  conversations,
   messages,
+  selectedConversation,
+  onSelectConversation,
+  newMessage,
+  onNewMessage,
+  onSendMessage,
+  sending,
   loading,
   error,
   onMarkRead,
+  currentUserId,
 }) {
+  const conversationList =
+    conversations || [];
+
+  const messageList =
+    messages || [];
+
+  const selectedConversationId =
+    selectedConversation?.id;
+
+  const selectedMessages =
+    messageList.filter(
+      (message) =>
+        String(message.conversation_id) ===
+        String(selectedConversationId)
+    );
+
   return (
     <div>
       <PageTitle
@@ -1839,130 +1863,451 @@ function CommunicationPage({
       <ErrorBox text={error} />
 
       {loading ? (
-        <LoadingBox text="Chargement de vos messages..." />
-      ) : !messages.length ? (
+        <LoadingBox
+          text="Chargement de vos conversations..."
+        />
+      ) : !conversationList.length ? (
         <EmptyBox
           icon="💬"
-          title="Aucun message"
-          text="Vous n'avez pas encore reçu de message."
+          title="Aucune conversation"
+          text="Vous n'avez pas encore de conversation avec un enseignant."
         />
       ) : (
         <div
           style={{
             display: "grid",
-            gap: "12px",
+            gridTemplateColumns:
+              "minmax(220px, 0.8fr) minmax(0, 1.5fr)",
+            gap: "16px",
           }}
         >
-          {messages.map((message) => {
-            const unread =
-              !message.read_at &&
-              message.sender_profile_id;
+          {/* LISTE DES ENSEIGNANTS */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "16px",
+              padding: "12px",
+              height: "fit-content",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 800,
+                color: "#111827",
+                marginBottom: "10px",
+              }}
+            >
+              👨‍🏫 Mes enseignants
+            </div>
 
-            return (
-              <button
-                key={message.id}
-                type="button"
-                onClick={() => {
-                  if (!message.read_at) {
-                    onMarkRead(message.id);
-                  }
-                }}
+            <div
+              style={{
+                display: "grid",
+                gap: "8px",
+              }}
+            >
+              {conversationList.map(
+                (conversation) => {
+                  const active =
+                    String(
+                      conversation.id
+                    ) ===
+                    String(
+                      selectedConversationId
+                    );
+
+                  return (
+                    <button
+                      key={conversation.id}
+                      type="button"
+                      onClick={() =>
+                        onSelectConversation(
+                          conversation
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        border: active
+                          ? "1px solid #4f46e5"
+                          : "1px solid #e5e7eb",
+                        background: active
+                          ? "#eef2ff"
+                          : "#ffffff",
+                        borderRadius: "12px",
+                        padding: "12px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 800,
+                          color: "#111827",
+                        }}
+                      >
+                        {conversation.teacher_name ||
+                          "Enseignant"}
+                      </div>
+
+                      {conversation.unread_count >
+                        0 && (
+                        <div
+                          style={{
+                            marginTop: "5px",
+                            color: "#dc2626",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          🔴{" "}
+                          {conversation.unread_count}{" "}
+                          nouveau
+                          {conversation.unread_count >
+                          1
+                            ? "x"
+                            : ""}{" "}
+                          message
+                          {conversation.unread_count >
+                          1
+                            ? "s"
+                            : ""}
+                        </div>
+                      )}
+
+                      {conversation.last_message && (
+                        <div
+                          style={{
+                            marginTop: "5px",
+                            color: "#6b7280",
+                            fontSize: "12px",
+                            overflow: "hidden",
+                            textOverflow:
+                              "ellipsis",
+                            whiteSpace:
+                              "nowrap",
+                          }}
+                        >
+                          {
+                            conversation
+                              .last_message.message
+                          }
+                        </div>
+                      )}
+                    </button>
+                  );
+                }
+              )}
+            </div>
+          </div>
+
+          {/* CHAT */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "16px",
+              overflow: "hidden",
+              minHeight: "500px",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {!selectedConversation ? (
+              <div
                 style={{
-                  width: "100%",
-                  textAlign: "left",
-                  border:
-                    unread
-                      ? "1px solid #a5b4fc"
-                      : "1px solid #e5e7eb",
-                  background:
-                    unread
-                      ? "#eef2ff"
-                      : "#ffffff",
-                  borderRadius: "14px",
-                  padding: "17px",
-                  cursor: "pointer",
+                  padding: "40px 20px",
+                  textAlign: "center",
+                  color: "#6b7280",
                 }}
               >
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent:
-                      "space-between",
-                    alignItems: "flex-start",
-                    gap: "15px",
+                    fontSize: "40px",
+                    marginBottom: "10px",
                   }}
                 >
-                  <div>
-                    <div
-                      style={{
-                        color: "#111827",
-                        fontWeight: 800,
-                        fontSize: "16px",
-                      }}
-                    >
-                      {message.teacher_name ||
-                        "Enseignant"}
-                    </div>
+                  💬
+                </div>
 
-                    <div
-                      style={{
-                        color: "#6b7280",
-                        fontSize: "12px",
-                        marginTop: "4px",
-                      }}
-                    >
-                      {formatDateTime(
-                        message.created_at
-                      )}
-                    </div>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    color: "#111827",
+                  }}
+                >
+                  Sélectionnez un enseignant
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* EN-TÊTE DU CHAT */}
+                <div
+                  style={{
+                    padding: "15px 17px",
+                    borderBottom:
+                      "1px solid #e5e7eb",
+                    background: "#f9fafb",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: "#111827",
+                    }}
+                  >
+                    👨‍🏫{" "}
+                    {selectedConversation.teacher_name ||
+                      "Enseignant"}
                   </div>
 
-                  {unread && (
-                    <span
+                  <div
+                    style={{
+                      marginTop: "3px",
+                      fontSize: "12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    Conversation avec votre enseignant
+                  </div>
+                </div>
+
+                {/* MESSAGES */}
+                <div
+                  style={{
+                    flex: 1,
+                    padding: "16px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    overflowY: "auto",
+                    minHeight: "320px",
+                    maxHeight: "450px",
+                  }}
+                >
+                  {!selectedMessages.length ? (
+                    <div
                       style={{
-                        background: "#dc2626",
-                        color: "#fff",
-                        minWidth: "25px",
-                        height: "25px",
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "12px",
-                        fontWeight: 800,
+                        margin: "auto",
+                        textAlign: "center",
+                        color: "#6b7280",
+                        padding: "30px",
                       }}
                     >
-                      1
-                    </span>
+                      <div
+                        style={{
+                          fontSize: "34px",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        💬
+                      </div>
+
+                      <div
+                        style={{
+                          fontWeight: 700,
+                        }}
+                      >
+                        Aucun message
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: "13px",
+                          marginTop: "5px",
+                        }}
+                      >
+                        Commencez la conversation.
+                      </div>
+                    </div>
+                  ) : (
+                    selectedMessages.map(
+                      (message) => {
+                        const isMine =
+                          String(
+                            message.sender_profile_id
+                          ) ===
+                          String(currentUserId);
+
+                        const unread =
+                          !message.read_at &&
+                          !isMine;
+
+                        if (
+                          unread &&
+                          onMarkRead
+                        ) {
+                          setTimeout(
+                            () =>
+                              onMarkRead(
+                                message.id
+                              ),
+                            0
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={message.id}
+                            style={{
+                              display: "flex",
+                              justifyContent:
+                                isMine
+                                  ? "flex-end"
+                                  : "flex-start",
+                            }}
+                          >
+                            <div
+                              style={{
+                                maxWidth: "78%",
+                                padding:
+                                  "10px 13px",
+                                borderRadius:
+                                  isMine
+                                    ? "16px 16px 4px 16px"
+                                    : "16px 16px 16px 4px",
+                                background:
+                                  isMine
+                                    ? "#4f46e5"
+                                    : "#f3f4f6",
+                                color:
+                                  isMine
+                                    ? "#ffffff"
+                                    : "#111827",
+                              }}
+                            >
+                              {!isMine && (
+                                <div
+                                  style={{
+                                    fontSize: "11px",
+                                    fontWeight: 800,
+                                    marginBottom:
+                                      "4px",
+                                    color: "#4f46e5",
+                                  }}
+                                >
+                                  {message.teacher_name ||
+                                    "Enseignant"}
+                                </div>
+                              )}
+
+                              <div
+                                style={{
+                                  fontSize: "14px",
+                                  lineHeight: 1.5,
+                                  whiteSpace:
+                                    "pre-wrap",
+                                }}
+                              >
+                                {message.message}
+                              </div>
+
+                              <div
+                                style={{
+                                  marginTop: "5px",
+                                  fontSize: "10px",
+                                  opacity: 0.7,
+                                  textAlign:
+                                    "right",
+                                }}
+                              >
+                                {formatDateTime(
+                                  message.created_at
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }
+                    )
                   )}
                 </div>
 
+                {/* ZONE D'ÉCRITURE */}
                 <div
                   style={{
-                    marginTop: "13px",
-                    color: "#374151",
-                    fontSize: "14px",
-                    lineHeight: 1.55,
-                    whiteSpace: "pre-wrap",
+                    borderTop:
+                      "1px solid #e5e7eb",
+                    padding: "12px",
+                    background: "#ffffff",
                   }}
                 >
-                  {message.message}
-                </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "flex-end",
+                    }}
+                  >
+                    <textarea
+                      value={newMessage}
+                      onChange={(event) =>
+                        onNewMessage(
+                          event.target.value
+                        )
+                      }
+                      placeholder="Écrire un message..."
+                      rows={2}
+                      disabled={sending}
+                      onKeyDown={(event) => {
+                        if (
+                          event.key === "Enter" &&
+                          !event.shiftKey
+                        ) {
+                          event.preventDefault();
 
-                <div
-                  style={{
-                    marginTop: "10px",
-                    color: "#6b7280",
-                    fontSize: "11px",
-                  }}
-                >
-                  {message.read_at
-                    ? "✓ Message lu"
-                    : "● Nouveau message — touchez pour le lire"}
+                          if (
+                            newMessage.trim() &&
+                            !sending
+                          ) {
+                            onSendMessage();
+                          }
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        resize: "none",
+                        border:
+                          "1px solid #d1d5db",
+                        borderRadius: "12px",
+                        padding: "10px 12px",
+                        fontSize: "14px",
+                        outline: "none",
+                      }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={onSendMessage}
+                      disabled={
+                        sending ||
+                        !newMessage.trim()
+                      }
+                      className="ec-btn ec-btn-primary"
+                      style={{
+                        minHeight: "46px",
+                      }}
+                    >
+                      {sending
+                        ? "⏳"
+                        : "📤 Envoyer"}
+                    </button>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "6px",
+                      fontSize: "10px",
+                      color: "#9ca3af",
+                    }}
+                  >
+                    Entrée pour envoyer •
+                    Maj + Entrée pour une nouvelle ligne
+                  </div>
                 </div>
-              </button>
-            );
-          })}
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -4269,23 +4614,60 @@ useEffect(() => {
         );
 
       case "communication":
-        return (
-          <CommunicationPage
-            onBack={goBack}
-            messages={
-              communicationMessages
-            }
-            loading={
-              communicationLoading
-            }
-            error={
-              communicationError
-            }
-            onMarkRead={
-              markCommunicationMessageAsRead
-            }
-          />
-        );
+  return (
+    <CommunicationPage
+      onBack={goBack}
+
+      conversations={
+        communicationConversations
+      }
+
+      messages={
+        communicationMessages
+      }
+
+      selectedConversation={
+        selectedCommunicationConversation
+      }
+
+      onSelectConversation={
+        setSelectedCommunicationConversation
+      }
+
+      newMessage={
+        communicationNewMessage
+      }
+
+      onNewMessage={
+        setCommunicationNewMessage
+      }
+
+      onSendMessage={
+        sendCommunicationMessage
+      }
+
+      sending={
+        communicationSending
+      }
+
+      loading={
+        communicationLoading
+      }
+
+      error={
+        communicationError
+      }
+
+      onMarkRead={
+        markCommunicationMessageAsRead
+      }
+
+      currentUserId={
+        profile?.id ||
+        session?.user?.id
+      }
+    />
+  );
 
       case "school-card":
         return (
