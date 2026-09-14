@@ -2333,21 +2333,599 @@ export default function StudentDashboard({
   const [attendanceError, setAttendanceError] =
     useState("");
 
-  /* =======================================================
-     NOUVEAU : COMMUNICATION
-  ======================================================= */
+  /* =========================================================
+   COMMUNICATION ÉLÈVE
+   PROFESSEUR ↔ ÉLÈVE
+========================================================= */
 
-  const [communicationMessages, setCommunicationMessages] =
-    useState([]);
+const [communicationConversations, setCommunicationConversations] =
+  useState([]);
 
-  const [communicationLoading, setCommunicationLoading] =
-    useState(false);
+const [communicationMessages, setCommunicationMessages] =
+  useState([]);
 
-  const [communicationError, setCommunicationError] =
-    useState("");
+const [selectedCommunicationConversation, setSelectedCommunicationConversation] =
+  useState(null);
 
-  const [unreadCommunicationCount, setUnreadCommunicationCount] =
-    useState(0);
+const [communicationLoading, setCommunicationLoading] =
+  useState(false);
+
+const [communicationError, setCommunicationError] =
+  useState("");
+
+const [communicationSending, setCommunicationSending] =
+  useState(false);
+
+const [communicationNewMessage, setCommunicationNewMessage] =
+  useState("");
+
+const [unreadCommunicationCount, setUnreadCommunicationCount] =
+  useState(0);
+
+
+/* =========================================================
+   CHARGER LES CONVERSATIONS + MESSAGES
+========================================================= */
+
+async function loadCommunication() {
+  const connectedUserId =
+    profile?.id || session?.user?.id;
+
+  const schoolId =
+    profile?.school_id;
+
+  if (!connectedUserId || !schoolId) {
+    return;
+  }
+
+  setCommunicationLoading(true);
+  setCommunicationError("");
+
+  try {
+    /*
+     * Retrouver l'élève connecté.
+     */
+    const {
+      data: student,
+      error: studentError,
+    } = await supabase
+      .from("students")
+      .select(`
+        id,
+        profile_id,
+        school_id,
+        active
+      `)
+      .eq("profile_id", connectedUserId)
+      .eq("school_id", schoolId)
+      .eq("active", true)
+      .maybeSingle();
+
+    if (studentError) {
+      throw studentError;
+    }
+
+    if (!student) {
+      setCommunicationConversations([]);
+      setCommunicationMessages([]);
+      setUnreadCommunicationCount(0);
+      setCommunicationError(
+        "Votre dossier élève n'a pas été trouvé."
+      );
+      return;
+    }
+
+    /*
+     * Récupérer les conversations de l'élève.
+     *
+     * IMPORTANT :
+     * On ne dépend PAS des messages.
+     * Une conversation peut donc être affichée
+     * même si elle contient encore 0 message.
+     */
+    const {
+      data: conversationRows,
+      error: conversationError,
+    } = await supabase
+      .from("communication_conversations")
+      .select(`
+        id,
+        school_id,
+        teacher_id,
+        student_id,
+        created_at,
+        updated_at
+      `)
+      .eq("student_id", student.id)
+      .eq("school_id", schoolId)
+      .order("updated_at", {
+        ascending: false,
+      });
+
+    if (conversationError) {
+      throw conversationError;
+    }
+
+    const rows =
+      conversationRows || [];
+
+    /*
+     * Récupérer les professeurs associés
+     * aux conversations.
+     */
+    const teacherIds = [
+      ...new Set(
+        rows
+          .map(
+            (conversation) =>
+              conversation.teacher_id
+          )
+          .filter(Boolean)
+          .map(String)
+      ),
+    ];
+
+    let teacherMap = new Map();
+
+    if (teacherIds.length > 0) {
+      const {
+        data: teacherRows,
+        error: teacherError,
+      } = await supabase
+        .from("profiles")
+        .select(`
+          id,
+          school_id,
+          full_name,
+          role,
+          active
+        `)
+        .eq("school_id", schoolId)
+        .eq("role", "teacher")
+        .eq("active", true)
+        .in("id", teacherIds);
+
+      if (teacherError) {
+        throw teacherError;
+      }
+
+      teacherMap = new Map(
+        (teacherRows || []).map(
+          (teacher) => [
+            String(teacher.id),
+            teacher,
+          ]
+        )
+      );
+    }
+
+    /*
+     * Préparer les conversations.
+     */
+    const normalizedConversations =
+      rows.map((conversation) => {
+        const teacher =
+          teacherMap.get(
+            String(
+              conversation.teacher_id
+            )
+          );
+
+        return {
+          ...conversation,
+
+          teacher_name:
+            teacher?.full_name ||
+            "Enseignant",
+
+          teacher_id:
+            conversation.teacher_id,
+
+          last_message: null,
+
+          unread_count: 0,
+        };
+      });
+
+    /*
+     * Charger les messages uniquement
+     * s'il existe des conversations.
+     */
+    let normalizedMessages = [];
+
+    const conversationIds =
+      rows
+        .map(
+          (conversation) =>
+            conversation.id
+        )
+        .filter(Boolean);
+
+    if (conversationIds.length > 0) {
+      const {
+        data: messageRows,
+        error: messagesError,
+      } = await supabase
+        .from("communication_messages")
+        .select(`
+          id,
+          conversation_id,
+          school_id,
+          sender_profile_id,
+          message,
+          read_at,
+          created_at,
+          updated_at
+        `)
+        .eq("school_id", schoolId)
+        .in(
+          "conversation_id",
+          conversationIds
+        )
+        .order("created_at", {
+          ascending: true,
+        });
+
+      if (messagesError) {
+        throw messagesError;
+      }
+
+      normalizedMessages =
+        (messageRows || []).map(
+          (message) => {
+            const conversation =
+              rows.find(
+                (item) =>
+                  String(item.id) ===
+                  String(
+                    message.conversation_id
+                  )
+              );
+
+            const teacher =
+              teacherMap.get(
+                String(
+                  conversation?.teacher_id
+                )
+              );
+
+            return {
+              ...message,
+
+              teacher_name:
+                teacher?.full_name ||
+                "Enseignant",
+
+              teacher_id:
+                conversation?.teacher_id ||
+                null,
+            };
+          }
+        );
+    }
+
+    /*
+     * Calculer le dernier message
+     * et le nombre de messages non lus
+     * pour chaque conversation.
+     */
+    const conversationsWithStats =
+      normalizedConversations.map(
+        (conversation) => {
+          const conversationMessages =
+            normalizedMessages.filter(
+              (message) =>
+                String(
+                  message.conversation_id
+                ) ===
+                String(
+                  conversation.id
+                )
+            );
+
+          const lastMessage =
+            conversationMessages[
+              conversationMessages.length - 1
+            ];
+
+          const unreadCount =
+            conversationMessages.filter(
+              (message) =>
+                !message.read_at &&
+                String(
+                  message.sender_profile_id
+                ) !==
+                  String(
+                    connectedUserId
+                  )
+            ).length;
+
+          return {
+            ...conversation,
+
+            last_message:
+              lastMessage || null,
+
+            unread_count:
+              unreadCount,
+          };
+        }
+      );
+
+    /*
+     * Nombre total de messages non lus.
+     */
+    const totalUnread =
+      normalizedMessages.filter(
+        (message) =>
+          !message.read_at &&
+          String(
+            message.sender_profile_id
+          ) !==
+            String(connectedUserId)
+      ).length;
+
+    setCommunicationConversations(
+      conversationsWithStats
+    );
+
+    setCommunicationMessages(
+      normalizedMessages
+    );
+
+    setUnreadCommunicationCount(
+      totalUnread
+    );
+
+    /*
+     * Si aucune conversation n'était
+     * sélectionnée, on sélectionne
+     * automatiquement la première.
+     */
+    if (
+      !selectedCommunicationConversation &&
+      conversationsWithStats.length > 0
+    ) {
+      setSelectedCommunicationConversation(
+        conversationsWithStats[0]
+      );
+    } else if (
+      selectedCommunicationConversation
+    ) {
+      const updatedSelected =
+        conversationsWithStats.find(
+          (conversation) =>
+            String(
+              conversation.id
+            ) ===
+            String(
+              selectedCommunicationConversation.id
+            )
+        );
+
+      if (updatedSelected) {
+        setSelectedCommunicationConversation(
+          updatedSelected
+        );
+      }
+    }
+  } catch (err) {
+    console.error(
+      "Erreur communication élève :",
+      err
+    );
+
+    setCommunicationError(
+      err?.message ||
+        "Impossible de charger votre communication."
+    );
+  } finally {
+    setCommunicationLoading(false);
+  }
+}
+
+
+/* =========================================================
+   CHARGEMENT INITIAL + ACTUALISATION
+========================================================= */
+
+useEffect(() => {
+  loadCommunication();
+
+  /*
+   * Actualisation automatique toutes les 5 secondes.
+   * Cela permet à l'élève de recevoir les nouveaux
+   * messages du professeur sans recharger la page.
+   */
+  const interval = setInterval(
+    () => {
+      loadCommunication();
+    },
+    5000
+  );
+
+  return () => {
+    clearInterval(interval);
+  };
+}, [
+  profile?.id,
+  profile?.school_id,
+  session?.user?.id,
+]);
+
+
+/* =========================================================
+   MARQUER UN MESSAGE COMME LU
+========================================================= */
+
+async function markCommunicationMessageAsRead(
+  messageId
+) {
+  const connectedUserId =
+    profile?.id || session?.user?.id;
+
+  const schoolId =
+    profile?.school_id;
+
+  if (
+    !messageId ||
+    !connectedUserId ||
+    !schoolId
+  ) {
+    return;
+  }
+
+  const currentMessage =
+    communicationMessages.find(
+      (item) =>
+        String(item.id) ===
+        String(messageId)
+    );
+
+  if (!currentMessage) {
+    return;
+  }
+
+  /*
+   * Si déjà lu ou envoyé par l'élève,
+   * aucune action nécessaire.
+   */
+  if (
+    currentMessage.read_at ||
+    String(
+      currentMessage.sender_profile_id
+    ) ===
+      String(connectedUserId)
+  ) {
+    return;
+  }
+
+  const now =
+    new Date().toISOString();
+
+  const {
+    error,
+  } = await supabase
+    .from("communication_messages")
+    .update({
+      read_at: now,
+    })
+    .eq("id", messageId)
+    .eq("school_id", schoolId);
+
+  if (error) {
+    console.error(
+      "Erreur lecture message :",
+      error
+    );
+
+    return;
+  }
+
+  setCommunicationMessages(
+    (current) =>
+      current.map((item) =>
+        String(item.id) ===
+        String(messageId)
+          ? {
+              ...item,
+              read_at: now,
+            }
+          : item
+      )
+  );
+
+  /*
+   * Recalculer le compteur.
+   */
+  setUnreadCommunicationCount(
+    (current) =>
+      Math.max(0, current - 1)
+  );
+
+  /*
+   * Actualiser la conversation.
+   */
+  await loadCommunication();
+}
+
+
+/* =========================================================
+   ENVOYER UN MESSAGE
+========================================================= */
+
+async function sendCommunicationMessage() {
+  const connectedUserId =
+    profile?.id || session?.user?.id;
+
+  const schoolId =
+    profile?.school_id;
+
+  const conversation =
+    selectedCommunicationConversation;
+
+  const text =
+    communicationNewMessage.trim();
+
+  if (
+    !connectedUserId ||
+    !schoolId ||
+    !conversation ||
+    !text
+  ) {
+    return;
+  }
+
+  setCommunicationSending(true);
+  setCommunicationError("");
+
+  try {
+    const {
+      error,
+    } = await supabase
+      .from("communication_messages")
+      .insert({
+        conversation_id:
+          conversation.id,
+
+        school_id:
+          schoolId,
+
+        sender_profile_id:
+          connectedUserId,
+
+        message:
+          text,
+
+        read_at:
+          null,
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    setCommunicationNewMessage("");
+
+    /*
+     * Recharger immédiatement
+     * la conversation après l'envoi.
+     */
+    await loadCommunication();
+  } catch (err) {
+    console.error(
+      "Erreur envoi message élève :",
+      err
+    );
+
+    setCommunicationError(
+      err?.message ||
+        "Impossible d'envoyer le message."
+    );
+  } finally {
+    setCommunicationSending(false);
+  }
+}
 
   /* =======================================================
      DOSSIER ÉLÈVE
