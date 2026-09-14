@@ -3847,7 +3847,7 @@ async function sendCommunicationMessage() {
      DONNÉES ACADÉMIQUES — CONSERVÉES
   ======================================================= */
 
-  useEffect(() => {
+    useEffect(() => {
     let cancelled = false;
 
     async function loadAcademicData() {
@@ -3940,46 +3940,49 @@ async function sendCommunicationMessage() {
       }
 
       const normalizedCourses =
-  await Promise.all(
-    courseRows.map(async (course) => {
-      let fileSignedUrl = null;
+        await Promise.all(
+          courseRows.map(async (course) => {
+            let fileSignedUrl = null;
 
-      if (course.file_url) {
-        const {
-          data: signedData,
-          error: signedError,
-        } = await supabase.storage
-          .from("teacher-content")
-          .createSignedUrl(
-            course.file_url,
-            3600
-          );
+            if (course.file_url) {
+              const {
+                data: signedData,
+                error: signedError,
+              } = await supabase.storage
+                .from("teacher-content")
+                .createSignedUrl(
+                  course.file_url,
+                  3600
+                );
 
-        if (!signedError && signedData?.signedUrl) {
-          fileSignedUrl =
-            signedData.signedUrl;
-        } else if (signedError) {
-          console.error(
-            "Erreur URL sécurisée du fichier :",
-            signedError
-          );
-        }
-      }
+              if (
+                !signedError &&
+                signedData?.signedUrl
+              ) {
+                fileSignedUrl =
+                  signedData.signedUrl;
+              } else if (signedError) {
+                console.error(
+                  "Erreur URL sécurisée du fichier :",
+                  signedError
+                );
+              }
+            }
 
-      return {
-        ...course,
+            return {
+              ...course,
 
-        subject_name:
-          subjectMap.get(
-            String(course.subject_id)
-          )?.name ||
-          "Matière non renseignée",
+              subject_name:
+                subjectMap.get(
+                  String(course.subject_id)
+                )?.name ||
+                "Matière non renseignée",
 
-        file_signed_url:
-          fileSignedUrl,
-      };
-    })
-  );
+              file_signed_url:
+                fileSignedUrl,
+            };
+          })
+        );
 
       let exerciseRows = [];
 
@@ -4017,6 +4020,7 @@ async function sendCommunicationMessage() {
       const normalizedExercises =
         exerciseRows.map((exercise) => ({
           ...exercise,
+
           subject_name:
             subjectMap.get(
               String(exercise.subject_id)
@@ -4062,6 +4066,7 @@ async function sendCommunicationMessage() {
         assessmentRows.map(
           (assessment) => ({
             ...assessment,
+
             subject_name:
               subjectMap.get(
                 String(
@@ -4127,25 +4132,44 @@ async function sendCommunicationMessage() {
               )
             );
 
+          const subjectId =
+            grade.subject_id ??
+            assessment?.subject_id ??
+            null;
+
+          const subject =
+            subjectMap.get(
+              String(subjectId)
+            );
+
           return {
             ...grade,
+
             subject_id:
-              assessment?.subject_id ||
-              null,
+              subjectId,
+
             subject_name:
+              subject?.name ||
               assessment?.subject_name ||
               "Matière non renseignée",
+
             assessment_title:
               assessment?.title ||
               "Évaluation",
+
             assessment_date:
-              assessment?.evaluation_date ||
+              grade.evaluation_date ??
+              assessment?.evaluation_date ??
               null,
+
             max_score:
-              assessment?.max_score ||
+              grade.max_score ??
+              assessment?.max_score ??
               20,
+
             coefficient:
-              assessment?.coefficient ||
+              grade.coefficient ??
+              assessment?.coefficient ??
               1,
           };
         });
@@ -4173,7 +4197,8 @@ async function sendCommunicationMessage() {
     session?.user?.id,
   ]);
 
-     // REALTIME : actualiser automatiquement les contenus scolaires
+  // REALTIME : actualiser automatiquement
+  // les contenus scolaires et les notes
   useEffect(() => {
     const connectedUserId =
       profile?.id || session?.user?.id;
@@ -4230,6 +4255,7 @@ async function sendCommunicationMessage() {
         let courseRows = [];
         let exerciseRows = [];
         let assessmentRows = [];
+        let gradeRows = [];
 
         if (studentData.class_id) {
           const { data: courses } =
@@ -4330,6 +4356,40 @@ async function sendCommunicationMessage() {
             assessments || [];
         }
 
+        const studentIdentifiers = [
+          studentData.id,
+          studentData.profile_id,
+        ].filter(Boolean);
+
+        if (studentIdentifiers.length) {
+          const { data: grades } =
+            await supabase
+              .from("grades")
+              .select(`
+                id,
+                assessment_id,
+                student_id,
+                teacher_id,
+                school_id,
+                score,
+                appreciation,
+                stars,
+                comment,
+                created_at,
+                updated_at
+              `)
+              .eq("school_id", schoolId)
+              .in(
+                "student_id",
+                studentIdentifiers
+              )
+              .order("created_at", {
+                ascending: false,
+              });
+
+          gradeRows = grades || [];
+        }
+
         const normalizedCourses =
           await Promise.all(
             courseRows.map(
@@ -4340,14 +4400,15 @@ async function sendCommunicationMessage() {
                   const {
                     data: signedData,
                     error: signedError,
-                  } = await supabase.storage
-                    .from(
-                      "teacher-content"
-                    )
-                    .createSignedUrl(
-                      course.file_url,
-                      3600
-                    );
+                  } =
+                    await supabase.storage
+                      .from(
+                        "teacher-content"
+                      )
+                      .createSignedUrl(
+                        course.file_url,
+                        3600
+                      );
 
                   if (
                     !signedError &&
@@ -4360,6 +4421,7 @@ async function sendCommunicationMessage() {
 
                 return {
                   ...course,
+
                   subject_name:
                     subjectMap.get(
                       String(
@@ -4367,6 +4429,7 @@ async function sendCommunicationMessage() {
                       )
                     )?.name ||
                     "Matière non renseignée",
+
                   file_signed_url:
                     fileSignedUrl,
                 };
@@ -4378,6 +4441,7 @@ async function sendCommunicationMessage() {
           exerciseRows.map(
             (exercise) => ({
               ...exercise,
+
               subject_name:
                 subjectMap.get(
                   String(
@@ -4392,6 +4456,7 @@ async function sendCommunicationMessage() {
           assessmentRows.map(
             (assessment) => ({
               ...assessment,
+
               subject_name:
                 subjectMap.get(
                   String(
@@ -4402,6 +4467,67 @@ async function sendCommunicationMessage() {
             })
           );
 
+        const assessmentMap =
+          new Map(
+            normalizedAssessments.map(
+              (assessment) => [
+                String(assessment.id),
+                assessment,
+              ]
+            )
+          );
+
+        const normalizedGrades =
+          gradeRows.map((grade) => {
+            const assessment =
+              assessmentMap.get(
+                String(
+                  grade.assessment_id
+                )
+              );
+
+            const subjectId =
+              grade.subject_id ??
+              assessment?.subject_id ??
+              null;
+
+            const subject =
+              subjectMap.get(
+                String(subjectId)
+              );
+
+            return {
+              ...grade,
+
+              subject_id:
+                subjectId,
+
+              subject_name:
+                subject?.name ||
+                assessment?.subject_name ||
+                "Matière non renseignée",
+
+              assessment_title:
+                assessment?.title ||
+                "Évaluation",
+
+              assessment_date:
+                grade.evaluation_date ??
+                assessment?.evaluation_date ??
+                null,
+
+              max_score:
+                grade.max_score ??
+                assessment?.max_score ??
+                20,
+
+              coefficient:
+                grade.coefficient ??
+                assessment?.coefficient ??
+                1,
+            };
+          });
+
         setSubjects(subjectList);
         setCourses(normalizedCourses);
         setExercises(
@@ -4410,9 +4536,10 @@ async function sendCommunicationMessage() {
         setAssessments(
           normalizedAssessments
         );
+        setGrades(normalizedGrades);
 
         console.log(
-          "Contenus scolaires actualisés automatiquement."
+          "Contenus scolaires et notes actualisés automatiquement."
         );
       } catch (error) {
         console.error(
@@ -4457,6 +4584,18 @@ async function sendCommunicationMessage() {
             event: "*",
             schema: "public",
             table: "assessments",
+            filter: `school_id=eq.${schoolId}`,
+          },
+          () => {
+            refreshAcademicData();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "grades",
             filter: `school_id=eq.${schoolId}`,
           },
           () => {
