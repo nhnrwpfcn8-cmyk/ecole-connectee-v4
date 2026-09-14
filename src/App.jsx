@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './lib/supabase'
 
 import AdminDashboard from './AdminDashboard'
@@ -10,27 +10,12 @@ import StudentDashboard from './StudentDashboard'
 
 import './App.css'
 
-/*
- * Domaine technique utilisé pour les comptes
- * Élèves / Parents créés automatiquement.
- *
- * Exemple :
- * pierre.gomis.eleve
- * devient :
- * pierre.gomis.eleve@login.ecole-connectee.local
- */
 const LOGIN_DOMAIN = 'login.ecole-connectee.local'
 
 function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
 
-  /*
-   * Le champ accepte maintenant :
-   * - une adresse email classique
-   * - un identifiant Élève
-   * - un identifiant Parent
-   */
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -40,54 +25,199 @@ function App() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  /*
-   * Pour le secrétaire :
-   *
-   * dashboard = tableau de bord secrétaire existant
-   * services = communication + scolarité
-   */
   const [secretaryPage, setSecretaryPage] =
     useState('dashboard')
 
   /*
-   * Chargement de la session au démarrage
+   * Empêche une ancienne requête de profil
+   * d'écraser le profil du compte actuellement connecté.
+   */
+  const profileRequestRef = useRef(0)
+
+  /*
+   * CHARGEMENT DU PROFIL
+   *
+   * Correction principale :
+   * - plusieurs tentatives
+   * - petite attente après authentification
+   * - protection contre les anciennes requêtes
+   */
+  async function loadProfile(userId) {
+    if (!userId) {
+      setProfile(null)
+      return null
+    }
+
+    const requestId = ++profileRequestRef.current
+
+    /*
+     * Laisser Supabase terminer la mise à jour
+     * de la session après connexion.
+     */
+    await new Promise((resolve) =>
+      setTimeout(resolve, 50)
+    )
+
+    let lastError = null
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const {
+        data,
+        error: profileError,
+      } = await supabase
+        .from('profiles')
+        .select(
+          'id, full_name, phone, username, role, school_id, active, family_identifier'
+        )
+        .eq('id', userId)
+        .maybeSingle()
+
+      /*
+       * Une ancienne requête ne doit jamais
+       * remplacer le profil actuel.
+       */
+      if (
+        requestId !== profileRequestRef.current
+      ) {
+        return null
+      }
+
+      if (!profileError && data) {
+        setProfile(data)
+        return data
+      }
+
+      lastError = profileError
+
+      /*
+       * Nouvelle tentative si le profil
+       * n'est pas encore disponible.
+       */
+      if (attempt < 2) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 250)
+        )
+      }
+    }
+
+    console.error(
+      'Erreur profil :',
+      lastError
+    )
+
+    if (
+      requestId === profileRequestRef.current
+    ) {
+      setProfile(null)
+    }
+
+    return null
+  }
+
+  /*
+   * APPLIQUER UNE SESSION
+   */
+  async function applySession(newSession) {
+    setSession(newSession)
+
+    if (!newSession?.user?.id) {
+      profileRequestRef.current += 1
+      setProfile(null)
+      return null
+    }
+
+    return loadProfile(
+      newSession.user.id
+    )
+  }
+
+  /*
+   * CHARGEMENT INITIAL + ÉCOUTE AUTH
    */
   useEffect(() => {
     let mounted = true
 
-    async function loadSession() {
+    async function loadInitialSession() {
       const {
-        data: { session },
+        data: {
+          session: currentSession,
+        },
+        error: sessionError,
       } = await supabase.auth.getSession()
 
       if (!mounted) return
 
-      setSession(session)
+      if (sessionError) {
+        console.error(
+          'Erreur session :',
+          sessionError
+        )
 
-      if (session) {
-        await loadProfile(session.user.id)
+        setError(
+          'Impossible de récupérer votre session.'
+        )
       }
 
-      setLoading(false)
+      if (currentSession) {
+        await applySession(
+          currentSession
+        )
+      } else {
+        setSession(null)
+        setProfile(null)
+      }
+
+      if (mounted) {
+        setLoading(false)
+      }
     }
 
-    loadSession()
+    loadInitialSession()
 
+    /*
+     * Écoute les changements d'authentification.
+     *
+     * Le setTimeout évite de lancer immédiatement
+     * une requête Supabase depuis le callback Auth.
+     */
     const {
-      data: { subscription },
+      data: {
+        subscription,
+      },
     } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
+      (event, newSession) => {
         if (!mounted) return
 
-        setSession(newSession)
+        setTimeout(async () => {
+          if (!mounted) return
 
-        if (newSession) {
-          await loadProfile(newSession.user.id)
-        } else {
-          setProfile(null)
-        }
+          /*
+           * Déconnexion
+           */
+          if (
+            event === 'SIGNED_OUT' ||
+            !newSession
+          ) {
+            profileRequestRef.current += 1
 
-        setLoading(false)
+            setSession(null)
+            setProfile(null)
+            setLoading(false)
+
+            return
+          }
+
+          /*
+           * Nouvelle session
+           */
+          await applySession(
+            newSession
+          )
+
+          if (mounted) {
+            setLoading(false)
+          }
+        }, 0)
       }
     )
 
@@ -98,38 +228,7 @@ function App() {
   }, [])
 
   /*
-   * Chargement du profil connecté
-   */
-  async function loadProfile(userId) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(
-        'id, full_name, phone, username, role, school_id, active, family_identifier'
-      )
-      .eq('id', userId)
-      .maybeSingle()
-
-    if (error) {
-      console.error('Erreur profil :', error)
-      setProfile(null)
-      return
-    }
-
-    setProfile(data)
-  }
-
-  /*
    * CONNEXION
-   *
-   * Les comptes classiques utilisent leur email.
-   *
-   * Les comptes créés avec un identifiant utilisent :
-   *
-   * pierre.gomis.eleve
-   *
-   * qui devient automatiquement :
-   *
-   * pierre.gomis.eleve@login.ecole-connectee.local
    */
   async function handleLogin(event) {
     event.preventDefault()
@@ -138,53 +237,73 @@ function App() {
     setMessage('')
 
     const cleanIdentifier =
-      email.trim().toLowerCase()
+      email
+        .trim()
+        .toLowerCase()
 
-    if (!cleanIdentifier || !password) {
+    if (
+      !cleanIdentifier ||
+      !password
+    ) {
       setError(
         'Veuillez saisir votre identifiant ou votre adresse email ainsi que votre mot de passe.'
       )
+
       return
     }
 
     setConnecting(true)
 
     /*
-     * Si l'utilisateur saisit déjà une adresse email,
-     * on l'utilise directement.
+     * Email classique :
+     * admin@email.com
      *
-     * Sinon, on construit l'adresse technique
-     * utilisée par les comptes Élève / Parent.
+     * Identifiant élève/parent :
+     * pierre.gomis.eleve
      */
     const authEmail =
       cleanIdentifier.includes('@')
         ? cleanIdentifier
         : `${cleanIdentifier}@${LOGIN_DOMAIN}`
 
-    const { data, error } =
-      await supabase.auth.signInWithPassword({
-        email: authEmail,
-        password,
-      })
+    const {
+      data,
+      error: loginError,
+    } =
+      await supabase.auth.signInWithPassword(
+        {
+          email: authEmail,
+          password,
+        }
+      )
 
-    if (error) {
-      console.error('Erreur de connexion :', error)
+    if (loginError) {
+      console.error(
+        'Erreur de connexion :',
+        loginError
+      )
 
       setError(
         'Identifiant ou mot de passe incorrect.'
       )
 
       setConnecting(false)
+
       return
     }
 
-    setSession(data.session)
+    /*
+     * Chargement explicite du profil
+     * juste après la connexion.
+     */
+    await applySession(
+      data.session
+    )
 
-    if (data.user) {
-      await loadProfile(data.user.id)
-    }
+    setMessage(
+      'Connexion réussie.'
+    )
 
-    setMessage('Connexion réussie.')
     setConnecting(false)
   }
 
@@ -195,13 +314,20 @@ function App() {
     setError('')
     setMessage('')
 
-    const { error } =
+    const {
+      error: logoutError,
+    } =
       await supabase.auth.signOut()
 
-    if (error) {
-      setError(error.message)
+    if (logoutError) {
+      setError(
+        logoutError.message
+      )
+
       return
     }
+
+    profileRequestRef.current += 1
 
     setSession(null)
     setProfile(null)
@@ -209,7 +335,9 @@ function App() {
     setEmail('')
     setPassword('')
 
-    setSecretaryPage('dashboard')
+    setSecretaryPage(
+      'dashboard'
+    )
   }
 
   /*
@@ -219,13 +347,19 @@ function App() {
     return (
       <div className="app-container">
         <div className="loading-card">
+
           <div className="logo-circle">
             EC
           </div>
 
-          <h1>École Connectée</h1>
+          <h1>
+            École Connectée
+          </h1>
 
-          <p>Chargement...</p>
+          <p>
+            Chargement...
+          </p>
+
         </div>
       </div>
     )
@@ -237,20 +371,27 @@ function App() {
   if (!session) {
     return (
       <div className="app-container">
+
         <div className="login-card">
+
           <div className="logo-circle">
             EC
           </div>
 
-          <h1>École Connectée</h1>
+          <h1>
+            École Connectée
+          </h1>
 
           <p className="subtitle">
             La plateforme numérique de gestion scolaire
           </p>
 
-          <h2>Se connecter</h2>
+          <h2>
+            Se connecter
+          </h2>
 
           <form onSubmit={handleLogin}>
+
             <label htmlFor="email">
               Identifiant ou adresse email
             </label>
@@ -261,7 +402,9 @@ function App() {
               placeholder="Ex : pierre.gomis.eleve ou admin@email.com"
               value={email}
               onChange={(event) =>
-                setEmail(event.target.value)
+                setEmail(
+                  event.target.value
+                )
               }
               autoComplete="username"
               autoCapitalize="none"
@@ -278,7 +421,9 @@ function App() {
               placeholder="Votre mot de passe"
               value={password}
               onChange={(event) =>
-                setPassword(event.target.value)
+                setPassword(
+                  event.target.value
+                )
               }
               autoComplete="current-password"
             />
@@ -303,12 +448,15 @@ function App() {
                 ? 'Connexion...'
                 : 'Se connecter'}
             </button>
+
           </form>
 
           <p className="login-info">
             Accès sécurisé par Supabase
           </p>
+
         </div>
+
       </div>
     )
   }
@@ -317,14 +465,15 @@ function App() {
    * RÔLE ACTUEL
    */
   const role =
-    profile?.role || 'non configuré'
+    profile?.role ||
+    'non configuré'
 
   /*
    * SUPER ADMIN
-   *
-   * Fonctionnement conservé.
    */
-  if (role === 'super_admin') {
+  if (
+    role === 'super_admin'
+  ) {
     return (
       <AdminDashboard
         profile={profile}
@@ -336,10 +485,10 @@ function App() {
 
   /*
    * ADMIN ÉCOLE
-   *
-   * Fonctionnement conservé.
    */
-  if (role === 'school_admin') {
+  if (
+    role === 'school_admin'
+  ) {
     return (
       <AdminEcoleDashboard
         profile={profile}
@@ -352,25 +501,32 @@ function App() {
   /*
    * SECRÉTAIRE
    */
-  if (role === 'secretary') {
+  if (
+    role === 'secretary'
+  ) {
+
     /*
-     * Module Communication + Scolarité
+     * Communication + Scolarité
      */
-    if (secretaryPage === 'services') {
+    if (
+      secretaryPage === 'services'
+    ) {
       return (
         <SecretaryServices
           session={session}
           profile={profile}
           onLogout={handleLogout}
           onBack={() =>
-            setSecretaryPage('dashboard')
+            setSecretaryPage(
+              'dashboard'
+            )
           }
         />
       )
     }
 
     /*
-     * Tableau de bord secrétaire existant
+     * Tableau de bord secrétaire
      */
     return (
       <SecretaryDashboard
@@ -378,7 +534,9 @@ function App() {
         profile={profile}
         onLogout={handleLogout}
         onOpenServices={() =>
-          setSecretaryPage('services')
+          setSecretaryPage(
+            'services'
+          )
         }
       />
     )
@@ -386,10 +544,10 @@ function App() {
 
   /*
    * ENSEIGNANT
-   *
-   * Fonctionnement conservé.
    */
-  if (role === 'teacher') {
+  if (
+    role === 'teacher'
+  ) {
     return (
       <TeacherDashboard
         profile={profile}
@@ -401,13 +559,10 @@ function App() {
 
   /*
    * ÉLÈVE
-   *
-   * Nouveau StudentDashboard.
-   *
-   * Le compte Élève, la session, le profil
-   * et la déconnexion sont conservés.
    */
-  if (role === 'student') {
+  if (
+    role === 'student'
+  ) {
     return (
       <StudentDashboard
         profile={profile}
@@ -420,23 +575,29 @@ function App() {
   /*
    * PARENT
    *
-   * Le compte Parent est maintenant correctement
-   * reconnu par l'application.
-   *
-   * Le véritable ParentDashboard sera branché
-   * lorsque nous construirons l'espace Parent.
+   * Le tableau Parent sera construit
+   * plus tard.
    */
-  if (role === 'parent') {
+  if (
+    role === 'parent'
+  ) {
     return (
       <div className="app-container">
+
         <div className="dashboard-card">
+
           <div className="dashboard-header">
+
             <div>
+
               <div className="small-logo">
                 EC
               </div>
 
-              <h1>École Connectée</h1>
+              <h1>
+                École Connectée
+              </h1>
+
             </div>
 
             <button
@@ -445,9 +606,11 @@ function App() {
             >
               Se déconnecter
             </button>
+
           </div>
 
           <div className="welcome-section">
+
             <h2>
               Bienvenue
               {profile?.full_name
@@ -457,53 +620,68 @@ function App() {
             </h2>
 
             <p>
-              Vous êtes connecté à votre espace
-              Parent.
+              Vous êtes connecté à votre espace Parent.
             </p>
+
           </div>
 
           <div className="role-card">
+
             <span className="role-label">
               Votre rôle
             </span>
 
-            <strong>Parent</strong>
+            <strong>
+              Parent
+            </strong>
+
           </div>
 
           <div className="feature-card">
+
             <h3>
               👨‍👩‍👧 Espace Parent
             </h3>
 
             <p>
-              Votre espace parent est maintenant
-              reconnu par École Connectée.
+              Votre espace parent est maintenant reconnu par École Connectée.
             </p>
 
             <p>
-              Le tableau de bord Parent sera
-              construit après l'activation complète
-              de l'espace Élève.
+              Le tableau de bord Parent sera construit après l'activation complète de l'espace Élève.
             </p>
+
           </div>
+
         </div>
+
       </div>
     )
   }
 
   /*
-   * AUTRES RÔLES / RÔLE NON CONFIGURÉ
+   * RÔLE NON CONFIGURÉ
+   *
+   * Cet écran ne devrait plus apparaître
+   * pour un profil correctement enregistré.
    */
   return (
     <div className="app-container">
+
       <div className="dashboard-card">
+
         <div className="dashboard-header">
+
           <div>
+
             <div className="small-logo">
               EC
             </div>
 
-            <h1>École Connectée</h1>
+            <h1>
+              École Connectée
+            </h1>
+
           </div>
 
           <button
@@ -512,9 +690,11 @@ function App() {
           >
             Se déconnecter
           </button>
+
         </div>
 
         <div className="welcome-section">
+
           <h2>
             Bienvenue
             {profile?.full_name
@@ -524,38 +704,37 @@ function App() {
           </h2>
 
           <p>
-            Vous êtes connecté à votre espace
-            École Connectée.
+            Vous êtes connecté à votre espace École Connectée.
           </p>
+
         </div>
 
         <div className="role-card">
+
           <span className="role-label">
             Votre rôle
           </span>
 
           <strong>
-            {role === 'teacher'
-              ? 'Enseignant'
-              : role === 'parent'
-                ? 'Parent'
-                : role === 'student'
-                  ? 'Élève'
-                  : role}
+            {role}
           </strong>
+
         </div>
 
         <div className="feature-card">
+
           <h3>
             Bienvenue dans École Connectée
           </h3>
 
           <p>
-            Votre espace est en cours de
-            préparation.
+            Votre espace est en cours de préparation.
           </p>
+
         </div>
+
       </div>
+
     </div>
   )
 }
