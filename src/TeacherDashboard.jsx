@@ -3189,11 +3189,12 @@ function DocumentsPage({
   const [message, setMessage] = useState(null);
 
   const mediaContents = contents.filter(
-    (item) =>
-      item.content_type === "document" ||
-      item.content_type === "video" ||
-      item.content_type === "link"
-  );
+  (item) =>
+    item.content_type === "course" ||
+    item.content_type === "document" ||
+    item.content_type === "video" ||
+    item.content_type === "link"
+);
 
   function resetForm() {
     setTitle("");
@@ -3253,19 +3254,22 @@ function DocumentsPage({
     }
 
     if (
-      (contentType === "document" ||
-        contentType === "video") &&
-      !selectedFile
-    ) {
-      setMessage({
-        type: "error",
-        text:
-          contentType === "video"
-            ? "Veuillez choisir une vidéo."
-            : "Veuillez choisir un document.",
-      });
-      return;
-    }
+  (contentType === "course" ||
+    contentType === "document" ||
+    contentType === "video") &&
+  !selectedFile
+) {
+  setMessage({
+    type: "error",
+    text:
+      contentType === "video"
+        ? "Veuillez choisir une vidéo."
+        : contentType === "course"
+        ? "Veuillez choisir un fichier pour le cours."
+        : "Veuillez choisir un document.",
+  });
+  return;
+}
 
     if (
       contentType === "link" &&
