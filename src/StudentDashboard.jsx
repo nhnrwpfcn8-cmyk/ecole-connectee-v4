@@ -2966,7 +2966,100 @@ async function markCommunicationMessageAsRead(
    */
   await loadCommunication();
 }
+async function sendCommunicationMessage() {
+  const connectedUserId =
+    profile?.id || session?.user?.id;
 
+  const schoolId = profile?.school_id;
+
+  const conversationId =
+    selectedCommunicationConversation?.id;
+
+  const messageText =
+    communicationNewMessage.trim();
+
+  if (
+    !connectedUserId ||
+    !schoolId ||
+    !conversationId ||
+    !messageText
+  ) {
+    return;
+  }
+
+  setCommunicationSending(true);
+  setCommunicationError("");
+
+  try {
+    const { data, error } = await supabase
+      .from("communication_messages")
+      .insert({
+        conversation_id: conversationId,
+        school_id: schoolId,
+        sender_profile_id: connectedUserId,
+        message: messageText,
+      })
+      .select(`
+        id,
+        conversation_id,
+        school_id,
+        sender_profile_id,
+        message,
+        read_at,
+        created_at,
+        updated_at
+      `)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    const teacherName =
+      selectedCommunicationConversation?.teacher_name ||
+      "Enseignant";
+
+    const newMessage = {
+      ...data,
+      teacher_name: teacherName,
+      teacher_id:
+        selectedCommunicationConversation?.teacher_id ||
+        null,
+    };
+
+    setCommunicationMessages((current) => [
+      ...current,
+      newMessage,
+    ]);
+
+    setCommunicationConversations((current) =>
+      current.map((conversation) =>
+        String(conversation.id) ===
+        String(conversationId)
+          ? {
+              ...conversation,
+              last_message: newMessage,
+              updated_at: newMessage.created_at,
+            }
+          : conversation
+      )
+    );
+
+    setCommunicationNewMessage("");
+  } catch (err) {
+    console.error(
+      "Erreur envoi message élève :",
+      err
+    );
+
+    setCommunicationError(
+      err?.message ||
+        "Impossible d'envoyer le message."
+    );
+  } finally {
+    setCommunicationSending(false);
+  }
+}
 
 /* =========================================================
    ENVOYER UN MESSAGE
