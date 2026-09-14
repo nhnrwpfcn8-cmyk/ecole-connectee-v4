@@ -957,150 +957,268 @@ function ExercisesPage({
    ÉVALUATIONS
 ========================================================= */
 
-function AssessmentsPage({
-  onBack,
-  assessments,
+function AssignmentsPage({
+  teachers,
+  classes,
   subjects,
-  loading,
-  error,
 }) {
-  const [selectedSubjectId, setSelectedSubjectId] =
-    useState("all");
+  const [selectedTeacher, setSelectedTeacher] =
+    useState("");
 
-  const filteredAssessments = useMemo(() => {
-    if (selectedSubjectId === "all") {
-      return assessments;
+  const [selectedClass, setSelectedClass] =
+    useState("");
+
+  const [selectedSubject, setSelectedSubject] =
+    useState("");
+
+  const [message, setMessage] =
+    useState("");
+
+  const [savingClass, setSavingClass] =
+    useState(false);
+
+  const [savingSubject, setSavingSubject] =
+    useState(false);
+
+  async function assignClass() {
+    setMessage("");
+
+    if (!selectedTeacher || !selectedClass) {
+      setMessage(
+        "Sélectionnez un enseignant et une classe."
+      );
+      return;
     }
 
-    return assessments.filter(
-      (assessment) =>
-        String(assessment.subject_id) ===
-        String(selectedSubjectId)
-    );
-  }, [assessments, selectedSubjectId]);
+    setSavingClass(true);
+
+    try {
+      const {
+        data,
+        error,
+      } = await supabase.rpc(
+        "school_admin_assign_teacher_class",
+        {
+          p_teacher_id: selectedTeacher,
+          p_class_id: selectedClass,
+        }
+      );
+
+      if (error) {
+        console.error(
+          "Erreur affectation classe :",
+          error
+        );
+
+        throw new Error(
+          error.message ||
+          "Impossible d'effectuer l'affectation."
+        );
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          "L'affectation n'a pas été enregistrée."
+        );
+      }
+
+      setMessage(
+        "✅ Classe affectée avec succès."
+      );
+
+      /*
+       * On garde la sélection pour permettre
+       * d'ajouter rapidement une autre affectation.
+       */
+    } catch (error) {
+      console.error(
+        "Erreur affectation classe :",
+        error
+      );
+
+      setMessage(
+        `❌ ${
+          error.message ||
+          "Impossible d'effectuer l'affectation."
+        }`
+      );
+    } finally {
+      setSavingClass(false);
+    }
+  }
+
+  async function assignSubject() {
+    setMessage("");
+
+    if (!selectedTeacher || !selectedSubject) {
+      setMessage(
+        "Sélectionnez un enseignant et une matière."
+      );
+      return;
+    }
+
+    setSavingSubject(true);
+
+    try {
+      const {
+        data,
+        error,
+      } = await supabase.rpc(
+        "school_admin_assign_teacher_subject",
+        {
+          p_teacher_id: selectedTeacher,
+          p_subject_id: Number(selectedSubject),
+        }
+      );
+
+      if (error) {
+        console.error(
+          "Erreur affectation matière :",
+          error
+        );
+
+        throw new Error(
+          error.message ||
+          "Impossible d'affecter la matière."
+        );
+      }
+
+      if (!data?.success) {
+        throw new Error(
+          "L'affectation de la matière n'a pas été enregistrée."
+        );
+      }
+
+      setMessage(
+        "✅ Matière affectée avec succès."
+      );
+    } catch (error) {
+      console.error(
+        "Erreur affectation matière :",
+        error
+      );
+
+      setMessage(
+        `❌ ${
+          error.message ||
+          "Impossible d'affecter la matière."
+        }`
+      );
+    } finally {
+      setSavingSubject(false);
+    }
+  }
 
   return (
-    <div>
-      <PageTitle
-        icon="📝"
-        title="Mes évaluations"
-        description="Les évaluations prévues pour votre classe."
-        onBack={onBack}
-      />
+    <div className="ec-page">
 
-      <SubjectFilter
-        subjects={subjects}
-        selectedSubjectId={selectedSubjectId}
-        onChange={setSelectedSubjectId}
-      />
+      <div className="ec-page-heading">
+        <div>
+          <span className="ec-eyebrow">
+            ORGANISATION
+          </span>
 
-      <ErrorBox text={error} />
+          <h2>
+            Affectations
+          </h2>
 
-      {loading ? (
-        <LoadingBox text="Chargement des évaluations..." />
-      ) : !filteredAssessments.length ? (
-        <EmptyBox
-          icon="📝"
-          title="Aucune évaluation"
-          text="Aucune évaluation publiée n'est disponible."
-        />
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit,minmax(280px,1fr))",
-            gap: "16px",
-          }}
-        >
-          {filteredAssessments.map(
-            (assessment) => (
-              <div
-                key={assessment.id}
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: "14px",
-                  padding: "20px",
-                }}
-              >
-                <SubjectBadge
-                  name={assessment.subject_name}
-                />
-
-                <h3
-                  style={{
-                    margin: "13px 0 7px",
-                    color: "#111827",
-                    fontSize: "18px",
-                  }}
-                >
-                  {assessment.title ||
-                    "Évaluation sans titre"}
-                </h3>
-
-                {assessment.description && (
-                  <p
-                    style={{
-                      margin: "0 0 12px",
-                      color: "#6b7280",
-                      fontSize: "14px",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {assessment.description}
-                  </p>
-                )}
-
-                <div
-                  style={{
-                    display: "grid",
-                    gap: "7px",
-                    fontSize: "13px",
-                    color: "#374151",
-                  }}
-                >
-                  <div>
-                    📅 Date :{" "}
-                    <strong>
-                      {formatDate(
-                        assessment.evaluation_date
-                      )}
-                    </strong>
-                  </div>
-
-                  <div>
-                    🧮 Barème :{" "}
-                    <strong>
-                      {formatScore(
-                        assessment.max_score
-                      )}
-                    </strong>
-                  </div>
-
-                  <div>
-                    🔢 Coefficient :{" "}
-                    <strong>
-                      {formatScore(
-                        assessment.coefficient
-                      )}
-                    </strong>
-                  </div>
-
-                  {assessment.trimester && (
-                    <div>
-                      📚 Trimestre :{" "}
-                      <strong>
-                        {assessment.trimester}
-                      </strong>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          )}
+          <p>
+            Affectez les enseignants aux classes
+            et aux matières de votre établissement.
+          </p>
         </div>
-      )}
+      </div>
+
+      <div className="ec-panel">
+
+        <div className="ec-form assignment-form">
+
+          {message && (
+            <div className="ec-form-info">
+              <span>ℹ️</span>
+              <p>{message}</p>
+            </div>
+          )}
+
+          <SelectInput
+            label="Enseignant"
+            value={selectedTeacher}
+            onChange={setSelectedTeacher}
+            options={(teachers || []).map(
+              (item) => ({
+                value: item.id,
+                label: item.display_name,
+              })
+            )}
+            placeholder="Choisir un enseignant"
+            disabled={
+              savingClass ||
+              savingSubject
+            }
+          />
+
+          <SelectInput
+            label="Classe"
+            value={selectedClass}
+            onChange={setSelectedClass}
+            options={(classes || []).map(
+              (item) => ({
+                value: item.id,
+                label: item.name,
+              })
+            )}
+            placeholder="Choisir une classe"
+            disabled={
+              savingClass ||
+              savingSubject
+            }
+          />
+
+          <button
+            type="button"
+            className="ec-btn ec-btn-primary"
+            onClick={assignClass}
+            disabled={savingClass}
+          >
+            {savingClass
+              ? "⏳ Enregistrement..."
+              : "🔗 Affecter à la classe"}
+          </button>
+
+          <div className="ec-divider" />
+
+          <SelectInput
+            label="Matière"
+            value={selectedSubject}
+            onChange={setSelectedSubject}
+            options={(subjects || []).map(
+              (item) => ({
+                value: String(item.id),
+                label: item.name,
+              })
+            )}
+            placeholder="Choisir une matière"
+            disabled={
+              savingClass ||
+              savingSubject
+            }
+          />
+
+          <button
+            type="button"
+            className="ec-btn ec-btn-primary"
+            onClick={assignSubject}
+            disabled={savingSubject}
+          >
+            {savingSubject
+              ? "⏳ Enregistrement..."
+              : "📚 Affecter la matière"}
+          </button>
+
+        </div>
+
+      </div>
+
     </div>
   );
 }
