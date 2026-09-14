@@ -3760,14 +3760,46 @@ async function sendCommunicationMessage() {
       }
 
       const normalizedCourses =
-        courseRows.map((course) => ({
-          ...course,
-          subject_name:
-            subjectMap.get(
-              String(course.subject_id)
-            )?.name ||
-            "Matière non renseignée",
-        }));
+  await Promise.all(
+    courseRows.map(async (course) => {
+      let fileSignedUrl = null;
+
+      if (course.file_url) {
+        const {
+          data: signedData,
+          error: signedError,
+        } = await supabase.storage
+          .from("teacher-content")
+          .createSignedUrl(
+            course.file_url,
+            3600
+          );
+
+        if (!signedError && signedData?.signedUrl) {
+          fileSignedUrl =
+            signedData.signedUrl;
+        } else if (signedError) {
+          console.error(
+            "Erreur URL sécurisée du fichier :",
+            signedError
+          );
+        }
+      }
+
+      return {
+        ...course,
+
+        subject_name:
+          subjectMap.get(
+            String(course.subject_id)
+          )?.name ||
+          "Matière non renseignée",
+
+        file_signed_url:
+          fileSignedUrl,
+      };
+    })
+  );
 
       let exerciseRows = [];
 
