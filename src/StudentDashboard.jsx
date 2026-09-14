@@ -736,50 +736,61 @@ function CoursesPage({
               )}
 
               <div
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  flexWrap: "wrap",
-                }}
-              >
-                {course.file_url && (
-                  <a
-                    href={course.file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      textDecoration: "none",
-                      background: "#4f46e5",
-                      color: "#fff",
-                      padding: "9px 13px",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    📎 Ouvrir le fichier
-                  </a>
-                )}
+  style={{
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+  }}
+>
+  {course.file_url && (
+    <a
+      href={course.file_signed_url || "#"}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(event) => {
+        if (!course.file_signed_url) {
+          event.preventDefault();
+        }
+      }}
+      style={{
+        textDecoration: "none",
+        background: course.file_signed_url
+          ? "#4f46e5"
+          : "#9ca3af",
+        color: "#fff",
+        padding: "9px 13px",
+        borderRadius: "8px",
+        fontSize: "13px",
+        fontWeight: 700,
+        cursor: course.file_signed_url
+          ? "pointer"
+          : "not-allowed",
+      }}
+    >
+      📎 Ouvrir le fichier
+    </a>
+  )}
 
-                {course.content_url && (
-                  <a
-                    href={course.content_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      textDecoration: "none",
-                      background: "#eef2ff",
-                      color: "#4338ca",
-                      padding: "9px 13px",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    🔗 Ouvrir le contenu
-                  </a>
-                )}
-              </div>
+  {course.content_url &&
+    course.content_type === "link" && (
+      <a
+        href={course.content_url}
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          textDecoration: "none",
+          background: "#eef2ff",
+          color: "#4338ca",
+          padding: "9px 13px",
+          borderRadius: "8px",
+          fontSize: "13px",
+          fontWeight: 700,
+        }}
+      >
+        🔗 Ouvrir le lien
+      </a>
+    )}
+</div>
             </div>
           ))}
         </div>
