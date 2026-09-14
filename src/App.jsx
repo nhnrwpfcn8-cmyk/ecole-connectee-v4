@@ -28,120 +28,88 @@ function App() {
   const [secretaryPage, setSecretaryPage] =
     useState('dashboard')
 
-  /*
-   * Empêche une ancienne requête de profil
-   * d'écraser le profil du compte actuellement connecté.
-   */
   const profileRequestRef = useRef(0)
 
   /*
-   * CHARGEMENT DU PROFIL
-   *
-   * Correction principale :
-   * - plusieurs tentatives
-   * - petite attente après authentification
-   * - protection contre les anciennes requêtes
+   * Récupère uniquement le profil
+   * de l'utilisateur actuellement connecté.
    */
   async function loadProfile(userId) {
-  if (!userId) {
-    setProfile(null)
-    return null
-  }
+    if (!userId) {
+      setProfile(null)
+      return null
+    }
 
-  const requestId = ++profileRequestRef.current
+    const requestId =
+      ++profileRequestRef.current
 
-  let lastError = null
+    let lastError = null
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      /*
-       * On utilise une fonction Supabase sécurisée
-       * qui retourne uniquement le profil de l'utilisateur connecté.
-       */
-      const {
-        data,
-        error: profileError,
-      } = await supabase.rpc("get_my_profile")
-
-      if (requestId !== profileRequestRef.current) {
-        return null
-      }
-
-      if (!profileError && data) {
-        console.log(
-          "Profil connecté récupéré :",
-          data
+    for (
+      let attempt = 0;
+      attempt < 3;
+      attempt += 1
+    ) {
+      try {
+        const {
+          data,
+          error: profileError,
+        } = await supabase.rpc(
+          'get_my_profile'
         )
 
-        setProfile(data)
+        if (
+          requestId !==
+          profileRequestRef.current
+        ) {
+          return null
+        }
 
-        return data
+        if (
+          !profileError &&
+          data
+        ) {
+          console.log(
+            'Profil connecté récupéré :',
+            data
+          )
+
+          setProfile(data)
+
+          return data
+        }
+
+        lastError = profileError
+
+        console.error(
+          'Erreur récupération profil :',
+          profileError
+        )
+      } catch (err) {
+        lastError = err
+
+        console.error(
+          'Erreur inattendue récupération profil :',
+          err
+        )
       }
 
-      lastError = profileError
-
-      console.error(
-        "Erreur récupération profil :",
-        profileError
-      )
-    } catch (err) {
-      lastError = err
-
-      console.error(
-        "Erreur inattendue récupération profil :",
-        err
-      )
-    }
-
-    /*
-     * Petite nouvelle tentative.
-     */
-    if (attempt < 2) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, 300)
-      )
-    }
-  }
-
-  console.error(
-    "Impossible de récupérer le profil après plusieurs tentatives :",
-    lastError
-  )
-
-  if (
-    requestId === profileRequestRef.current
-  ) {
-    setProfile(null)
-  }
-
-  return null
-}
-
-      if (!profileError && data) {
-        setProfile(data)
-        return data
-      }
-
-      lastError = profileError
-
-      /*
-       * Nouvelle tentative si le profil
-       * n'est pas encore disponible.
-       */
       if (attempt < 2) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 250)
+        await new Promise(
+          (resolve) =>
+            setTimeout(resolve, 300)
         )
       }
     }
 
     console.error(
-      'Erreur profil :',
+      'Impossible de récupérer le profil :',
       lastError
     )
 
     if (
-      requestId === profileRequestRef.current
+      requestId ===
+      profileRequestRef.current
     ) {
       setProfile(null)
     }
@@ -150,12 +118,17 @@ function App() {
   }
 
   /*
-   * APPLIQUER UNE SESSION
+   * Applique la session et récupère
+   * le profil correspondant.
    */
-  async function applySession(newSession) {
+  async function applySession(
+    newSession
+  ) {
     setSession(newSession)
 
-    if (!newSession?.user?.id) {
+    if (
+      !newSession?.user?.id
+    ) {
       profileRequestRef.current += 1
       setProfile(null)
       return null
@@ -167,7 +140,8 @@ function App() {
   }
 
   /*
-   * CHARGEMENT INITIAL + ÉCOUTE AUTH
+   * Chargement initial de la session
+   * + écoute des changements Auth.
    */
   useEffect(() => {
     let mounted = true
@@ -178,7 +152,8 @@ function App() {
           session: currentSession,
         },
         error: sessionError,
-      } = await supabase.auth.getSession()
+      } =
+        await supabase.auth.getSession()
 
       if (!mounted) return
 
@@ -209,52 +184,45 @@ function App() {
 
     loadInitialSession()
 
-    /*
-     * Écoute les changements d'authentification.
-     *
-     * Le setTimeout évite de lancer immédiatement
-     * une requête Supabase depuis le callback Auth.
-     */
     const {
       data: {
         subscription,
       },
-    } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        if (!mounted) return
-
-        setTimeout(async () => {
+    } =
+      supabase.auth.onAuthStateChange(
+        (event, newSession) => {
           if (!mounted) return
 
-          /*
-           * Déconnexion
-           */
-          if (
-            event === 'SIGNED_OUT' ||
-            !newSession
-          ) {
-            profileRequestRef.current += 1
+          setTimeout(
+            async () => {
+              if (!mounted) return
 
-            setSession(null)
-            setProfile(null)
-            setLoading(false)
+              if (
+                event ===
+                  'SIGNED_OUT' ||
+                !newSession
+              ) {
+                profileRequestRef.current += 1
 
-            return
-          }
+                setSession(null)
+                setProfile(null)
+                setLoading(false)
 
-          /*
-           * Nouvelle session
-           */
-          await applySession(
-            newSession
+                return
+              }
+
+              await applySession(
+                newSession
+              )
+
+              if (mounted) {
+                setLoading(false)
+              }
+            },
+            0
           )
-
-          if (mounted) {
-            setLoading(false)
-          }
-        }, 0)
-      }
-    )
+        }
+      )
 
     return () => {
       mounted = false
@@ -265,7 +233,9 @@ function App() {
   /*
    * CONNEXION
    */
-  async function handleLogin(event) {
+  async function handleLogin(
+    event
+  ) {
     event.preventDefault()
 
     setError('')
@@ -289,13 +259,6 @@ function App() {
 
     setConnecting(true)
 
-    /*
-     * Email classique :
-     * admin@email.com
-     *
-     * Identifiant élève/parent :
-     * pierre.gomis.eleve
-     */
     const authEmail =
       cleanIdentifier.includes('@')
         ? cleanIdentifier
@@ -327,10 +290,6 @@ function App() {
       return
     }
 
-    /*
-     * Chargement explicite du profil
-     * juste après la connexion.
-     */
     await applySession(
       data.session
     )
@@ -376,7 +335,7 @@ function App() {
   }
 
   /*
-   * ÉCRAN DE CHARGEMENT
+   * CHARGEMENT
    */
   if (loading) {
     return (
@@ -401,7 +360,7 @@ function App() {
   }
 
   /*
-   * PAGE DE CONNEXION
+   * CONNEXION
    */
   if (!session) {
     return (
@@ -425,7 +384,9 @@ function App() {
             Se connecter
           </h2>
 
-          <form onSubmit={handleLogin}>
+          <form
+            onSubmit={handleLogin}
+          >
 
             <label htmlFor="email">
               Identifiant ou adresse email
@@ -497,7 +458,7 @@ function App() {
   }
 
   /*
-   * RÔLE ACTUEL
+   * RÔLE
    */
   const role =
     profile?.role ||
@@ -539,12 +500,9 @@ function App() {
   if (
     role === 'secretary'
   ) {
-
-    /*
-     * Communication + Scolarité
-     */
     if (
-      secretaryPage === 'services'
+      secretaryPage ===
+      'services'
     ) {
       return (
         <SecretaryServices
@@ -560,9 +518,6 @@ function App() {
       )
     }
 
-    /*
-     * Tableau de bord secrétaire
-     */
     return (
       <SecretaryDashboard
         session={session}
@@ -578,7 +533,7 @@ function App() {
   }
 
   /*
-   * ENSEIGNANT
+   * PROFESSEUR
    */
   if (
     role === 'teacher'
@@ -609,9 +564,6 @@ function App() {
 
   /*
    * PARENT
-   *
-   * Le tableau Parent sera construit
-   * plus tard.
    */
   if (
     role === 'parent'
@@ -696,9 +648,6 @@ function App() {
 
   /*
    * RÔLE NON CONFIGURÉ
-   *
-   * Cet écran ne devrait plus apparaître
-   * pour un profil correctement enregistré.
    */
   return (
     <div className="app-container">
