@@ -4124,55 +4124,52 @@ async function sendCommunicationMessage() {
         );
 
       const normalizedGrades =
-        gradeRows.map((grade) => {
-          const assessment =
-            assessmentMap.get(
-              String(
-                grade.assessment_id
-              )
-            );
+  gradeRows.map((grade) => {
+    const assessment =
+      assessmentMap.get(
+        String(grade.assessment_id)
+      );
 
-          const subjectId =
-            grade.subject_id ??
-            assessment?.subject_id ??
-            null;
+    const subjectId =
+      grade.subject_id ??
+      assessment?.subject_id ??
+      null;
 
-          const subject =
-            subjectMap.get(
-              String(subjectId)
-            );
+    const subject =
+      subjectMap.get(
+        String(subjectId)
+      );
 
-          return {
-            ...grade,
+    return {
+      ...grade,
 
-            subject_id:
-              subjectId,
+      subject_id: subjectId,
 
-            subject_name:
-              subject?.name ||
-              assessment?.subject_name ||
-              "Matière non renseignée",
+      subject_name:
+        subject?.name ||
+        assessment?.subject_name ||
+        "Matière non renseignée",
 
-            assessment_title:
-              assessment?.title ||
-              "Évaluation",
+      assessment_title:
+        assessment?.title ||
+        "Évaluation",
 
-            assessment_date:
-              grade.evaluation_date ??
-              assessment?.evaluation_date ??
-              null,
+      assessment_date:
+        grade.evaluation_date ??
+        assessment?.evaluation_date ??
+        null,
 
-            max_score:
-              grade.max_score ??
-              assessment?.max_score ??
-              20,
+      max_score:
+        grade.max_score ??
+        assessment?.max_score ??
+        20,
 
-            coefficient:
-              grade.coefficient ??
-              assessment?.coefficient ??
-              1,
-          };
-        });
+      coefficient:
+        grade.coefficient ??
+        assessment?.coefficient ??
+        1,
+    };
+  });
 
       if (!cancelled) {
         setSubjects(subjectList);
