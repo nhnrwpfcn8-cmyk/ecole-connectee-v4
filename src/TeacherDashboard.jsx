@@ -3283,15 +3283,22 @@ function DocumentsPage({
 
     let uploadedPath = null;
 
-    try {
-      if (
-        contentType === "document" ||
-        contentType === "video"
-      ) {
-        uploadedPath = await uploadFile(
-          selectedFile
-        );
-      }
+try {
+  if (
+    contentType === "course" ||
+    contentType === "document" ||
+    contentType === "video"
+  ) {
+    if (!selectedFile) {
+      throw new Error(
+        "Veuillez sélectionner un fichier."
+      );
+    }
+
+    uploadedPath = await uploadFile(
+      selectedFile
+    );
+  }
 
       const payload = {
         school_id: schoolId,
