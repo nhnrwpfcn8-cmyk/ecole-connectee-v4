@@ -98,7 +98,17 @@ function studentName(student) {
     .trim()
     .replace(/\s+/g, " ") || "Élève";
 }
+function parentName(parent) {
+  if (!parent) return "Parent";
 
+  return (
+    parent.full_name ||
+    `${parent.first_name || ""} ${parent.last_name || ""}`
+      .trim()
+      .replace(/\s+/g, " ") ||
+    "Parent"
+  );
+}
 function classNameFor(student, classes) {
   if (!student?.class_id) return "Non affecté";
 
