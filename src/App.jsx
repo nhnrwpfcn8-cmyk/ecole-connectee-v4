@@ -43,44 +43,79 @@ function App() {
    * - protection contre les anciennes requêtes
    */
   async function loadProfile(userId) {
-    if (!userId) {
-      setProfile(null)
-      return null
-    }
+  if (!userId) {
+    setProfile(null)
+    return null
+  }
 
-    const requestId = ++profileRequestRef.current
+  const requestId = ++profileRequestRef.current
 
-    /*
-     * Laisser Supabase terminer la mise à jour
-     * de la session après connexion.
-     */
-    await new Promise((resolve) =>
-      setTimeout(resolve, 50)
-    )
+  let lastError = null
 
-    let lastError = null
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      /*
+       * On utilise une fonction Supabase sécurisée
+       * qui retourne uniquement le profil de l'utilisateur connecté.
+       */
       const {
         data,
         error: profileError,
-      } = await supabase
-        .from('profiles')
-        .select(
-          'id, full_name, phone, username, role, school_id, active, family_identifier'
-        )
-        .eq('id', userId)
-        .maybeSingle()
+      } = await supabase.rpc("get_my_profile")
 
-      /*
-       * Une ancienne requête ne doit jamais
-       * remplacer le profil actuel.
-       */
-      if (
-        requestId !== profileRequestRef.current
-      ) {
+      if (requestId !== profileRequestRef.current) {
         return null
       }
+
+      if (!profileError && data) {
+        console.log(
+          "Profil connecté récupéré :",
+          data
+        )
+
+        setProfile(data)
+
+        return data
+      }
+
+      lastError = profileError
+
+      console.error(
+        "Erreur récupération profil :",
+        profileError
+      )
+    } catch (err) {
+      lastError = err
+
+      console.error(
+        "Erreur inattendue récupération profil :",
+        err
+      )
+    }
+
+    /*
+     * Petite nouvelle tentative.
+     */
+    if (attempt < 2) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, 300)
+      )
+    }
+  }
+
+  console.error(
+    "Impossible de récupérer le profil après plusieurs tentatives :",
+    lastError
+  )
+
+  if (
+    requestId === profileRequestRef.current
+  ) {
+    setProfile(null)
+  }
+
+  return null
+}
 
       if (!profileError && data) {
         setProfile(data)
