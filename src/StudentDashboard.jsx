@@ -751,46 +751,38 @@ function SchoolCardPage({ profile, onBack }) {
             </div>
           </div>
 
-          {/* QR CODE */}
-          <div
-            style={{
-              width: "118px",
-              height: "118px",
-              background: "#ffffff",
-              border: "5px solid #ffffff",
-              borderRadius: "10px",
-              boxShadow:
-                "0 2px 8px rgba(0,0,0,0.12)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
-            {/* QR temporaire visuel.
-                Il sera remplacé par le vrai QR
-                synchronisé avec le dossier élève. */}
-            <div
-              style={{
-                width: "88px",
-                height: "88px",
-                border:
-                  "5px dotted #374151",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "9px",
-                color: "#374151",
-                textAlign: "center",
-              }}
-            >
-              QR
-              <br />
-              {qrValue}
-            </div>
-          </div>
-        </div>
+          {/* =================================================
+    VRAI QR CODE ÉLÈVE
+================================================= */}
+
+<div
+  style={{
+    width: "118px",
+    height: "118px",
+    background: "#ffffff",
+    border: "5px solid #ffffff",
+    borderRadius: "10px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    flexShrink: 0,
+  }}
+>
+  <img
+    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=4&data=${encodeURIComponent(
+      `ECOLE-CONNECTEE|ELEVE|${studentCode}`
+    )}`}
+    alt={`QR Code de ${fullName}`}
+    style={{
+      width: "108px",
+      height: "108px",
+      objectFit: "contain",
+      display: "block",
+    }}
+  />
+</div>
 
         {/* =================================================
             CORPS DE LA CARTE
