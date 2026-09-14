@@ -4004,6 +4004,306 @@ async function sendCommunicationMessage() {
     session?.user?.id,
   ]);
 
+     // REALTIME : actualiser automatiquement les contenus scolaires
+  useEffect(() => {
+    const connectedUserId =
+      profile?.id || session?.user?.id;
+
+    const schoolId =
+      profile?.school_id;
+
+    if (!connectedUserId || !schoolId) {
+      return;
+    }
+
+    const refreshAcademicData = async () => {
+      try {
+        const {
+          data: studentData,
+          error: studentError,
+        } = await supabase
+          .from("students")
+          .select(
+            "id,profile_id,school_id,class_id"
+          )
+          .eq("profile_id", connectedUserId)
+          .eq("school_id", schoolId)
+          .maybeSingle();
+
+        if (studentError || !studentData) {
+          console.error(
+            "Erreur actualisation élève :",
+            studentError
+          );
+          return;
+        }
+
+        const { data: subjectRows } =
+          await supabase
+            .from("subjects")
+            .select("id,name,school_id")
+            .eq("school_id", schoolId)
+            .order("name");
+
+        const subjectList =
+          subjectRows || [];
+
+        const subjectMap =
+          new Map(
+            subjectList.map(
+              (subject) => [
+                String(subject.id),
+                subject,
+              ]
+            )
+          );
+
+        let courseRows = [];
+        let exerciseRows = [];
+        let assessmentRows = [];
+
+        if (studentData.class_id) {
+          const { data: courses } =
+            await supabase
+              .from("learning_contents")
+              .select(`
+                id,
+                school_id,
+                teacher_id,
+                class_id,
+                subject_id,
+                title,
+                description,
+                content_type,
+                content_url,
+                file_url,
+                thumbnail_url,
+                published,
+                created_at,
+                updated_at
+              `)
+              .eq("school_id", schoolId)
+              .eq(
+                "class_id",
+                studentData.class_id
+              )
+              .eq("published", true)
+              .order("created_at", {
+                ascending: false,
+              });
+
+          courseRows = courses || [];
+
+          const { data: exercises } =
+            await supabase
+              .from("exercises")
+              .select(`
+                id,
+                school_id,
+                teacher_id,
+                class_id,
+                subject_id,
+                title,
+                description,
+                instructions,
+                duration_minutes,
+                published,
+                due_at,
+                created_at,
+                updated_at,
+                file_url,
+                file_name
+              `)
+              .eq("school_id", schoolId)
+              .eq(
+                "class_id",
+                studentData.class_id
+              )
+              .eq("published", true)
+              .order("created_at", {
+                ascending: false,
+              });
+
+          exerciseRows = exercises || [];
+
+          const { data: assessments } =
+            await supabase
+              .from("assessments")
+              .select(`
+                id,
+                school_id,
+                teacher_id,
+                class_id,
+                subject_id,
+                title,
+                description,
+                assessment_type,
+                max_score,
+                evaluation_date,
+                coefficient,
+                published,
+                created_at,
+                updated_at,
+                trimester,
+                assessment_slot
+              `)
+              .eq("school_id", schoolId)
+              .eq(
+                "class_id",
+                studentData.class_id
+              )
+              .eq("published", true)
+              .order("evaluation_date", {
+                ascending: true,
+              });
+
+          assessmentRows =
+            assessments || [];
+        }
+
+        const normalizedCourses =
+          await Promise.all(
+            courseRows.map(
+              async (course) => {
+                let fileSignedUrl = null;
+
+                if (course.file_url) {
+                  const {
+                    data: signedData,
+                    error: signedError,
+                  } = await supabase.storage
+                    .from(
+                      "teacher-content"
+                    )
+                    .createSignedUrl(
+                      course.file_url,
+                      3600
+                    );
+
+                  if (
+                    !signedError &&
+                    signedData?.signedUrl
+                  ) {
+                    fileSignedUrl =
+                      signedData.signedUrl;
+                  }
+                }
+
+                return {
+                  ...course,
+                  subject_name:
+                    subjectMap.get(
+                      String(
+                        course.subject_id
+                      )
+                    )?.name ||
+                    "Matière non renseignée",
+                  file_signed_url:
+                    fileSignedUrl,
+                };
+              }
+            )
+          );
+
+        const normalizedExercises =
+          exerciseRows.map(
+            (exercise) => ({
+              ...exercise,
+              subject_name:
+                subjectMap.get(
+                  String(
+                    exercise.subject_id
+                  )
+                )?.name ||
+                "Matière non renseignée",
+            })
+          );
+
+        const normalizedAssessments =
+          assessmentRows.map(
+            (assessment) => ({
+              ...assessment,
+              subject_name:
+                subjectMap.get(
+                  String(
+                    assessment.subject_id
+                  )
+                )?.name ||
+                "Matière non renseignée",
+            })
+          );
+
+        setSubjects(subjectList);
+        setCourses(normalizedCourses);
+        setExercises(
+          normalizedExercises
+        );
+        setAssessments(
+          normalizedAssessments
+        );
+
+        console.log(
+          "Contenus scolaires actualisés automatiquement."
+        );
+      } catch (error) {
+        console.error(
+          "Erreur Realtime École Connectée :",
+          error
+        );
+      }
+    };
+
+    const channel =
+      supabase
+        .channel(
+          `student-academic-${schoolId}-${connectedUserId}`
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "learning_contents",
+            filter: `school_id=eq.${schoolId}`,
+          },
+          () => {
+            refreshAcademicData();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "exercises",
+            filter: `school_id=eq.${schoolId}`,
+          },
+          () => {
+            refreshAcademicData();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "assessments",
+            filter: `school_id=eq.${schoolId}`,
+          },
+          () => {
+            refreshAcademicData();
+          }
+        )
+        .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [
+    profile?.id,
+    profile?.school_id,
+    session?.user?.id,
+  ]);
   /* =======================================================
      PRÉSENCES — NOUVELLE FONCTION
   ======================================================= */
