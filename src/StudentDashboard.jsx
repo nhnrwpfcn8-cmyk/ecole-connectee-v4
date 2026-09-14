@@ -584,215 +584,400 @@ function CommunicationPage({ onBack }) {
 ========================================================= */
 
 function SchoolCardPage({ profile, onBack }) {
+  const fullName = profile?.full_name || "Élève";
+
+  // Ces données seront alimentées par Supabase
+  // lors de la prochaine étape de synchronisation.
+  const schoolName =
+    profile?.school_name || "Maison des Anges";
+
+  const studentCode =
+    profile?.student_code ||
+    profile?.matricule ||
+    "ELV-BWDNAY";
+
+  const className =
+    profile?.class_name ||
+    "5èmeA";
+
+  const birthDate =
+    profile?.date_of_birth ||
+    "09/05/2024";
+
+  const schoolYear =
+    profile?.school_year ||
+    "2026 - 2027";
+
+  const photoUrl =
+    profile?.photo_url || null;
+
+  const qrValue =
+    profile?.student_qr_code ||
+    studentCode;
+
   return (
     <div>
       <PageTitle
         icon="🎫"
         title="Carte scolaire"
-        description="Votre carte scolaire numérique."
+        description="Votre carte d'identité scolaire numérique."
         onBack={onBack}
       />
 
+      {/* Actions */}
       <div
         style={{
-          maxWidth: "520px",
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "10px",
+          marginBottom: "18px",
+          flexWrap: "wrap",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onBack}
+          style={{
+            border: "1px solid #d1d5db",
+            background: "#ffffff",
+            color: "#374151",
+            padding: "10px 16px",
+            borderRadius: "9px",
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
+        >
+          ← Fermer
+        </button>
+
+        <button
+          type="button"
+          onClick={() => window.print()}
+          style={{
+            border: "none",
+            background: "#4b5563",
+            color: "#ffffff",
+            padding: "10px 16px",
+            borderRadius: "9px",
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
+        >
+          🖨️ Imprimer la carte
+        </button>
+      </div>
+
+      {/* =====================================================
+          CARTE D'IDENTITÉ SCOLAIRE
+      ====================================================== */}
+
+      <div
+        style={{
+          maxWidth: "920px",
           margin: "0 auto",
-          background: "#ffffff",
-          border: "1px solid #e5e7eb",
-          borderRadius: "18px",
+          background:
+            "linear-gradient(135deg, #fffaf0 0%, #ffffff 55%, #f8f5ff 100%)",
+          border: "1px solid #e5d9c8",
+          borderRadius: "22px",
+          padding: "28px",
+          boxShadow:
+            "0 12px 35px rgba(0,0,0,0.10)",
+          position: "relative",
           overflow: "hidden",
         }}
       >
-        <div
-          style={{
-            background:
-              "linear-gradient(135deg, #312e81, #4f46e5)",
-            color: "#ffffff",
-            padding: "22px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "13px",
-              opacity: 0.85,
-            }}
-          >
-            ÉCOLE CONNECTÉE
-          </div>
-
-          <div
-            style={{
-              marginTop: "5px",
-              fontSize: "20px",
-              fontWeight: 700,
-            }}
-          >
-            CARTE SCOLAIRE
-          </div>
-        </div>
+        {/* =================================================
+            EN-TÊTE
+        ================================================== */}
 
         <div
           style={{
-            padding: "24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "20px",
+            marginBottom: "22px",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "18px",
-              marginBottom: "22px",
+              gap: "14px",
             }}
           >
+            {/* Logo EC */}
             <div
               style={{
-                width: "70px",
-                height: "70px",
-                borderRadius: "50%",
-                background: "#eef2ff",
-                color: "#4f46e5",
+                width: "64px",
+                height: "64px",
+                borderRadius: "14px",
+                background:
+                  "linear-gradient(135deg, #4b5563, #6b7280)",
+                color: "#ffffff",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontWeight: 700,
-                fontSize: "22px",
+                fontWeight: 800,
+                fontSize: "20px",
+                boxShadow:
+                  "0 4px 12px rgba(0,0,0,0.15)",
               }}
             >
-              {getInitials(profile?.full_name || "Élève")}
+              EC
             </div>
 
             <div>
               <div
                 style={{
-                  color: "#6b7280",
-                  fontSize: "12px",
+                  fontSize: "23px",
+                  fontWeight: 800,
+                  color: "#4b5563",
                 }}
               >
-                Élève
+                {schoolName}
               </div>
 
               <div
                 style={{
-                  fontSize: "18px",
-                  fontWeight: 700,
-                  color: "#111827",
-                  marginTop: "3px",
+                  marginTop: "5px",
+                  fontSize: "13px",
+                  color: "#6b7280",
+                  letterSpacing: "0.5px",
                 }}
               >
-                {profile?.full_name || "Élève"}
+                CARTE D'IDENTITÉ SCOLAIRE
               </div>
             </div>
           </div>
 
+          {/* QR CODE */}
           <div
             style={{
-              display: "grid",
-              gap: "12px",
+              width: "118px",
+              height: "118px",
+              background: "#ffffff",
+              border: "5px solid #ffffff",
+              borderRadius: "10px",
+              boxShadow:
+                "0 2px 8px rgba(0,0,0,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              flexShrink: 0,
             }}
           >
+            {/* QR temporaire visuel.
+                Il sera remplacé par le vrai QR
+                synchronisé avec le dossier élève. */}
             <div
               style={{
-                padding: "12px",
-                borderRadius: "10px",
-                background: "#f9fafb",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "#6b7280",
-                }}
-              >
-                Identifiant
-              </div>
-
-              <div
-                style={{
-                  marginTop: "3px",
-                  fontWeight: 600,
-                  color: "#111827",
-                }}
-              >
-                {profile?.username || "—"}
-              </div>
-            </div>
-
-            <div
-              style={{
-                padding: "12px",
-                borderRadius: "10px",
-                background: "#f9fafb",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "#6b7280",
-                }}
-              >
-                Statut
-              </div>
-
-              <div
-                style={{
-                  marginTop: "3px",
-                  fontWeight: 600,
-                  color: "#16a34a",
-                }}
-              >
-                Élève actif
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "18px",
-              borderRadius: "12px",
-              background: "#f9fafb",
-              textAlign: "center",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "12px",
-                color: "#6b7280",
-                marginBottom: "8px",
-              }}
-            >
-              QR Code scolaire
-            </div>
-
-            <div
-              style={{
-                width: "130px",
-                height: "130px",
-                margin: "0 auto",
-                border: "2px dashed #c7d2fe",
-                borderRadius: "10px",
+                width: "88px",
+                height: "88px",
+                border:
+                  "5px dotted #374151",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#6366f1",
-                fontSize: "13px",
-                padding: "10px",
+                fontSize: "9px",
+                color: "#374151",
+                textAlign: "center",
               }}
             >
-              QR CODE
+              QR
+              <br />
+              {qrValue}
             </div>
-
-            <p
-              style={{
-                margin: "10px 0 0",
-                fontSize: "12px",
-                color: "#6b7280",
-              }}
-            >
-              Le QR code sera connecté au système de carte scolaire à l'étape suivante.
-            </p>
           </div>
         </div>
+
+        {/* =================================================
+            CORPS DE LA CARTE
+        ================================================== */}
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "170px minmax(0, 1fr)",
+            gap: "28px",
+            alignItems: "start",
+          }}
+        >
+          {/* PHOTO */}
+          <div>
+            <div
+              style={{
+                width: "150px",
+                height: "185px",
+                borderRadius: "12px",
+                border: "1px solid #d6d3d1",
+                background: "#f5f5f4",
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt={`Photo de ${fullName}`}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    color: "#9ca3af",
+                    fontSize: "20px",
+                    fontWeight: 600,
+                  }}
+                >
+                  Photo
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* INFORMATIONS */}
+          <div>
+            <div
+              style={{
+                textAlign: "center",
+                marginBottom: "22px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "16px",
+                  color: "#6b7280",
+                  fontWeight: 600,
+                }}
+              >
+                Élève / Élève
+              </div>
+
+              <div
+                style={{
+                  marginTop: "5px",
+                  fontSize: "28px",
+                  fontWeight: 900,
+                  color: "#374151",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                {fullName.toUpperCase()}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(2, minmax(0, 1fr))",
+                gap: "20px 45px",
+              }}
+            >
+              <CardInfo
+                label="DATE DE NAISSANCE"
+                value={birthDate}
+              />
+
+              <CardInfo
+                label="MATRICULE"
+                value={studentCode}
+              />
+
+              <CardInfo
+                label="CLASSE"
+                value={className}
+              />
+
+              <CardInfo
+                label="ANNÉE SCOLAIRE"
+                value={schoolYear}
+              />
+
+              <CardInfo
+                label="ÉTABLISSEMENT"
+                value={schoolName}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* =================================================
+            PIED DE CARTE
+        ================================================== */}
+
+        <div
+          style={{
+            marginTop: "25px",
+            paddingTop: "12px",
+            borderTop:
+              "1px solid rgba(107,114,128,0.20)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "15px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "10px",
+              color: "#9ca3af",
+            }}
+          >
+            École Connectée • Document officiel
+          </div>
+
+          <div
+            style={{
+              fontSize: "10px",
+              color: "#9ca3af",
+            }}
+          >
+            QR • identification élève
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   INFORMATIONS DE LA CARTE
+========================================================= */
+
+function CardInfo({ label, value }) {
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: "10px",
+          fontWeight: 700,
+          color: "#9ca3af",
+          letterSpacing: "0.7px",
+          marginBottom: "5px",
+        }}
+      >
+        {label}
+      </div>
+
+      <div
+        style={{
+          fontSize: "15px",
+          fontWeight: 600,
+          color: "#4b5563",
+        }}
+      >
+        {value || "—"}
       </div>
     </div>
   );
