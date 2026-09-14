@@ -2925,246 +2925,295 @@ export default function StudentDashboard({
   ]);
 
   /* =======================================================
-     COMMUNICATION — NOUVELLE FONCTION
-  ======================================================= */
+   COMMUNICATION — NOUVELLE FONCTION
+   Élève ↔ Professeur
+======================================================= */
 
-  useEffect(() => {
-    let cancelled = false;
+useEffect(() => {
+  let cancelled = false;
 
-    async function loadCommunication() {
-      const connectedUserId =
-        profile?.id || session?.user?.id;
+  async function loadCommunication() {
+    const connectedUserId =
+      profile?.id || session?.user?.id;
 
-      const schoolId =
-        profile?.school_id;
+    const schoolId =
+      profile?.school_id;
 
-      if (!connectedUserId || !schoolId) {
-        return;
-      }
+    if (!connectedUserId || !schoolId) {
+      return;
+    }
 
-      setCommunicationLoading(true);
-      setCommunicationError("");
+    setCommunicationLoading(true);
+    setCommunicationError("");
 
-      const { data: student, error: studentError } =
-        await supabase
-          .from("students")
-          .select(
-            "id,profile_id,school_id"
-          )
-          .eq("profile_id", connectedUserId)
-          .eq("school_id", schoolId)
-          .maybeSingle();
+    /* =====================================================
+       RETROUVER LE DOSSIER ÉLÈVE
+    ===================================================== */
 
-      if (studentError || !student) {
-        if (!cancelled) {
-          setCommunicationMessages([]);
-          setUnreadCommunicationCount(0);
-          setCommunicationError(
-            "Impossible de retrouver votre espace de communication."
-          );
-          setCommunicationLoading(false);
-        }
-        return;
-      }
+    const {
+      data: student,
+      error: studentError,
+    } = await supabase
+      .from("students")
+      .select(
+        "id,profile_id,school_id"
+      )
+      .eq("profile_id", connectedUserId)
+      .eq("school_id", schoolId)
+      .maybeSingle();
 
-      /* Conversations appartenant à cet élève */
-      const {
-        data: conversations,
-        error: conversationsError,
-      } = await supabase
-        .from("communication_conversations")
-        .select(`
-          id,
-          school_id,
-          teacher_id,
-          student_id,
-          created_at,
-          updated_at
-        `)
-        .eq("student_id", student.id)
-        .eq("school_id", schoolId)
-        .order("updated_at", {
-          ascending: false,
-        });
-
-      if (conversationsError) {
-        console.error(
-          "Erreur conversations :",
-          conversationsError
-        );
-
-        if (!cancelled) {
-          setCommunicationMessages([]);
-          setUnreadCommunicationCount(0);
-          setCommunicationError(
-            "Impossible de charger vos conversations."
-          );
-          setCommunicationLoading(false);
-        }
-
-        return;
-      }
-
-      const conversationRows =
-        conversations || [];
-
-      if (!conversationRows.length) {
-        if (!cancelled) {
-          setCommunicationMessages([]);
-          setUnreadCommunicationCount(0);
-          setCommunicationLoading(false);
-        }
-        return;
-      }
-
-      const conversationIds =
-        conversationRows.map(
-          (item) => item.id
-        );
-
-      const teacherIds = [
-        ...new Set(
-          conversationRows
-            .map(
-              (item) => item.teacher_id
-            )
-            .filter(Boolean)
-        ),
-      ];
-
-      let teacherMap = new Map();
-
-      if (teacherIds.length) {
-        const {
-          data: teacherRows,
-        } = await supabase
-          .from("teachers")
-          .select(
-            "id,school_id,display_name,active"
-          )
-          .eq("school_id", schoolId)
-          .in("id", teacherIds);
-
-        teacherMap = new Map(
-          (teacherRows || []).map(
-            (teacher) => [
-              String(teacher.id),
-              teacher,
-            ]
-          )
-        );
-      }
-
-      const {
-        data: messages,
-        error: messagesError,
-      } = await supabase
-        .from("communication_messages")
-        .select(`
-          id,
-          conversation_id,
-          school_id,
-          sender_profile_id,
-          message,
-          read_at,
-          created_at,
-          updated_at
-        `)
-        .eq("school_id", schoolId)
-        .in(
-          "conversation_id",
-          conversationIds
-        )
-        .order("created_at", {
-          ascending: false,
-        });
-
-      if (messagesError) {
-        console.error(
-          "Erreur messages :",
-          messagesError
-        );
-
-        if (!cancelled) {
-          setCommunicationMessages([]);
-          setUnreadCommunicationCount(0);
-          setCommunicationError(
-            "Impossible de charger vos messages."
-          );
-          setCommunicationLoading(false);
-        }
-
-        return;
-      }
-
-      const conversationMap =
-        new Map(
-          conversationRows.map(
-            (conversation) => [
-              String(conversation.id),
-              conversation,
-            ]
-          )
-        );
-
-      const normalizedMessages =
-        (messages || []).map(
-          (message) => {
-            const conversation =
-              conversationMap.get(
-                String(
-                  message.conversation_id
-                )
-              );
-
-            const teacher =
-              teacherMap.get(
-                String(
-                  conversation?.teacher_id
-                )
-              );
-
-            return {
-              ...message,
-              teacher_name:
-                teacher?.display_name ||
-                "Enseignant",
-              teacher_id:
-                conversation?.teacher_id ||
-                null,
-            };
-          }
-        );
-
-      const unreadCount =
-        normalizedMessages.filter(
-          (message) =>
-            !message.read_at &&
-            message.sender_profile_id !==
-              connectedUserId
-        ).length;
-
+    if (studentError || !student) {
       if (!cancelled) {
-        setCommunicationMessages(
-          normalizedMessages
-        );
-        setUnreadCommunicationCount(
-          unreadCount
+        setCommunicationMessages([]);
+        setUnreadCommunicationCount(0);
+        setCommunicationError(
+          "Impossible de retrouver votre espace de communication."
         );
         setCommunicationLoading(false);
       }
+
+      return;
     }
 
-    loadCommunication();
+    /* =====================================================
+       CONVERSATIONS DE L'ÉLÈVE
+    ===================================================== */
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    profile?.id,
-    profile?.school_id,
-    session?.user?.id,
-  ]);
+    const {
+      data: conversations,
+      error: conversationsError,
+    } = await supabase
+      .from("communication_conversations")
+      .select(`
+        id,
+        school_id,
+        teacher_id,
+        student_id,
+        created_at,
+        updated_at
+      `)
+      .eq("student_id", student.id)
+      .eq("school_id", schoolId)
+      .order("updated_at", {
+        ascending: false,
+      });
+
+    if (conversationsError) {
+      console.error(
+        "Erreur conversations :",
+        conversationsError
+      );
+
+      if (!cancelled) {
+        setCommunicationMessages([]);
+        setUnreadCommunicationCount(0);
+        setCommunicationError(
+          "Impossible de charger vos conversations."
+        );
+        setCommunicationLoading(false);
+      }
+
+      return;
+    }
+
+    const conversationRows =
+      conversations || [];
+
+    if (!conversationRows.length) {
+      if (!cancelled) {
+        setCommunicationMessages([]);
+        setUnreadCommunicationCount(0);
+        setCommunicationLoading(false);
+      }
+
+      return;
+    }
+
+    const conversationIds =
+      conversationRows.map(
+        (item) => item.id
+      );
+
+    /* =====================================================
+       PROFESSEURS
+       IMPORTANT :
+       Les enseignants sont dans profiles,
+       pas dans une table teachers.
+    ===================================================== */
+
+    const teacherIds = [
+      ...new Set(
+        conversationRows
+          .map(
+            (item) => item.teacher_id
+          )
+          .filter(Boolean)
+      ),
+    ];
+
+    let teacherMap = new Map();
+
+    if (teacherIds.length) {
+      const {
+        data: teacherRows,
+        error: teacherError,
+      } = await supabase
+        .from("profiles")
+        .select(`
+          id,
+          school_id,
+          full_name,
+          role,
+          active
+        `)
+        .eq("school_id", schoolId)
+        .eq("role", "teacher")
+        .in("id", teacherIds);
+
+      if (teacherError) {
+        console.error(
+          "Erreur chargement enseignants :",
+          teacherError
+        );
+      }
+
+      teacherMap = new Map(
+        (teacherRows || []).map(
+          (teacher) => [
+            String(teacher.id),
+            teacher,
+          ]
+        )
+      );
+    }
+
+    /* =====================================================
+       MESSAGES
+    ===================================================== */
+
+    const {
+      data: messages,
+      error: messagesError,
+    } = await supabase
+      .from("communication_messages")
+      .select(`
+        id,
+        conversation_id,
+        school_id,
+        sender_profile_id,
+        message,
+        read_at,
+        created_at,
+        updated_at
+      `)
+      .eq("school_id", schoolId)
+      .in(
+        "conversation_id",
+        conversationIds
+      )
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (messagesError) {
+      console.error(
+        "Erreur messages :",
+        messagesError
+      );
+
+      if (!cancelled) {
+        setCommunicationMessages([]);
+        setUnreadCommunicationCount(0);
+        setCommunicationError(
+          "Impossible de charger vos messages."
+        );
+        setCommunicationLoading(false);
+      }
+
+      return;
+    }
+
+    /* =====================================================
+       ASSOCIATION MESSAGE ↔ CONVERSATION ↔ PROFESSEUR
+    ===================================================== */
+
+    const conversationMap =
+      new Map(
+        conversationRows.map(
+          (conversation) => [
+            String(conversation.id),
+            conversation,
+          ]
+        )
+      );
+
+    const normalizedMessages =
+      (messages || []).map(
+        (message) => {
+          const conversation =
+            conversationMap.get(
+              String(
+                message.conversation_id
+              )
+            );
+
+          const teacher =
+            teacherMap.get(
+              String(
+                conversation?.teacher_id
+              )
+            );
+
+          return {
+            ...message,
+
+            teacher_name:
+              teacher?.full_name ||
+              "Enseignant",
+
+            teacher_id:
+              conversation?.teacher_id ||
+              null,
+          };
+        }
+      );
+
+    /* =====================================================
+       COMPTEUR DES MESSAGES NON LUS
+       Exemple : 1
+    ===================================================== */
+
+    const unreadCount =
+      normalizedMessages.filter(
+        (message) =>
+          !message.read_at &&
+          message.sender_profile_id !==
+            connectedUserId
+      ).length;
+
+    if (!cancelled) {
+      setCommunicationMessages(
+        normalizedMessages
+      );
+
+      setUnreadCommunicationCount(
+        unreadCount
+      );
+
+      setCommunicationLoading(false);
+    }
+  }
+
+  loadCommunication();
+
+  return () => {
+    cancelled = true;
+  };
+}, [
+  profile?.id,
+  profile?.school_id,
+  session?.user?.id,
+]);
 
   /* =======================================================
      MARQUER UN MESSAGE COMME LU
