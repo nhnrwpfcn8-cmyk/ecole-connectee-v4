@@ -6,6 +6,7 @@ import AdminEcoleDashboard from './AdminEcoleDashboard'
 import SecretaryDashboard from './SecretaryDashboard'
 import SecretaryServices from './SecretaryServices'
 import TeacherDashboard from './TeacherDashboard'
+import StudentDashboard from './StudentDashboard'
 
 import './App.css'
 
@@ -401,75 +402,18 @@ function App() {
   /*
    * ÉLÈVE
    *
-   * Le compte Élève est maintenant correctement reconnu.
+   * Nouveau StudentDashboard.
    *
-   * Le véritable StudentDashboard sera branché ici
-   * dès que nous l'ajoutons au projet.
+   * Le compte Élève, la session, le profil
+   * et la déconnexion sont conservés.
    */
   if (role === 'student') {
     return (
-      <div className="app-container">
-        <div className="dashboard-card">
-          <div className="dashboard-header">
-            <div>
-              <div className="small-logo">
-                EC
-              </div>
-
-              <h1>École Connectée</h1>
-            </div>
-
-            <button
-              className="logout-button"
-              onClick={handleLogout}
-            >
-              Se déconnecter
-            </button>
-          </div>
-
-          <div className="welcome-section">
-            <h2>
-              Bienvenue
-              {profile?.full_name
-                ? `, ${profile.full_name}`
-                : ''}{' '}
-              👋
-            </h2>
-
-            <p>
-              Vous êtes connecté à votre espace
-              Élève.
-            </p>
-          </div>
-
-          <div className="role-card">
-            <span className="role-label">
-              Votre rôle
-            </span>
-
-            <strong>Élève</strong>
-          </div>
-
-          <div className="feature-card">
-            <h3>
-              🎓 Espace Élève
-            </h3>
-
-            <p>
-              Votre espace élève est maintenant
-              reconnu par École Connectée.
-            </p>
-
-            <p>
-              Les prochaines fonctionnalités
-              comprendront vos cours, exercices,
-              évaluations, notes, présences,
-              bulletins, communication et carte
-              scolaire.
-            </p>
-          </div>
-        </div>
-      </div>
+      <StudentDashboard
+        profile={profile}
+        session={session}
+        onLogout={handleLogout}
+      />
     )
   }
 
