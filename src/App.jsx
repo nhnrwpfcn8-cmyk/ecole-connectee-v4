@@ -9,10 +9,27 @@ import TeacherDashboard from './TeacherDashboard'
 
 import './App.css'
 
+/*
+ * Domaine technique utilisé pour les comptes
+ * Élèves / Parents créés automatiquement.
+ *
+ * Exemple :
+ * pierre.gomis.eleve
+ * devient :
+ * pierre.gomis.eleve@login.ecole-connectee.local
+ */
+const LOGIN_DOMAIN = 'login.ecole-connectee.local'
+
 function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
 
+  /*
+   * Le champ accepte maintenant :
+   * - une adresse email classique
+   * - un identifiant Élève
+   * - un identifiant Parent
+   */
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -24,12 +41,16 @@ function App() {
 
   /*
    * Pour le secrétaire :
+   *
    * dashboard = tableau de bord secrétaire existant
    * services = communication + scolarité
    */
   const [secretaryPage, setSecretaryPage] =
     useState('dashboard')
 
+  /*
+   * Chargement de la session au démarrage
+   */
   useEffect(() => {
     let mounted = true
 
@@ -75,11 +96,14 @@ function App() {
     }
   }, [])
 
+  /*
+   * Chargement du profil connecté
+   */
   async function loadProfile(userId) {
     const { data, error } = await supabase
       .from('profiles')
       .select(
-        'id, full_name, phone, role, school_id, active'
+        'id, full_name, phone, username, role, school_id, active, family_identifier'
       )
       .eq('id', userId)
       .maybeSingle()
@@ -93,32 +117,62 @@ function App() {
     setProfile(data)
   }
 
+  /*
+   * CONNEXION
+   *
+   * Les comptes classiques utilisent leur email.
+   *
+   * Les comptes créés avec un identifiant utilisent :
+   *
+   * pierre.gomis.eleve
+   *
+   * qui devient automatiquement :
+   *
+   * pierre.gomis.eleve@login.ecole-connectee.local
+   */
   async function handleLogin(event) {
     event.preventDefault()
 
     setError('')
     setMessage('')
 
-    const cleanEmail = email.trim().toLowerCase()
+    const cleanIdentifier =
+      email.trim().toLowerCase()
 
-    if (!cleanEmail || !password) {
+    if (!cleanIdentifier || !password) {
       setError(
-        'Veuillez saisir votre email et votre mot de passe.'
+        'Veuillez saisir votre identifiant ou votre adresse email ainsi que votre mot de passe.'
       )
       return
     }
 
     setConnecting(true)
 
+    /*
+     * Si l'utilisateur saisit déjà une adresse email,
+     * on l'utilise directement.
+     *
+     * Sinon, on construit l'adresse technique
+     * utilisée par les comptes Élève / Parent.
+     */
+    const authEmail =
+      cleanIdentifier.includes('@')
+        ? cleanIdentifier
+        : `${cleanIdentifier}@${LOGIN_DOMAIN}`
+
     const { data, error } =
       await supabase.auth.signInWithPassword({
-        email: cleanEmail,
+        email: authEmail,
         password,
       })
 
     if (error) {
-      console.error(error)
-      setError(error.message)
+      console.error('Erreur de connexion :', error)
+
+      setError(
+        'Identifiant ou mot de passe incorrect.'
+      )
+
       setConnecting(false)
       return
     }
@@ -133,6 +187,9 @@ function App() {
     setConnecting(false)
   }
 
+  /*
+   * DÉCONNEXION
+   */
   async function handleLogout() {
     setError('')
     setMessage('')
@@ -147,11 +204,16 @@ function App() {
 
     setSession(null)
     setProfile(null)
+
     setEmail('')
     setPassword('')
+
     setSecretaryPage('dashboard')
   }
 
+  /*
+   * ÉCRAN DE CHARGEMENT
+   */
   if (loading) {
     return (
       <div className="app-container">
@@ -189,18 +251,20 @@ function App() {
 
           <form onSubmit={handleLogin}>
             <label htmlFor="email">
-              Adresse email
+              Identifiant ou adresse email
             </label>
 
             <input
               id="email"
-              type="email"
-              placeholder="exemple@email.com"
+              type="text"
+              placeholder="Ex : pierre.gomis.eleve ou admin@email.com"
               value={email}
               onChange={(event) =>
                 setEmail(event.target.value)
               }
-              autoComplete="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck="false"
             />
 
             <label htmlFor="password">
@@ -248,13 +312,16 @@ function App() {
     )
   }
 
+  /*
+   * RÔLE ACTUEL
+   */
   const role =
     profile?.role || 'non configuré'
 
   /*
    * SUPER ADMIN
    *
-   * On ne modifie pas son fonctionnement.
+   * Fonctionnement conservé.
    */
   if (role === 'super_admin') {
     return (
@@ -269,7 +336,7 @@ function App() {
   /*
    * ADMIN ÉCOLE
    *
-   * On ne modifie pas son fonctionnement.
+   * Fonctionnement conservé.
    */
   if (role === 'school_admin') {
     return (
@@ -286,8 +353,7 @@ function App() {
    */
   if (role === 'secretary') {
     /*
-     * Nouveau module :
-     * Communication + Scolarité
+     * Module Communication + Scolarité
      */
     if (secretaryPage === 'services') {
       return (
@@ -303,7 +369,7 @@ function App() {
     }
 
     /*
-     * Tableau de bord secrétaire EXISTANT
+     * Tableau de bord secrétaire existant
      */
     return (
       <SecretaryDashboard
@@ -316,8 +382,11 @@ function App() {
       />
     )
   }
+
   /*
    * ENSEIGNANT
+   *
+   * Fonctionnement conservé.
    */
   if (role === 'teacher') {
     return (
@@ -328,8 +397,158 @@ function App() {
       />
     )
   }
+
   /*
-   * AUTRES RÔLES
+   * ÉLÈVE
+   *
+   * Le compte Élève est maintenant correctement reconnu.
+   *
+   * Le véritable StudentDashboard sera branché ici
+   * dès que nous l'ajoutons au projet.
+   */
+  if (role === 'student') {
+    return (
+      <div className="app-container">
+        <div className="dashboard-card">
+          <div className="dashboard-header">
+            <div>
+              <div className="small-logo">
+                EC
+              </div>
+
+              <h1>École Connectée</h1>
+            </div>
+
+            <button
+              className="logout-button"
+              onClick={handleLogout}
+            >
+              Se déconnecter
+            </button>
+          </div>
+
+          <div className="welcome-section">
+            <h2>
+              Bienvenue
+              {profile?.full_name
+                ? `, ${profile.full_name}`
+                : ''}{' '}
+              👋
+            </h2>
+
+            <p>
+              Vous êtes connecté à votre espace
+              Élève.
+            </p>
+          </div>
+
+          <div className="role-card">
+            <span className="role-label">
+              Votre rôle
+            </span>
+
+            <strong>Élève</strong>
+          </div>
+
+          <div className="feature-card">
+            <h3>
+              🎓 Espace Élève
+            </h3>
+
+            <p>
+              Votre espace élève est maintenant
+              reconnu par École Connectée.
+            </p>
+
+            <p>
+              Les prochaines fonctionnalités
+              comprendront vos cours, exercices,
+              évaluations, notes, présences,
+              bulletins, communication et carte
+              scolaire.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /*
+   * PARENT
+   *
+   * Le compte Parent est maintenant correctement
+   * reconnu par l'application.
+   *
+   * Le véritable ParentDashboard sera branché
+   * lorsque nous construirons l'espace Parent.
+   */
+  if (role === 'parent') {
+    return (
+      <div className="app-container">
+        <div className="dashboard-card">
+          <div className="dashboard-header">
+            <div>
+              <div className="small-logo">
+                EC
+              </div>
+
+              <h1>École Connectée</h1>
+            </div>
+
+            <button
+              className="logout-button"
+              onClick={handleLogout}
+            >
+              Se déconnecter
+            </button>
+          </div>
+
+          <div className="welcome-section">
+            <h2>
+              Bienvenue
+              {profile?.full_name
+                ? `, ${profile.full_name}`
+                : ''}{' '}
+              👋
+            </h2>
+
+            <p>
+              Vous êtes connecté à votre espace
+              Parent.
+            </p>
+          </div>
+
+          <div className="role-card">
+            <span className="role-label">
+              Votre rôle
+            </span>
+
+            <strong>Parent</strong>
+          </div>
+
+          <div className="feature-card">
+            <h3>
+              👨‍👩‍👧 Espace Parent
+            </h3>
+
+            <p>
+              Votre espace parent est maintenant
+              reconnu par École Connectée.
+            </p>
+
+            <p>
+              Le tableau de bord Parent sera
+              construit après l'activation complète
+              de l'espace Élève.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /*
+   * AUTRES RÔLES / RÔLE NON CONFIGURÉ
    */
   return (
     <div className="app-container">
@@ -388,7 +607,8 @@ function App() {
           </h3>
 
           <p>
-            Votre espace est en cours de préparation.
+            Votre espace est en cours de
+            préparation.
           </p>
         </div>
       </div>
