@@ -406,11 +406,7 @@ export default function ParentDashboard({
       setAdminMessages(messageRows || []);
 
       /*
-       * 8 BIS. CONVOCATIONS DU SERVICE ADMINISTRATIF
-       *
-       * Les convocations sont limitées :
-       * - à l'école du parent ;
-       * - au parent connecté.
+       * CONVOCATIONS DU SERVICE ADMINISTRATIF
        */
       const { data: meetingRows, error: meetingsError } =
         await supabase
@@ -421,7 +417,7 @@ export default function ParentDashboard({
           .eq("school_id", resolvedSchoolId)
           .eq("parent_id", parent.id)
           .order("meeting_date", {
-            ascending: false,
+            ascending: true,
           })
           .order("meeting_time", {
             ascending: true,
@@ -1341,7 +1337,7 @@ export default function ParentDashboard({
           )}
         </div>
 
-        {/* CONVOCATIONS DU SECRETARIAT */}
+        {/* CONVOCATIONS DU SERVICE ADMINISTRATIF */}
         <div
           className="card"
           style={{
@@ -1359,7 +1355,7 @@ export default function ParentDashboard({
 
           {adminMeetings.length === 0 ? (
             <p style={{ color: "#4b5563" }}>
-              Aucune convocation.
+              Aucune convocation disponible.
             </p>
           ) : (
             <div
@@ -1369,12 +1365,9 @@ export default function ParentDashboard({
               }}
             >
               {adminMeetings.map((meeting) => {
-                const meetingChild =
-                  children.find(
-                    (child) =>
-                      child.id ===
-                      meeting.student_id
-                  );
+                const child = children.find(
+                  (item) => item.id === meeting.student_id
+                );
 
                 return (
                   <div
@@ -1384,65 +1377,40 @@ export default function ParentDashboard({
                       border:
                         "1px solid #e5e7eb",
                       borderRadius: 12,
-                      background:
-                        "#f9fafb",
+                      background: "#f9fafb",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent:
-                          "space-between",
-                        gap: 12,
-                        alignItems:
-                          "flex-start",
-                      }}
-                    >
-                      <strong
-                        style={{
-                          color: "#111827",
-                          fontSize: 17,
-                        }}
-                      >
-                        📅 Convocation
-                      </strong>
-
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "#2563eb",
-                          whiteSpace:
-                            "nowrap",
-                        }}
-                      >
-                        {meeting.status ||
-                          "Prévue"}
-                      </span>
-                    </div>
-
-                    <div
+                    <strong
                       style={{
                         color: "#111827",
-                        marginTop: 10,
-                        fontWeight: 700,
+                        fontSize: 17,
                       }}
                     >
-                      {meeting.reason ||
-                        "Convocation"}
+                      📅 Convocation
+                    </strong>
+
+                    <div
+                      style={{
+                        color: "#374151",
+                        marginTop: 10,
+                      }}
+                    >
+                      Motif :{" "}
+                      <strong>
+                        {meeting.reason || "Non renseigné"}
+                      </strong>
                     </div>
 
-                    {meetingChild && (
+                    {child && (
                       <div
                         style={{
                           color: "#374151",
-                          marginTop: 8,
+                          marginTop: 6,
                         }}
                       >
                         Élève :{" "}
                         <strong>
-                          {meetingChild.first_name}{" "}
-                          {meetingChild.last_name}
+                          {child.first_name} {child.last_name}
                         </strong>
                       </div>
                     )}
@@ -1450,43 +1418,55 @@ export default function ParentDashboard({
                     <div
                       style={{
                         color: "#374151",
-                        marginTop: 8,
+                        marginTop: 6,
                       }}
                     >
                       Date :{" "}
-                      {meeting.meeting_date
-                        ? new Date(
-                            meeting.meeting_date
-                          ).toLocaleDateString(
-                            "fr-FR"
-                          )
-                        : "-"}
+                      <strong>
+                        {meeting.meeting_date
+                          ? new Date(
+                              `${meeting.meeting_date}T00:00:00`
+                            ).toLocaleDateString("fr-FR")
+                          : "Non renseignée"}
+                      </strong>
                     </div>
 
                     {meeting.meeting_time && (
                       <div
                         style={{
                           color: "#374151",
-                          marginTop: 4,
+                          marginTop: 6,
                         }}
                       >
                         Heure :{" "}
-                        {meeting.meeting_time}
+                        <strong>
+                          {String(meeting.meeting_time).slice(0, 5)}
+                        </strong>
                       </div>
                     )}
+
+                    <div
+                      style={{
+                        color: "#374151",
+                        marginTop: 6,
+                      }}
+                    >
+                      Statut :{" "}
+                      <strong>
+                        {meeting.status || "Non renseigné"}
+                      </strong>
+                    </div>
 
                     {meeting.notes && (
                       <div
                         style={{
                           color: "#374151",
                           marginTop: 8,
-                          whiteSpace:
-                            "pre-wrap",
+                          whiteSpace: "pre-wrap",
                           lineHeight: 1.6,
                         }}
                       >
-                        Note :{" "}
-                        {meeting.notes}
+                        Notes : {meeting.notes}
                       </div>
                     )}
                   </div>
