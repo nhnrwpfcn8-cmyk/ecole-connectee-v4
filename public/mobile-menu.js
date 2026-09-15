@@ -58,6 +58,10 @@
     style.textContent = `
       @media (max-width: 768px) {
 
+        /* =====================================================
+           BASE
+        ===================================================== */
+
         body.ec-mobile-menu-active {
           overflow: hidden !important;
         }
@@ -66,31 +70,41 @@
           width: 100% !important;
           min-width: 0 !important;
           max-width: 100% !important;
+          box-sizing: border-box !important;
         }
+
+        /* =====================================================
+           SIDEBAR / DRAWER
+        ===================================================== */
 
         aside.ec-mobile-sidebar {
           position: fixed !important;
+
           top: 0 !important;
           left: 0 !important;
           bottom: 0 !important;
 
-          width: min(310px, 86vw) !important;
+          width: min(320px, 88vw) !important;
           min-width: 0 !important;
-          max-width: 86vw !important;
+          max-width: 88vw !important;
 
-          height: 100vh !important;
-          max-height: 100vh !important;
+          height: 100dvh !important;
+          max-height: 100dvh !important;
+
+          box-sizing: border-box !important;
 
           z-index: 10001 !important;
 
-          overflow-y: auto !important;
           overflow-x: hidden !important;
+          overflow-y: auto !important;
+
+          -webkit-overflow-scrolling: touch !important;
 
           background: #ffffff !important;
 
           box-shadow:
-            8px 0 30px
-            rgba(15, 23, 42, 0.18) !important;
+            10px 0 35px
+            rgba(15, 23, 42, 0.22) !important;
 
           transform:
             translateX(-110%) !important;
@@ -98,24 +112,40 @@
           transition:
             transform 0.28s ease,
             box-shadow 0.28s ease !important;
+
+          padding-top: 68px !important;
+          padding-bottom: 24px !important;
+
+          scrollbar-width: thin !important;
         }
 
         aside.ec-mobile-sidebar.ec-mobile-sidebar-open {
           transform:
             translateX(0) !important;
+
+          box-shadow:
+            10px 0 40px
+            rgba(15, 23, 42, 0.28) !important;
         }
+
+        /* =====================================================
+           OVERLAY
+        ===================================================== */
 
         .ec-mobile-overlay {
           position: fixed !important;
+
           inset: 0 !important;
 
           background:
-            rgba(15, 23, 42, 0.48) !important;
+            rgba(15, 23, 42, 0.52) !important;
 
           z-index: 10000 !important;
 
           opacity: 0 !important;
           visibility: hidden !important;
+
+          pointer-events: none !important;
 
           transition:
             opacity 0.25s ease,
@@ -125,7 +155,12 @@
         .ec-mobile-overlay.ec-mobile-overlay-open {
           opacity: 1 !important;
           visibility: visible !important;
+          pointer-events: auto !important;
         }
+
+        /* =====================================================
+           HAMBURGER
+        ===================================================== */
 
         .ec-mobile-menu-button {
           position: fixed !important;
@@ -159,11 +194,17 @@
 
           -webkit-tap-highlight-color:
             transparent !important;
+
+          touch-action: manipulation !important;
         }
 
         .ec-mobile-menu-button:active {
           transform: scale(0.95) !important;
         }
+
+        /* =====================================================
+           BOUTON FERMER
+        ===================================================== */
 
         .ec-mobile-menu-close {
           position: absolute !important;
@@ -171,8 +212,11 @@
           top: 14px !important;
           right: 14px !important;
 
-          width: 40px !important;
-          height: 40px !important;
+          width: 42px !important;
+          height: 42px !important;
+
+          min-width: 42px !important;
+          min-height: 42px !important;
 
           border: 0 !important;
           border-radius: 12px !important;
@@ -184,16 +228,270 @@
           align-items: center !important;
           justify-content: center !important;
 
-          font-size: 22px !important;
+          font-size: 21px !important;
+          line-height: 1 !important;
 
           cursor: pointer !important;
 
           z-index: 10003 !important;
+
+          touch-action: manipulation !important;
+          -webkit-tap-highlight-color:
+            transparent !important;
+        }
+
+        .ec-mobile-menu-close:active {
+          transform: scale(0.94) !important;
+        }
+
+        /* =====================================================
+           ZONE DES MENUS
+        ===================================================== */
+
+        aside.ec-mobile-sidebar
+        button:not(.ec-mobile-menu-close),
+        aside.ec-mobile-sidebar a {
+          box-sizing: border-box !important;
+        }
+
+        /*
+          On augmente uniquement la zone tactile.
+          Les couleurs et le design des dashboards existants
+          restent prioritaires autant que possible.
+        */
+
+        aside.ec-mobile-sidebar
+        button:not(.ec-mobile-menu-close),
+        aside.ec-mobile-sidebar
+        a {
+          min-height: 46px !important;
+
+          padding-top: 10px !important;
+          padding-bottom: 10px !important;
+
+          margin-top: 3px !important;
+          margin-bottom: 3px !important;
+
+          line-height: 1.35 !important;
+
+          white-space: normal !important;
+
+          word-break: normal !important;
+
+          touch-action: manipulation !important;
+
+          -webkit-tap-highlight-color:
+            transparent !important;
+        }
+
+        /*
+          Évite que les éléments du menu se collent
+          visuellement les uns aux autres.
+        */
+
+        aside.ec-mobile-sidebar
+        nav > button,
+        aside.ec-mobile-sidebar
+        nav > a,
+        aside.ec-mobile-sidebar
+        ul > li,
+        aside.ec-mobile-sidebar
+        > button:not(.ec-mobile-menu-close),
+        aside.ec-mobile-sidebar
+        > a {
+          margin-top: 4px !important;
+          margin-bottom: 4px !important;
+        }
+
+        /* =====================================================
+           GROUPES DE MENU
+        ===================================================== */
+
+        aside.ec-mobile-sidebar nav {
+          width: 100% !important;
+          box-sizing: border-box !important;
+
+          padding-left: 10px !important;
+          padding-right: 10px !important;
+        }
+
+        aside.ec-mobile-sidebar ul {
+          box-sizing: border-box !important;
+
+          padding-left: 8px !important;
+          padding-right: 8px !important;
+        }
+
+        aside.ec-mobile-sidebar li {
+          box-sizing: border-box !important;
+
+          margin-top: 4px !important;
+          margin-bottom: 4px !important;
+        }
+
+        /* =====================================================
+           TEXTE DES MENUS
+        ===================================================== */
+
+        aside.ec-mobile-sidebar
+        button:not(.ec-mobile-menu-close),
+        aside.ec-mobile-sidebar
+        a {
+          overflow-wrap: break-word !important;
+        }
+
+        /* =====================================================
+           DECONNEXION
+        ===================================================== */
+
+        aside.ec-mobile-sidebar
+        .ec-mobile-logout-item {
+          position: sticky !important;
+
+          bottom: 0 !important;
+
+          z-index: 5 !important;
+
+          margin-top: 12px !important;
+          margin-bottom: 4px !important;
+
+          padding-top: 10px !important;
+          padding-bottom: 10px !important;
+
+          background: #ffffff !important;
+
+          border-top:
+            1px solid
+            rgba(148, 163, 184, 0.18) !important;
+        }
+
+        /*
+          Si le bouton/lien de déconnexion n'a pas
+          de conteneur spécifique, cette classe sera
+          ajoutée directement sur son élément parent.
+        */
+
+        aside.ec-mobile-sidebar
+        .ec-mobile-logout-item
+        button,
+        aside.ec-mobile-sidebar
+        .ec-mobile-logout-item
+        a {
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+        }
+
+        /* =====================================================
+           PETITS ECRANS
+        ===================================================== */
+
+        @media (max-width: 420px) {
+
+          aside.ec-mobile-sidebar {
+            width: min(300px, 88vw) !important;
+            max-width: 88vw !important;
+          }
+
+          .ec-mobile-menu-button {
+            top: 12px !important;
+            left: 12px !important;
+
+            width: 44px !important;
+            height: 44px !important;
+          }
+
+          .ec-mobile-menu-close {
+            top: 12px !important;
+            right: 12px !important;
+          }
+        }
+
+        /* =====================================================
+           TRES PETITS ECRANS
+        ===================================================== */
+
+        @media (max-width: 360px) {
+
+          aside.ec-mobile-sidebar {
+            width: 86vw !important;
+            max-width: 86vw !important;
+          }
+
+          aside.ec-mobile-sidebar
+          button:not(.ec-mobile-menu-close),
+          aside.ec-mobile-sidebar
+          a {
+            min-height: 44px !important;
+
+            margin-top: 3px !important;
+            margin-bottom: 3px !important;
+          }
         }
       }
     `;
 
     document.head.appendChild(style);
+  }
+
+  function markLogout(sidebar) {
+    if (!sidebar) {
+      return;
+    }
+
+    const clickableItems =
+      Array.from(
+        sidebar.querySelectorAll(
+          "button, a"
+        )
+      );
+
+    clickableItems.forEach(
+      (item) => {
+        if (
+          item.classList.contains(
+            "ec-mobile-menu-close"
+          )
+        ) {
+          return;
+        }
+
+        const text = (
+          item.textContent || ""
+        )
+          .toLowerCase()
+          .replace(/\s+/g, " ")
+          .trim();
+
+        if (
+          text.includes("déconnexion") ||
+          text.includes("deconnexion") ||
+          text.includes("se déconnecter") ||
+          text.includes("se deconnecter") ||
+          text === "logout"
+        ) {
+          item.classList.add(
+            "ec-mobile-logout-item"
+          );
+
+          /*
+            On applique également la classe au parent
+            lorsque celui-ci est un élément de menu.
+          */
+          const parent =
+            item.parentElement;
+
+          if (
+            parent &&
+            parent !== sidebar &&
+            parent.tagName !== "NAV"
+          ) {
+            parent.classList.add(
+              "ec-mobile-logout-item"
+            );
+          }
+        }
+      }
+    );
   }
 
   function closeMenu(
@@ -265,15 +563,11 @@
       return;
     }
 
-    if (
-      sidebar.dataset.ecMobileMenuReady ===
-      "true"
-    ) {
-      return;
-    }
-
-    sidebar.dataset.ecMobileMenuReady =
-      "true";
+    /*
+      Même si le dashboard a déjà été initialisé,
+      on continue à identifier les éléments de menu
+      nouvellement créés par React.
+    */
 
     sidebar.classList.add(
       "ec-mobile-sidebar"
@@ -372,49 +666,85 @@
       );
     }
 
-    menuButton.onclick = function () {
-      const isOpen =
-        sidebar.classList.contains(
-          "ec-mobile-sidebar-open"
-        );
+    markLogout(sidebar);
 
-      if (isOpen) {
-        closeMenu(
-          sidebar,
-          overlay,
-          menuButton
-        );
-      } else {
-        openMenu(
-          sidebar,
-          overlay,
-          menuButton
-        );
-      }
-    };
+    /*
+      Évite de recréer les événements plusieurs fois.
+    */
 
-    closeButton.onclick = function () {
-      closeMenu(
-        sidebar,
-        overlay,
-        menuButton
-      );
-    };
+    if (
+      sidebar.dataset.ecMobileMenuReady !==
+      "true"
+    ) {
+      sidebar.dataset.ecMobileMenuReady =
+        "true";
 
-    overlay.onclick = function () {
-      closeMenu(
-        sidebar,
-        overlay,
-        menuButton
-      );
-    };
+      menuButton.onclick =
+        function () {
+          const isOpen =
+            sidebar.classList.contains(
+              "ec-mobile-sidebar-open"
+            );
+
+          if (isOpen) {
+            closeMenu(
+              sidebar,
+              overlay,
+              menuButton
+            );
+          } else {
+            openMenu(
+              sidebar,
+              overlay,
+              menuButton
+            );
+          }
+        };
+
+      closeButton.onclick =
+        function () {
+          closeMenu(
+            sidebar,
+            overlay,
+            menuButton
+          );
+        };
+
+      overlay.onclick =
+        function () {
+          closeMenu(
+            sidebar,
+            overlay,
+            menuButton
+          );
+        };
+    }
+
+    /*
+      Les menus React peuvent être recréés.
+      On marque donc chaque élément déjà traité.
+    */
 
     sidebar
-      .querySelectorAll("button, a")
+      .querySelectorAll(
+        "button, a"
+      )
       .forEach((item) => {
-        if (item === closeButton) {
+        if (
+          item === closeButton
+        ) {
           return;
         }
+
+        if (
+          item.dataset.ecMobileClickReady ===
+          "true"
+        ) {
+          return;
+        }
+
+        item.dataset.ecMobileClickReady =
+          "true";
 
         item.addEventListener(
           "click",
@@ -433,6 +763,10 @@
         );
       });
 
+    /*
+      Le menu est fermé au chargement.
+    */
+
     sidebar.classList.remove(
       "ec-mobile-sidebar-open"
     );
@@ -450,21 +784,41 @@
   const observer =
     new MutationObserver(
       function () {
-        setupDashboard();
+        if (isMobile()) {
+          setupDashboard();
+        }
       }
     );
 
-  observer.observe(
-    document.body,
-    {
-      childList: true,
-      subtree: true,
+  function startObserver() {
+    if (!document.body) {
+      return;
+    }
+
+    observer.observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true,
+      }
+    );
+  }
+
+  window.addEventListener(
+    "resize",
+    function () {
+      run();
     }
   );
 
   window.addEventListener(
-    "resize",
-    run
+    "orientationchange",
+    function () {
+      setTimeout(
+        run,
+        100
+      );
+    }
   );
 
   if (
@@ -473,9 +827,13 @@
   ) {
     document.addEventListener(
       "DOMContentLoaded",
-      run
+      function () {
+        run();
+        startObserver();
+      }
     );
   } else {
     run();
+    startObserver();
   }
 })();
