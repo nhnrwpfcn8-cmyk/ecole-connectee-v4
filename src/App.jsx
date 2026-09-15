@@ -498,40 +498,40 @@ function App() {
   /*
    * SECRÉTAIRE
    */
-  if (
-    role === 'secretary'
-  ) {
-    if (
-      secretaryPage ===
-      'services'
-    ) {
-      return (
-        <SecretaryServices
-          session={session}
-          profile={profile}
-          onLogout={handleLogout}
-          onBack={() =>
-            setSecretaryPage(
-              'dashboard'
-            )
-          }
-        />
-      )
-    }
-
+  if (role === "secretary") {
+  if (secretaryPage === "services") {
     return (
-      <SecretaryDashboard
+      <SecretaryServices
         session={session}
         profile={profile}
         onLogout={handleLogout}
-        onOpenServices={() =>
-          setSecretaryPage(
-            'services'
-          )
-        }
+        onBack={() => setSecretaryPage("dashboard")}
       />
-    )
+    );
   }
+
+  if (secretaryPage === "parent_communication") {
+    return (
+      <SecretaryParentCommunicationPage
+        schoolId={profile?.school_id}
+        secretaryId={profile?.id}
+        onBack={() => setSecretaryPage("dashboard")}
+      />
+    );
+  }
+
+  return (
+    <SecretaryDashboard
+      session={session}
+      profile={profile}
+      onLogout={handleLogout}
+      onOpenServices={() => setSecretaryPage("services")}
+      onOpenParentCommunication={() =>
+        setSecretaryPage("parent_communication")
+      }
+    />
+  );
+}
 
   /*
    * PROFESSEUR
