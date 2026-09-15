@@ -2569,7 +2569,59 @@ async function sendReply(messageItem) {
               >
                 {formatDate(item.created_at)}
               </div>
+<div
+  style={{
+    marginTop: "14px",
+  }}
+>
+  <textarea
+    value={replyDrafts[item.id] || ""}
+    onChange={(e) =>
+      setReplyDrafts((current) => ({
+        ...current,
+        [item.id]: e.target.value,
+      }))
+    }
+    placeholder="Écrivez votre réponse..."
+    rows={3}
+    style={{
+      width: "100%",
+      boxSizing: "border-box",
+      border: "1px solid #cbd5e1",
+      borderRadius: "10px",
+      padding: "10px 12px",
+      fontSize: "14px",
+      resize: "vertical",
+      outline: "none",
+    }}
+  />
 
+  <button
+    type="button"
+    onClick={() => sendReply(item)}
+    disabled={replyLoadingId === item.id}
+    style={{
+      marginTop: "8px",
+      border: "none",
+      background: "#4f46e5",
+      color: "#ffffff",
+      borderRadius: "9px",
+      padding: "9px 14px",
+      cursor:
+        replyLoadingId === item.id
+          ? "not-allowed"
+          : "pointer",
+      fontWeight: 800,
+      fontSize: "12px",
+      opacity:
+        replyLoadingId === item.id ? 0.6 : 1,
+    }}
+  >
+    {replyLoadingId === item.id
+      ? "Envoi..."
+      : "↩️ Répondre"}
+  </button>
+</div>
               {!item.read_at && (
                 <button
                   type="button"
