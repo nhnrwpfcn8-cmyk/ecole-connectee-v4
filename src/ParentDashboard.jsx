@@ -48,62 +48,89 @@ function PageTitle({
   return (
     <div
       style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "12px",
-        marginBottom: "18px",
+        marginBottom: "22px",
       }}
     >
       <button
         type="button"
         onClick={onBack}
         style={{
-          border: "1px solid #e5e7eb",
-          background: "#fff",
+          border: "1px solid #e2e8f0",
+          background: "#ffffff",
+          color: "#334155",
           borderRadius: "10px",
-          padding: "9px 12px",
+          padding: "9px 13px",
           cursor: "pointer",
           fontWeight: 700,
+          fontSize: "13px",
+          marginBottom: "14px",
+          boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
         }}
       >
         ← Retour
       </button>
 
-      <div>
-        <h2
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}
+      >
+        <div
           style={{
-            margin: 0,
-            color: "#111827",
+            width: "46px",
+            height: "46px",
+            borderRadius: "13px",
+            background: "#eef2ff",
+            display: "grid",
+            placeItems: "center",
+            fontSize: "23px",
+            flexShrink: 0,
           }}
         >
-          {icon} {title}
-        </h2>
+          {icon}
+        </div>
 
-        {description && (
-          <p
+        <div>
+          <h2
             style={{
-              margin: "5px 0 0",
-              color: "#6b7280",
+              margin: 0,
+              color: "#0f172a",
+              fontSize: "22px",
+              fontWeight: 800,
             }}
           >
-            {description}
-          </p>
-        )}
+            {title}
+          </h2>
+
+          {description && (
+            <p
+              style={{
+                margin: "5px 0 0",
+                color: "#64748b",
+                fontSize: "13px",
+              }}
+            >
+              {description}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function Card({ children }) {
+function Card({ children, style = {} }) {
   return (
     <div
       style={{
-        background: "#fff",
-        border: "1px solid #e5e7eb",
-        borderRadius: "14px",
-        padding: "16px",
-        boxShadow:
-          "0 2px 8px rgba(15,23,42,0.04)",
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "16px",
+        padding: "18px",
+        boxShadow: "0 3px 12px rgba(15,23,42,0.05)",
+        ...style,
       }}
     >
       {children}
@@ -116,9 +143,10 @@ function Empty({ text }) {
     <Card>
       <div
         style={{
-          color: "#6b7280",
+          color: "#64748b",
           textAlign: "center",
-          padding: "20px",
+          padding: "24px 15px",
+          fontSize: "14px",
         }}
       >
         {text}
@@ -1081,28 +1109,81 @@ export default function ParentDashboard({
       <>
         <div
           style={{
-            marginBottom: "18px",
+            background:
+              "linear-gradient(135deg,#eef2ff 0%,#f8fafc 55%,#ffffff 100%)",
+            border:
+              "1px solid #e0e7ff",
+            borderRadius: "18px",
+            padding: "22px",
+            marginBottom: "20px",
           }}
         >
-          <h2
+          <div
             style={{
-              margin: 0,
-              color: "#111827",
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
             }}
           >
-            👨‍👩‍👧 Espace Parent
-          </h2>
+            <div
+              style={{
+                width: "58px",
+                height: "58px",
+                borderRadius: "16px",
+                background: "#4f46e5",
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontSize: "28px",
+                boxShadow:
+                  "0 6px 18px rgba(79,70,229,0.25)",
+              }}
+            >
+              👨‍👩‍👧
+            </div>
 
-          <p
-            style={{
-              color: "#6b7280",
-              marginBottom: 0,
-            }}
-          >
-            Suivez la scolarité de
-            vos enfants depuis un
-            seul espace.
-          </p>
+            <div>
+              <div
+                style={{
+                  color: "#4f46e5",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  textTransform:
+                    "uppercase",
+                  letterSpacing:
+                    "0.05em",
+                }}
+              >
+                Espace Parent
+              </div>
+
+              <h2
+                style={{
+                  margin: "3px 0 4px",
+                  color: "#0f172a",
+                  fontSize: "22px",
+                }}
+              >
+                Bonjour
+                {profile?.full_name
+                  ? `, ${profile.full_name}`
+                  : ""}{" "}
+                👋
+              </h2>
+
+              <p
+                style={{
+                  margin: 0,
+                  color: "#64748b",
+                  fontSize: "13px",
+                }}
+              >
+                Suivez la scolarité de
+                vos enfants depuis un
+                seul espace.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div
@@ -1111,80 +1192,396 @@ export default function ParentDashboard({
             gridTemplateColumns:
               "repeat(auto-fit,minmax(180px,1fr))",
             gap: "12px",
+            marginBottom: "22px",
           }}
         >
-          {homeItems.map(
-            (item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() =>
-                  setPage(item.id)
-                }
-                style={{
-                  textAlign: "left",
-                  background: "#fff",
-                  border:
-                    "1px solid #e5e7eb",
-                  borderRadius: "14px",
-                  padding: "16px",
-                  cursor: "pointer",
-                  boxShadow:
-                    "0 2px 8px rgba(15,23,42,0.04)",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "25px",
-                    marginBottom: "8px",
-                  }}
-                >
-                  {item.icon}
-                </div>
+          <button
+            type="button"
+            onClick={() =>
+              setPage("children")
+            }
+            style={{
+              textAlign: "left",
+              background: "#fff",
+              border:
+                "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "25px",
+                marginBottom: "9px",
+              }}
+            >
+              👦
+            </div>
 
-                <strong
-                  style={{
-                    color: "#111827",
-                  }}
-                >
-                  {item.label}
-                </strong>
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
+              {children.length}
+            </div>
 
-                {item.id ===
-                  "notifications" &&
-                  unreadNotifications >
-                    0 && (
-                    <span
-                      style={{
-                        marginLeft: "8px",
-                        color: "#dc2626",
-                        fontWeight: 800,
-                      }}
-                    >
-                      {
-                        unreadNotifications
-                      }
-                    </span>
-                  )}
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Enfant
+              {children.length > 1
+                ? "s"
+                : ""}
+            </div>
+          </button>
 
-                {item.id ===
-                  "administrative" &&
-                  unreadMessages >
-                    0 && (
-                    <span
-                      style={{
-                        marginLeft: "8px",
-                        color: "#dc2626",
-                        fontWeight: 800,
-                      }}
-                    >
-                      {unreadMessages}
-                    </span>
-                  )}
-              </button>
-            )
-          )}
+          <button
+            type="button"
+            onClick={() =>
+              setPage("grades")
+            }
+            style={{
+              textAlign: "left",
+              background: "#fff",
+              border:
+                "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "25px",
+                marginBottom: "9px",
+              }}
+            >
+              📊
+            </div>
+
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
+              {grades.length}
+            </div>
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Note
+              {grades.length > 1
+                ? "s"
+                : ""}{" "}
+              disponible
+              {grades.length > 1
+                ? "s"
+                : ""}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPage("attendance")
+            }
+            style={{
+              textAlign: "left",
+              background: "#fff",
+              border:
+                "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "25px",
+                marginBottom: "9px",
+              }}
+            >
+              🕐
+            </div>
+
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
+              {attendance.length}
+            </div>
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Présence
+              {attendance.length > 1
+                ? "s"
+                : ""}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPage("notifications")
+            }
+            style={{
+              textAlign: "left",
+              background: "#fff",
+              border:
+                unreadNotifications > 0
+                  ? "2px solid #fecaca"
+                  : "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "25px",
+                marginBottom: "9px",
+              }}
+            >
+              🔔
+            </div>
+
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color:
+                  unreadNotifications > 0
+                    ? "#dc2626"
+                    : "#0f172a",
+              }}
+            >
+              {unreadNotifications}
+            </div>
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Nouvelle
+              {unreadNotifications > 1
+                ? "s"
+                : ""}{" "}
+              information
+              {unreadNotifications > 1
+                ? "s"
+                : ""}
+            </div>
+          </button>
         </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "12px",
+          }}
+        >
+          <div>
+            <h3
+              style={{
+                margin: 0,
+                color: "#0f172a",
+                fontSize: "18px",
+              }}
+            >
+              👦 Mes enfants
+            </h3>
+
+            <p
+              style={{
+                margin: "4px 0 0",
+                color: "#64748b",
+                fontSize: "13px",
+              }}
+            >
+              Consultez rapidement leur
+              situation scolaire.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPage("children")
+            }
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#4f46e5",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Voir tout →
+          </button>
+        </div>
+
+        {!children.length ? (
+          <Empty
+            text="Aucun enfant n'est encore rattaché à votre compte."
+          />
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            {children.map(
+              (child) => (
+                <Card key={child.id}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "14px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "54px",
+                        height: "54px",
+                        borderRadius: "15px",
+                        background:
+                          "#eef2ff",
+                        display: "grid",
+                        placeItems:
+                          "center",
+                        fontSize: "25px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      👦
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color:
+                            "#0f172a",
+                          fontSize:
+                            "17px",
+                        }}
+                      >
+                        {child.first_name}{" "}
+                        {child.last_name}
+                      </strong>
+
+                      <div
+                        style={{
+                          color:
+                            "#64748b",
+                          marginTop:
+                            "5px",
+                          fontSize:
+                            "13px",
+                        }}
+                      >
+                        🎓{" "}
+                        {child.class_name}
+
+                        {child.class_level
+                          ? ` · ${child.class_level}`
+                          : ""}
+                      </div>
+
+                      <div
+                        style={{
+                          color:
+                            "#94a3b8",
+                          fontSize:
+                            "12px",
+                          marginTop:
+                            "4px",
+                        }}
+                      >
+                        Relation :{" "}
+                        {child.relationship}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )
+            )}
+          </div>
+        )}
+
+        {unreadMessages > 0 && (
+          <button
+            type="button"
+            onClick={() =>
+              setPage("administrative")
+            }
+            style={{
+              width: "100%",
+              marginTop: "16px",
+              padding: "14px 16px",
+              borderRadius: "14px",
+              border:
+                "1px solid #fde68a",
+              background: "#fffbeb",
+              color: "#92400e",
+              textAlign: "left",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            🏢 Vous avez{" "}
+            {unreadMessages} nouveau
+            {unreadMessages > 1
+              ? "x"
+              : ""} message
+            {unreadMessages > 1
+              ? "s"
+              : ""} du service
+            administratif →
+          </button>
+        )}
       </>
     );
   }
@@ -1224,16 +1621,17 @@ export default function ParentDashboard({
                   >
                     <div
                       style={{
-                        width: "52px",
-                        height: "52px",
+                        width: "58px",
+                        height: "58px",
                         borderRadius:
-                          "50%",
+                          "16px",
                         background:
                           "#eef2ff",
                         display: "grid",
                         placeItems:
                           "center",
-                        fontSize: "24px",
+                        fontSize: "25px",
+                        flexShrink: 0,
                       }}
                     >
                       👦
@@ -1243,7 +1641,7 @@ export default function ParentDashboard({
                       <strong
                         style={{
                           color:
-                            "#111827",
+                            "#0f172a",
                           fontSize:
                             "17px",
                         }}
@@ -1255,11 +1653,12 @@ export default function ParentDashboard({
                       <div
                         style={{
                           color:
-                            "#6b7280",
+                            "#64748b",
                           marginTop:
-                            "4px",
+                            "5px",
                         }}
                       >
+                        🎓{" "}
                         {child.class_name}
 
                         {child.class_level
@@ -1270,11 +1669,11 @@ export default function ParentDashboard({
                       <div
                         style={{
                           color:
-                            "#6b7280",
+                            "#94a3b8",
                           fontSize:
                             "12px",
                           marginTop:
-                            "4px",
+                            "5px",
                         }}
                       >
                         Relation :{" "}
@@ -1319,62 +1718,97 @@ export default function ParentDashboard({
                 <Card key={grade.id}>
                   <div
                     style={{
-                      color:
-                        "#4f46e5",
-                      fontWeight: 800,
-                      fontSize:
-                        "13px",
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems: "flex-start",
+                      gap: "12px",
                     }}
                   >
-                    {grade.subject_name}
-                  </div>
+                    <div>
+                      <div
+                        style={{
+                          color:
+                            "#4f46e5",
+                          fontWeight: 800,
+                          fontSize:
+                            "13px",
+                        }}
+                      >
+                        📚{" "}
+                        {grade.subject_name}
+                      </div>
 
-                  <h3
-                    style={{
-                      margin:
-                        "8px 0 4px",
-                      color:
-                        "#111827",
-                    }}
-                  >
-                    {grade.assessment_title}
-                  </h3>
+                      <h3
+                        style={{
+                          margin:
+                            "7px 0 4px",
+                          color:
+                            "#0f172a",
+                          fontSize:
+                            "17px",
+                        }}
+                      >
+                        {
+                          grade.assessment_title
+                        }
+                      </h3>
 
-                  <div
-                    style={{
-                      color:
-                        "#6b7280",
-                      fontSize:
-                        "13px",
-                    }}
-                  >
-                    {grade.child_name}{" "}
-                    ·{" "}
-                    {formatDate(
-                      grade.assessment_date
-                    )}
-                  </div>
+                      <div
+                        style={{
+                          color:
+                            "#64748b",
+                          fontSize:
+                            "13px",
+                        }}
+                      >
+                        {grade.child_name}{" "}
+                        ·{" "}
+                        {formatDate(
+                          grade.assessment_date
+                        )}
+                      </div>
+                    </div>
 
-                  <div
-                    style={{
-                      marginTop:
-                        "10px",
-                      fontSize:
-                        "22px",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {formatScore(
-                      grade.score,
-                      grade.max_score
-                    )}
+                    <div
+                      style={{
+                        background:
+                          "#eef2ff",
+                        color:
+                          "#4338ca",
+                        borderRadius:
+                          "12px",
+                        padding:
+                          "9px 12px",
+                        fontWeight: 900,
+                        fontSize:
+                          "16px",
+                        whiteSpace:
+                          "nowrap",
+                      }}
+                    >
+                      {formatScore(
+                        grade.score,
+                        grade.max_score
+                      )}
+                    </div>
                   </div>
 
                   {grade.appreciation && (
-                    <p
+                    <div
                       style={{
+                        marginTop:
+                          "13px",
+                        padding:
+                          "11px 13px",
+                        borderRadius:
+                          "10px",
+                        background:
+                          "#f8fafc",
                         color:
-                          "#374151",
+                          "#475569",
+                        fontSize:
+                          "13px",
                       }}
                     >
                       <strong>
@@ -1383,7 +1817,7 @@ export default function ParentDashboard({
                       {
                         grade.appreciation
                       }
-                    </p>
+                    </div>
                   )}
                 </Card>
               )
@@ -1420,45 +1854,64 @@ export default function ParentDashboard({
             {attendance.map(
               (item) => (
                 <Card key={item.id}>
-                  <strong>
-                    {item.child_name}
-                  </strong>
-
                   <div
                     style={{
-                      color:
-                        "#6b7280",
-                      marginTop:
-                        "4px",
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems:
+                        "center",
+                      gap: "12px",
                     }}
                   >
-                    {formatDate(
-                      item.attendance_date
-                    )}
-                  </div>
+                    <div>
+                      <strong
+                        style={{
+                          color:
+                            "#0f172a",
+                        }}
+                      >
+                        {item.child_name}
+                      </strong>
 
-                  <div
-                    style={{
-                      marginTop:
-                        "8px",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {item.status ===
-                      "present" &&
-                      "🟢 Présent"}
+                      <div
+                        style={{
+                          color:
+                            "#64748b",
+                          marginTop:
+                            "4px",
+                          fontSize:
+                            "13px",
+                        }}
+                      >
+                        {formatDate(
+                          item.attendance_date
+                        )}
+                      </div>
+                    </div>
 
-                    {item.status ===
-                      "absent" &&
-                      "🔴 Absent"}
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: "13px",
+                      }}
+                    >
+                      {item.status ===
+                        "present" &&
+                        "🟢 Présent"}
 
-                    {item.status ===
-                      "late" &&
-                      "🟠 En retard"}
+                      {item.status ===
+                        "absent" &&
+                        "🔴 Absent"}
 
-                    {item.status ===
-                      "excused" &&
-                      "🔵 Excusé"}
+                      {item.status ===
+                        "late" &&
+                        "🟠 En retard"}
+
+                      {item.status ===
+                        "excused" &&
+                        "🔵 Excusé"}
+                    </div>
                   </div>
                 </Card>
               )
@@ -1497,33 +1950,76 @@ export default function ParentDashboard({
                 <Card
                   key={bulletin.id}
                 >
-                  <strong>
-                    {
-                      bulletin.child_name
-                    }
-                  </strong>
-
                   <div
                     style={{
-                      marginTop:
-                        "6px",
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      gap: "12px",
                     }}
                   >
-                    {
-                      bulletin.trimester
-                    }
-                  </div>
+                    <div
+                      style={{
+                        width: "44px",
+                        height: "44px",
+                        borderRadius:
+                          "12px",
+                        background:
+                          "#f1f5f9",
+                        display: "grid",
+                        placeItems:
+                          "center",
+                        fontSize: "21px",
+                      }}
+                    >
+                      📄
+                    </div>
 
-                  <div
-                    style={{
-                      color:
-                        "#6b7280",
-                      marginTop:
-                        "5px",
-                    }}
-                  >
-                    Statut :{" "}
-                    {bulletin.status}
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color:
+                            "#0f172a",
+                        }}
+                      >
+                        {
+                          bulletin.child_name
+                        }
+                      </strong>
+
+                      <div
+                        style={{
+                          marginTop:
+                            "5px",
+                          color:
+                            "#475569",
+                          fontSize:
+                            "13px",
+                        }}
+                      >
+                        {
+                          bulletin.trimester
+                        }
+                      </div>
+
+                      <div
+                        style={{
+                          color:
+                            "#64748b",
+                          fontSize:
+                            "12px",
+                          marginTop:
+                            "4px",
+                        }}
+                      >
+                        Statut :{" "}
+                        {bulletin.status}
+                      </div>
+                    </div>
                   </div>
 
                   {bulletin.pdf_url && (
@@ -1535,9 +2031,22 @@ export default function ParentDashboard({
                       rel="noreferrer"
                       style={{
                         display:
-                          "inline-block",
+                          "inline-flex",
                         marginTop:
+                          "13px",
+                        padding:
+                          "10px 13px",
+                        borderRadius:
                           "10px",
+                        background:
+                          "#eef2ff",
+                        color:
+                          "#4338ca",
+                        textDecoration:
+                          "none",
+                        fontWeight: 800,
+                        fontSize:
+                          "13px",
                       }}
                     >
                       📥 Ouvrir le bulletin
@@ -1587,7 +2096,12 @@ export default function ParentDashboard({
                       gap: "10px",
                     }}
                   >
-                    <strong>
+                    <strong
+                      style={{
+                        color:
+                          "#0f172a",
+                      }}
+                    >
                       {item.subject}
                     </strong>
 
@@ -1598,6 +2112,8 @@ export default function ParentDashboard({
                             "#dc2626",
                           fontWeight:
                             800,
+                          fontSize:
+                            "12px",
                         }}
                       >
                         Nouveau
@@ -1608,9 +2124,11 @@ export default function ParentDashboard({
                   <p
                     style={{
                       color:
-                        "#374151",
+                        "#475569",
                       lineHeight:
-                        1.5,
+                        1.6,
+                      fontSize:
+                        "14px",
                     }}
                   >
                     {item.message}
@@ -1619,7 +2137,7 @@ export default function ParentDashboard({
                   <div
                     style={{
                       color:
-                        "#6b7280",
+                        "#94a3b8",
                       fontSize:
                         "12px",
                     }}
@@ -1639,9 +2157,23 @@ export default function ParentDashboard({
                       }
                       style={{
                         marginTop:
-                          "10px",
+                          "11px",
+                        border:
+                          "1px solid #c7d2fe",
+                        background:
+                          "#eef2ff",
+                        color:
+                          "#4338ca",
+                        borderRadius:
+                          "9px",
+                        padding:
+                          "9px 12px",
                         cursor:
                           "pointer",
+                        fontWeight:
+                          800,
+                        fontSize:
+                          "12px",
                       }}
                     >
                       ✓ Marquer comme lu
@@ -1691,7 +2223,12 @@ export default function ParentDashboard({
                       gap: "10px",
                     }}
                   >
-                    <strong>
+                    <strong
+                      style={{
+                        color:
+                          "#0f172a",
+                      }}
+                    >
                       {item.title}
                     </strong>
 
@@ -1702,6 +2239,8 @@ export default function ParentDashboard({
                             "#dc2626",
                           fontWeight:
                             800,
+                          fontSize:
+                            "12px",
                         }}
                       >
                         Nouveau
@@ -1712,9 +2251,11 @@ export default function ParentDashboard({
                   <p
                     style={{
                       color:
-                        "#374151",
+                        "#475569",
                       lineHeight:
-                        1.5,
+                        1.6,
+                      fontSize:
+                        "14px",
                     }}
                   >
                     {item.message}
@@ -1723,7 +2264,7 @@ export default function ParentDashboard({
                   <div
                     style={{
                       color:
-                        "#6b7280",
+                        "#94a3b8",
                       fontSize:
                         "12px",
                     }}
@@ -1743,9 +2284,23 @@ export default function ParentDashboard({
                       }
                       style={{
                         marginTop:
-                          "10px",
+                          "11px",
+                        border:
+                          "1px solid #c7d2fe",
+                        background:
+                          "#eef2ff",
+                        color:
+                          "#4338ca",
+                        borderRadius:
+                          "9px",
+                        padding:
+                          "9px 12px",
                         cursor:
                           "pointer",
+                        fontWeight:
+                          800,
+                        fontSize:
+                          "12px",
                       }}
                     >
                       ✓ Marquer comme lu
@@ -1814,62 +2369,170 @@ export default function ParentDashboard({
   }
 
   return (
-    <div className="app-container">
+    <div
+      className="app-container"
+      style={{
+        minHeight: "100vh",
+        padding: "24px 14px",
+      }}
+    >
       <div
         className="dashboard-card"
         style={{
           maxWidth: "1100px",
           margin: "0 auto",
+          borderRadius: "20px",
+          overflow: "hidden",
+          background: "#f8fafc",
+          border:
+            "1px solid #e2e8f0",
         }}
       >
         <div
           className="dashboard-header"
           style={{
             alignItems: "center",
+            padding: "18px 20px",
+            background: "#ffffff",
+            borderBottom:
+              "1px solid #e2e8f0",
           }}
         >
-          <div>
-            <div className="small-logo">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "11px",
+            }}
+          >
+            <div
+              className="small-logo"
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "12px",
+                display: "grid",
+                placeItems: "center",
+                background:
+                  "#4f46e5",
+                color: "#ffffff",
+                fontWeight: 900,
+                boxShadow:
+                  "0 5px 15px rgba(79,70,229,0.25)",
+              }}
+            >
               EC
             </div>
 
-            <h1>
-              École Connectée
-            </h1>
+            <div>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "20px",
+                  color: "#0f172a",
+                  fontWeight: 900,
+                }}
+              >
+                École Connectée
+              </h1>
+
+              <div
+                style={{
+                  color: "#64748b",
+                  fontSize: "12px",
+                  marginTop: "2px",
+                }}
+              >
+                Portail Parent
+              </div>
+            </div>
           </div>
 
           <button
             className="logout-button"
             onClick={onLogout}
+            style={{
+              borderRadius: "10px",
+              fontWeight: 800,
+            }}
           >
             Se déconnecter
           </button>
         </div>
 
-        <div className="welcome-section">
-          <h2>
-            Bonjour
-            {profile?.full_name
-              ? `, ${profile.full_name}`
-              : ""}{" "}
-            👋
-          </h2>
+        <div
+          className="welcome-section"
+          style={{
+            margin: "0",
+            padding: "22px 20px 18px",
+            background:
+              "linear-gradient(135deg,#4f46e5 0%,#6366f1 55%,#818cf8 100%)",
+            color: "#ffffff",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "13px",
+            }}
+          >
+            <div
+              style={{
+                width: "50px",
+                height: "50px",
+                borderRadius: "15px",
+                background:
+                  "rgba(255,255,255,0.18)",
+                display: "grid",
+                placeItems: "center",
+                fontSize: "25px",
+              }}
+            >
+              👨‍👩‍👧
+            </div>
 
-          <p>
-            👨‍👩‍👧 Parent
-            {unreadNotifications >
-              0 ||
-            unreadMessages > 0
-              ? " · 🔔 Nouvelles informations"
-              : ""}
-          </p>
+            <div>
+              <h2
+                style={{
+                  margin: 0,
+                  color: "#ffffff",
+                  fontSize: "21px",
+                  fontWeight: 900,
+                }}
+              >
+                Bonjour
+                {profile?.full_name
+                  ? `, ${profile.full_name}`
+                  : ""}{" "}
+                👋
+              </h2>
+
+              <p
+                style={{
+                  margin:
+                    "5px 0 0",
+                  color:
+                    "rgba(255,255,255,0.88)",
+                  fontSize: "13px",
+                }}
+              >
+                👨‍👩‍👧 Parent
+                {unreadNotifications >
+                  0 ||
+                unreadMessages > 0
+                  ? " · 🔔 Nouvelles informations"
+                  : ""}
+              </p>
+            </div>
+          </div>
         </div>
 
         {error && (
           <div
             className="error-message"
             style={{
-              marginBottom: "15px",
+              margin: "15px 20px 0",
             }}
           >
             {error}
@@ -1877,28 +2540,44 @@ export default function ParentDashboard({
         )}
 
         {loading ? (
-          <Card>
-            <div
-              style={{
-                textAlign:
-                  "center",
-                padding: "25px",
-              }}
-            >
-              Chargement de votre
-              espace Parent...
-            </div>
-          </Card>
+          <div
+            style={{
+              padding: "20px",
+              background: "#f8fafc",
+            }}
+          >
+            <Card>
+              <div
+                style={{
+                  textAlign:
+                    "center",
+                  padding: "30px 20px",
+                  color:
+                    "#64748b",
+                }}
+              >
+                Chargement de votre
+                espace Parent...
+              </div>
+            </Card>
+          </div>
         ) : (
-          <>
+          <div
+            style={{
+              padding:
+                "18px 20px 28px",
+              background:
+                "#f8fafc",
+            }}
+          >
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns:
-                  "repeat(auto-fit,minmax(145px,1fr))",
+                  "repeat(auto-fit,minmax(130px,1fr))",
                 gap: "8px",
                 marginBottom:
-                  "20px",
+                  "22px",
               }}
             >
               {MENU.map((item) => (
@@ -1914,20 +2593,24 @@ export default function ParentDashboard({
                     border:
                       page === item.id
                         ? "2px solid #4f46e5"
-                        : "1px solid #e5e7eb",
+                        : "1px solid #e2e8f0",
                     background:
                       page === item.id
                         ? "#eef2ff"
-                        : "#fff",
+                        : "#ffffff",
                     borderRadius:
-                      "11px",
+                      "12px",
                     padding:
-                      "11px 8px",
+                      "11px 7px",
                     cursor:
                       "pointer",
-                    fontWeight: 700,
+                    fontWeight: 800,
                     color:
-                      "#111827",
+                      page === item.id
+                        ? "#4338ca"
+                        : "#334155",
+                    boxShadow:
+                      "0 2px 7px rgba(15,23,42,0.04)",
                   }}
                 >
                   <span
@@ -1946,7 +2629,9 @@ export default function ParentDashboard({
                       marginTop:
                         "4px",
                       fontSize:
-                        "12px",
+                        "11px",
+                      lineHeight:
+                        "1.25",
                     }}
                   >
                     {item.label}
@@ -1960,8 +2645,8 @@ export default function ParentDashboard({
                         style={{
                           position:
                             "absolute",
-                          top: "5px",
-                          right: "7px",
+                          top: "4px",
+                          right: "5px",
                           minWidth:
                             "19px",
                           height:
@@ -1975,7 +2660,7 @@ export default function ParentDashboard({
                           color:
                             "#fff",
                           fontSize:
-                            "11px",
+                            "10px",
                           display:
                             "grid",
                           placeItems:
@@ -1996,8 +2681,8 @@ export default function ParentDashboard({
                         style={{
                           position:
                             "absolute",
-                          top: "5px",
-                          right: "7px",
+                          top: "4px",
+                          right: "5px",
                           minWidth:
                             "19px",
                           height:
@@ -2011,7 +2696,7 @@ export default function ParentDashboard({
                           color:
                             "#fff",
                           fontSize:
-                            "11px",
+                            "10px",
                           display:
                             "grid",
                           placeItems:
@@ -2026,7 +2711,7 @@ export default function ParentDashboard({
             </div>
 
             {renderPage()}
-          </>
+          </div>
         )}
       </div>
     </div>
