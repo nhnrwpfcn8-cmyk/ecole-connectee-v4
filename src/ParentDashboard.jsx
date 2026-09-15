@@ -1104,7 +1104,52 @@ setNotifications(notificationRows || []);
         )
     );
   }
+async function sendReply(messageItem) {
+  const text = String(replyDrafts[messageItem.id] || "").trim();
 
+  if (!text) return;
+
+  const currentSchoolId =
+    activeSchoolId || profile?.school_id;
+
+  if (!currentSchoolId || !currentParentId) return;
+
+  setReplyLoadingId(messageItem.id);
+
+  try {
+    const { error: replyError } = await supabase
+      .from("secretary_parent_messages")
+      .insert({
+        school_id: currentSchoolId,
+        secretary_id: messageItem.secretary_id,
+        parent_id: currentParentId,
+        subject: messageItem.subject || "Réponse",
+        message: text,
+        sender_type: "parent",
+      });
+
+    if (replyError) {
+      throw replyError;
+    }
+
+    setReplyDrafts((current) => ({
+      ...current,
+      [messageItem.id]: "",
+    }));
+
+    await loadParentData();
+  } catch (err) {
+    console.error("Erreur réponse parent :", err);
+
+    setError(
+      `Impossible d'envoyer votre réponse : ${
+        err?.message || "Erreur inconnue"
+      }`
+    );
+  } finally {
+    setReplyLoadingId(null);
+  }
+}
   function HomePage() {
     const homeItems =
       MENU.filter(
