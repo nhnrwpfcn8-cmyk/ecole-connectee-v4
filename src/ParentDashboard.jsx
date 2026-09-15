@@ -184,11 +184,6 @@ export default function ParentDashboard({
     setError("");
 
     try {
-      /*
-       * On récupère le profil directement depuis Supabase.
-       * Cela évite un problème si le profil reçu par App.jsx
-       * n'est pas encore synchronisé avec la session.
-       */
       const {
         data: freshProfile,
         error: profileError,
@@ -228,9 +223,6 @@ export default function ParentDashboard({
         return;
       }
 
-      /*
-       * Le compte doit être un parent.
-       */
       if (
         freshProfile?.role &&
         freshProfile.role !== "parent"
@@ -242,10 +234,6 @@ export default function ParentDashboard({
         return;
       }
 
-      /*
-       * Recherche du profil parent par profile_id
-       * et par school_id pour respecter l'isolation.
-       */
       const {
         data: parent,
         error: parentError,
@@ -283,9 +271,6 @@ export default function ParentDashboard({
         return;
       }
 
-      /*
-       * Enfants rattachés au parent.
-       */
       const {
         data: links,
         error: linksError,
@@ -336,9 +321,6 @@ export default function ParentDashboard({
         studentRows = data || [];
       }
 
-      /*
-       * Classes des enfants.
-       */
       const classIds = [
         ...new Set(
           studentRows
@@ -443,16 +425,6 @@ export default function ParentDashboard({
         normalizedChildren
       );
 
-      /*
-       * Notes.
-       *
-       * IMPORTANT :
-       * Les évaluations liées aux notes sont récupérées
-       * même lorsqu'elles ne sont plus publiées.
-       * Cela permet de toujours retrouver la matière
-       * d'une note sans afficher l'évaluation dans
-       * l'espace Parent.
-       */
       if (studentIds.length) {
         const {
           data: gradeRows,
@@ -672,9 +644,6 @@ export default function ParentDashboard({
           normalizedGrades
         );
 
-        /*
-         * Présences.
-         */
         const {
           data: attendanceRows,
           error: attendanceError,
@@ -726,9 +695,6 @@ export default function ParentDashboard({
           )
         );
 
-        /*
-         * Bulletins validés ou envoyés.
-         */
         const {
           data: bulletinRows,
           error: bulletinsError,
@@ -799,9 +765,6 @@ export default function ParentDashboard({
         setBulletins([]);
       }
 
-      /*
-       * Messages du secrétariat.
-       */
       const {
         data: messages,
         error: messagesError,
@@ -842,9 +805,6 @@ export default function ParentDashboard({
         messages || []
       );
 
-      /*
-       * Notifications.
-       */
       const {
         data: notificationRows,
         error:
@@ -893,8 +853,14 @@ export default function ParentDashboard({
         err
       );
 
+      const errorMessage =
+        err?.message ||
+        err?.details ||
+        err?.hint ||
+        "Erreur inconnue";
+
       setError(
-        "Impossible de charger votre espace Parent."
+        `Impossible de charger votre espace Parent : ${errorMessage}`
       );
     } finally {
       setLoading(false);
@@ -909,10 +875,6 @@ export default function ParentDashboard({
     session?.user?.id,
   ]);
 
-  /*
-   * Temps réel :
-   * messages du secrétariat + notifications.
-   */
   useEffect(() => {
     const connectedUserId =
       session?.user?.id ||
@@ -1128,7 +1090,7 @@ export default function ParentDashboard({
               color: "#111827",
             }}
           >
-            🏠 Espace Parent
+            👨‍👩‍👧 Espace Parent
           </h2>
 
           <p
@@ -1894,7 +1856,7 @@ export default function ParentDashboard({
           </h2>
 
           <p>
-            Espace Parent
+            👨‍👩‍👧 Parent
             {unreadNotifications >
               0 ||
             unreadMessages > 0
