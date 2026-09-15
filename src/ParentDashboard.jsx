@@ -2447,21 +2447,108 @@ setNotifications(notificationRows || []);
   }
 
   function CommunicationPage() {
-    return (
-      <>
-        <PageTitle
-          icon="💬"
-          title="Communication"
-          description="Espace de communication lié à la scolarité."
-          onBack={() => setPage("home")}
-        />
+  return (
+    <>
+      <PageTitle
+        icon="💬"
+        title="Communication"
+        description="Échangez avec le service administratif de l'école."
+        onBack={() => setPage("home")}
+      />
 
+      {!adminMessages.length ? (
         <Empty
-          text="La communication parent sera reliée à son module dédié."
+          text="Aucun message reçu du service administratif."
         />
-      </>
-    );
-  }
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gap: "12px",
+          }}
+        >
+          {adminMessages.map((item) => (
+            <Card key={item.id}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: "10px",
+                }}
+              >
+                <strong
+                  style={{
+                    color: "#0f172a",
+                    fontSize: "16px",
+                  }}
+                >
+                  {item.subject || "Message"}
+                </strong>
+
+                {!item.read_at && (
+                  <span
+                    style={{
+                      color: "#dc2626",
+                      fontWeight: 800,
+                      fontSize: "12px",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Nouveau
+                  </span>
+                )}
+              </div>
+
+              <p
+                style={{
+                  margin: "12px 0 10px",
+                  color: "#475569",
+                  lineHeight: 1.6,
+                  fontSize: "14px",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {item.message}
+              </p>
+
+              <div
+                style={{
+                  color: "#94a3b8",
+                  fontSize: "12px",
+                }}
+              >
+                {formatDate(item.created_at)}
+              </div>
+
+              {!item.read_at && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    markMessageRead(item.id)
+                  }
+                  style={{
+                    marginTop: "11px",
+                    border: "1px solid #c7d2fe",
+                    background: "#eef2ff",
+                    color: "#4338ca",
+                    borderRadius: "9px",
+                    padding: "9px 12px",
+                    cursor: "pointer",
+                    fontWeight: 800,
+                    fontSize: "12px",
+                  }}
+                >
+                  ✓ Marquer comme lu
+                </button>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
   function renderPage() {
     if (page === "home")
