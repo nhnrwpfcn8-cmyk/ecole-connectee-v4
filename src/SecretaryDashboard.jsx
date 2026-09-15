@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import SecretaryBilling from "./SecretaryBilling";
 import SecretaryTeacherCommunicationPage from "./SecretaryTeacherCommunicationPage";
+import SecretaryParentCommunicationPage from "./SecretaryParentCommunicationPage";
 
 /*
   ============================================================
