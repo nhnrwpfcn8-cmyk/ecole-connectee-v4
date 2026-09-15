@@ -166,6 +166,9 @@ export default function ParentDashboard({
   const [adminAnnouncements, setAdminAnnouncements] = useState([]);
   const [adminMeetings, setAdminMeetings] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [currentParentId, setCurrentParentId] = useState(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyingTo, setReplyingTo] = useState(null);
 
   const [activeSchoolId, setActiveSchoolId] =
     useState(profile?.school_id || null);
@@ -285,10 +288,10 @@ export default function ParentDashboard({
         setError(
           "Aucun profil parent associé à ce compte."
         );
-
+        
         return;
       }
-
+      setCurrentParentId(parent.id);
       const {
         data: links,
         error: linksError,
