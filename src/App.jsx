@@ -8,6 +8,7 @@ import SecretaryServices from './SecretaryServices'
 import TeacherDashboard from './TeacherDashboard'
 import StudentDashboard from './StudentDashboard'
 import ParentDashboard from './ParentDashboard'
+import SecretaryParentCommunicationPage from "./SecretaryParentCommunicationPage";
 
 import './App.css'
 
