@@ -4171,286 +4171,371 @@ async function sendCommunicationMessage() {
     };
   });
 
-      if (!cancelled) {
-        setSubjects(subjectList);
-        setCourses(normalizedCourses);
-        setExercises(normalizedExercises);
-        setAssessments(
-          normalizedAssessments
-        );
-        setGrades(normalizedGrades);
-        setAcademicLoading(false);
-      }
-    }
+if (!cancelled) {
+  setSubjects(subjectList);
+  setCourses(normalizedCourses);
+  setExercises(normalizedExercises);
+  setAssessments(
+    normalizedAssessments
+  );
+  setGrades(normalizedGrades);
+  setAcademicLoading(false);
+}
+}
 
-    loadAcademicData();
+loadAcademicData();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    profile?.id,
-    profile?.school_id,
-    session?.user?.id,
-  ]);
+return () => {
+  cancelled = true;
+};
+}, [
+profile?.id,
+profile?.school_id,
+session?.user?.id,
+]);
 
-  // REALTIME : actualiser automatiquement
-  // les contenus scolaires et les notes
-  useEffect(() => {
-    const connectedUserId =
-      profile?.id || session?.user?.id;
+// REALTIME : actualiser automatiquement
+// les contenus scolaires et les notes
+useEffect(() => {
+const connectedUserId =
+  profile?.id || session?.user?.id;
 
-    const schoolId =
-      profile?.school_id;
+const schoolId =
+  profile?.school_id;
 
-    if (!connectedUserId || !schoolId) {
+if (!connectedUserId || !schoolId) {
+  return;
+}
+
+const refreshAcademicData = async () => {
+  try {
+    const {
+      data: studentData,
+      error: studentError,
+    } = await supabase
+      .from("students")
+      .select(
+        "id,profile_id,school_id,class_id"
+      )
+      .eq("profile_id", connectedUserId)
+      .eq("school_id", schoolId)
+      .maybeSingle();
+
+    if (studentError || !studentData) {
+      console.error(
+        "Erreur actualisation élève :",
+        studentError
+      );
       return;
     }
 
-    const refreshAcademicData = async () => {
-      try {
-        const {
-          data: studentData,
-          error: studentError,
-        } = await supabase
-          .from("students")
-          .select(
-            "id,profile_id,school_id,class_id"
-          )
-          .eq("profile_id", connectedUserId)
+    const { data: subjectRows } =
+      await supabase
+        .from("subjects")
+        .select("id,name,school_id")
+        .eq("school_id", schoolId)
+        .order("name");
+
+    const subjectList =
+      subjectRows || [];
+
+    const subjectMap =
+      new Map(
+        subjectList.map(
+          (subject) => [
+            String(subject.id),
+            subject,
+          ]
+        )
+      );
+
+    let courseRows = [];
+    let exerciseRows = [];
+    let assessmentRows = [];
+    let gradeRows = [];
+
+    if (studentData.class_id) {
+      const { data: courses } =
+        await supabase
+          .from("learning_contents")
+          .select(`
+            id,
+            school_id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            content_type,
+            content_url,
+            file_url,
+            thumbnail_url,
+            published,
+            created_at,
+            updated_at
+          `)
           .eq("school_id", schoolId)
-          .maybeSingle();
+          .eq(
+            "class_id",
+            studentData.class_id
+          )
+          .eq("published", true)
+          .order("created_at", {
+            ascending: false,
+          });
 
-        if (studentError || !studentData) {
-          console.error(
-            "Erreur actualisation élève :",
-            studentError
-          );
-          return;
-        }
+      courseRows = courses || [];
 
-        const { data: subjectRows } =
-          await supabase
-            .from("subjects")
-            .select("id,name,school_id")
-            .eq("school_id", schoolId)
-            .order("name");
+      const { data: exercises } =
+        await supabase
+          .from("exercises")
+          .select(`
+            id,
+            school_id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            instructions,
+            duration_minutes,
+            published,
+            due_at,
+            created_at,
+            updated_at,
+            file_url,
+            file_name
+          `)
+          .eq("school_id", schoolId)
+          .eq(
+            "class_id",
+            studentData.class_id
+          )
+          .eq("published", true)
+          .order("created_at", {
+            ascending: false,
+          });
 
-        const subjectList =
-          subjectRows || [];
+      exerciseRows = exercises || [];
 
-        const subjectMap =
-          new Map(
-            subjectList.map(
-              (subject) => [
-                String(subject.id),
-                subject,
-              ]
-            )
-          );
+      const { data: assessments } =
+        await supabase
+          .from("assessments")
+          .select(`
+            id,
+            school_id,
+            teacher_id,
+            class_id,
+            subject_id,
+            title,
+            description,
+            assessment_type,
+            max_score,
+            evaluation_date,
+            coefficient,
+            published,
+            created_at,
+            updated_at,
+            trimester,
+            assessment_slot
+          `)
+          .eq("school_id", schoolId)
+          .eq(
+            "class_id",
+            studentData.class_id
+          )
+          .eq("published", true)
+          .order("evaluation_date", {
+            ascending: true,
+          });
 
-        let courseRows = [];
-        let exerciseRows = [];
-        let assessmentRows = [];
-        let gradeRows = [];
+      assessmentRows =
+        assessments || [];
+    }
 
-        if (studentData.class_id) {
-          const { data: courses } =
-            await supabase
-              .from("learning_contents")
-              .select(`
-                id,
-                school_id,
-                teacher_id,
-                class_id,
-                subject_id,
-                title,
-                description,
-                content_type,
-                content_url,
-                file_url,
-                thumbnail_url,
-                published,
-                created_at,
-                updated_at
-              `)
-              .eq("school_id", schoolId)
-              .eq(
-                "class_id",
-                studentData.class_id
-              )
-              .eq("published", true)
-              .order("created_at", {
-                ascending: false,
-              });
+    const studentIdentifiers = [
+      studentData.id,
+      studentData.profile_id,
+    ].filter(Boolean);
 
-          courseRows = courses || [];
+    if (studentIdentifiers.length) {
+      const { data: grades } =
+        await supabase
+          .from("grades")
+          .select(`
+            id,
+            assessment_id,
+            student_id,
+            teacher_id,
+            school_id,
+            score,
+            appreciation,
+            stars,
+            comment,
+            created_at,
+            updated_at
+          `)
+          .eq("school_id", schoolId)
+          .in(
+            "student_id",
+            studentIdentifiers
+          )
+          .order("created_at", {
+            ascending: false,
+          });
 
-          const { data: exercises } =
-            await supabase
-              .from("exercises")
-              .select(`
-                id,
-                school_id,
-                teacher_id,
-                class_id,
-                subject_id,
-                title,
-                description,
-                instructions,
-                duration_minutes,
-                published,
-                due_at,
-                created_at,
-                updated_at,
-                file_url,
-                file_name
-              `)
-              .eq("school_id", schoolId)
-              .eq(
-                "class_id",
-                studentData.class_id
-              )
-              .eq("published", true)
-              .order("created_at", {
-                ascending: false,
-              });
+      gradeRows = grades || [];
+    }
 
-          exerciseRows = exercises || [];
+    const normalizedCourses =
+      await Promise.all(
+        courseRows.map(
+          async (course) => {
+            let fileSignedUrl = null;
 
-          const { data: assessments } =
-            await supabase
-              .from("assessments")
-              .select(`
-                id,
-                school_id,
-                teacher_id,
-                class_id,
-                subject_id,
-                title,
-                description,
-                assessment_type,
-                max_score,
-                evaluation_date,
-                coefficient,
-                published,
-                created_at,
-                updated_at,
-                trimester,
-                assessment_slot
-              `)
-              .eq("school_id", schoolId)
-              .eq(
-                "class_id",
-                studentData.class_id
-              )
-              .eq("published", true)
-              .order("evaluation_date", {
-                ascending: true,
-              });
+            if (course.file_url) {
+              const {
+                data: signedData,
+                error: signedError,
+              } =
+                await supabase.storage
+                  .from(
+                    "teacher-content"
+                  )
+                  .createSignedUrl(
+                    course.file_url,
+                    3600
+                  );
 
-          assessmentRows =
-            assessments || [];
-        }
-
-        const studentIdentifiers = [
-          studentData.id,
-          studentData.profile_id,
-        ].filter(Boolean);
-
-        if (studentIdentifiers.length) {
-          const { data: grades } =
-            await supabase
-              .from("grades")
-              .select(`
-                id,
-                assessment_id,
-                student_id,
-                teacher_id,
-                school_id,
-                score,
-                appreciation,
-                stars,
-                comment,
-                created_at,
-                updated_at
-              `)
-              .eq("school_id", schoolId)
-              .in(
-                "student_id",
-                studentIdentifiers
-              )
-              .order("created_at", {
-                ascending: false,
-              });
-
-          gradeRows = grades || [];
-        }
-
-        const normalizedCourses =
-          await Promise.all(
-            courseRows.map(
-              async (course) => {
-                let fileSignedUrl = null;
-
-                if (course.file_url) {
-                  const {
-                    data: signedData,
-                    error: signedError,
-                  } =
-                    await supabase.storage
-                      .from(
-                        "teacher-content"
-                      )
-                      .createSignedUrl(
-                        course.file_url,
-                        3600
-                      );
-
-                  if (
-                    !signedError &&
-                    signedData?.signedUrl
-                  ) {
-                    fileSignedUrl =
-                      signedData.signedUrl;
-                  }
-                }
-
-                return {
-                  ...course,
-
-                  subject_name:
-                    subjectMap.get(
-                      String(
-                        course.subject_id
-                      )
-                    )?.name ||
-                    "Matière non renseignée",
-
-                  file_signed_url:
-                    fileSignedUrl,
-                };
+              if (
+                !signedError &&
+                signedData?.signedUrl
+              ) {
+                fileSignedUrl =
+                  signedData.signedUrl;
               }
-            )
-          );
+            }
 
-        const normalizedExercises =
-          exerciseRows.map(
-            (exercise) => ({
-              ...exercise,
+            return {
+              ...course,
 
               subject_name:
                 subjectMap.get(
                   String(
-                    exercise.subject_id
+                    course.subject_id
                   )
                 )?.name ||
                 "Matière non renseignée",
-            })
-          );
 
-        const normalizedAssessments =
-          assessmentRows.map(
+              file_signed_url:
+                fileSignedUrl,
+            };
+          }
+        )
+      );
+
+    const normalizedExercises =
+      exerciseRows.map(
+        (exercise) => ({
+          ...exercise,
+
+          subject_name:
+            subjectMap.get(
+              String(
+                exercise.subject_id
+              )
+            )?.name ||
+            "Matière non renseignée",
+        })
+      );
+
+    const normalizedAssessments =
+      assessmentRows.map(
+        (assessment) => ({
+          ...assessment,
+
+          subject_name:
+            subjectMap.get(
+              String(
+                assessment.subject_id
+              )
+            )?.name ||
+            "Matière non renseignée",
+        })
+      );
+
+    /*
+     * IMPORTANT :
+     * On garde normalizedAssessments limité
+     * aux évaluations publiées pour l'espace élève.
+     *
+     * Mais pour les notes, on récupère aussi
+     * les évaluations directement liées aux notes,
+     * même si elles ne sont pas publiées.
+     */
+    const gradeAssessmentIds = [
+      ...new Set(
+        gradeRows
+          .map(
+            (grade) =>
+              grade.assessment_id
+          )
+          .filter(Boolean)
+          .map(String)
+      ),
+    ];
+
+    let gradeAssessmentRows = [];
+
+    if (gradeAssessmentIds.length) {
+      const {
+        data: gradeAssessments,
+        error:
+          gradeAssessmentsError,
+      } = await supabase
+        .from("assessments")
+        .select(`
+          id,
+          school_id,
+          teacher_id,
+          class_id,
+          subject_id,
+          title,
+          max_score,
+          evaluation_date,
+          coefficient
+        `)
+        .eq(
+          "school_id",
+          schoolId
+        )
+        .in(
+          "id",
+          gradeAssessmentIds
+        );
+
+      if (gradeAssessmentsError) {
+        console.error(
+          "Erreur récupération des évaluations liées aux notes :",
+          gradeAssessmentsError
+        );
+      }
+
+      gradeAssessmentRows =
+        gradeAssessments || [];
+    }
+
+    /*
+     * On combine :
+     * - les évaluations publiées
+     * - les évaluations liées aux notes
+     */
+    const assessmentMap =
+      new Map(
+        [
+          ...normalizedAssessments,
+
+          ...gradeAssessmentRows.map(
             (assessment) => ({
               ...assessment,
 
@@ -4462,153 +4547,162 @@ async function sendCommunicationMessage() {
                 )?.name ||
                 "Matière non renseignée",
             })
-          );
+          ),
+        ].map(
+          (assessment) => [
+            String(
+              assessment.id
+            ),
+            assessment,
+          ]
+        )
+      );
 
-        const assessmentMap =
-          new Map(
-            normalizedAssessments.map(
-              (assessment) => [
-                String(assessment.id),
-                assessment,
-              ]
+    const normalizedGrades =
+      gradeRows.map((grade) => {
+        const assessment =
+          assessmentMap.get(
+            String(
+              grade.assessment_id
             )
           );
 
-        const normalizedGrades =
-          gradeRows.map((grade) => {
-            const assessment =
-              assessmentMap.get(
-                String(
-                  grade.assessment_id
-                )
-              );
+        const subjectId =
+          grade.subject_id ??
+          assessment?.subject_id ??
+          null;
 
-            const subjectId =
-              grade.subject_id ??
-              assessment?.subject_id ??
-              null;
+        const subject =
+          subjectMap.get(
+            String(subjectId)
+          );
 
-            const subject =
-              subjectMap.get(
-                String(subjectId)
-              );
+        return {
+          ...grade,
 
-            return {
-              ...grade,
+          subject_id:
+            subjectId,
 
-              subject_id:
-                subjectId,
+          subject_name:
+            subject?.name ||
+            assessment?.subject_name ||
+            "Matière non renseignée",
 
-              subject_name:
-                subject?.name ||
-                assessment?.subject_name ||
-                "Matière non renseignée",
+          assessment_title:
+            assessment?.title ||
+            "Évaluation",
 
-              assessment_title:
-                assessment?.title ||
-                "Évaluation",
+          assessment_date:
+            grade.evaluation_date ??
+            assessment?.evaluation_date ??
+            null,
 
-              assessment_date:
-                grade.evaluation_date ??
-                assessment?.evaluation_date ??
-                null,
+          max_score:
+            grade.max_score ??
+            assessment?.max_score ??
+            20,
 
-              max_score:
-                grade.max_score ??
-                assessment?.max_score ??
-                20,
+          coefficient:
+            grade.coefficient ??
+            assessment?.coefficient ??
+            1,
+        };
+      });
 
-              coefficient:
-                grade.coefficient ??
-                assessment?.coefficient ??
-                1,
-            };
-          });
+    setSubjects(subjectList);
 
-        setSubjects(subjectList);
-        setCourses(normalizedCourses);
-        setExercises(
-          normalizedExercises
-        );
-        setAssessments(
-          normalizedAssessments
-        );
-        setGrades(normalizedGrades);
+    setCourses(
+      normalizedCourses
+    );
 
-        console.log(
-          "Contenus scolaires et notes actualisés automatiquement."
-        );
-      } catch (error) {
-        console.error(
-          "Erreur Realtime École Connectée :",
-          error
-        );
+    setExercises(
+      normalizedExercises
+    );
+
+    setAssessments(
+      normalizedAssessments
+    );
+
+    setGrades(
+      normalizedGrades
+    );
+
+    console.log(
+      "Contenus scolaires et notes actualisés automatiquement."
+    );
+  } catch (error) {
+    console.error(
+      "Erreur Realtime École Connectée :",
+      error
+    );
+  }
+};
+
+const channel =
+  supabase
+    .channel(
+      `student-academic-${schoolId}-${connectedUserId}`
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "learning_contents",
+        filter: `school_id=eq.${schoolId}`,
+      },
+      () => {
+        refreshAcademicData();
       }
-    };
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "exercises",
+        filter: `school_id=eq.${schoolId}`,
+      },
+      () => {
+        refreshAcademicData();
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "assessments",
+        filter: `school_id=eq.${schoolId}`,
+      },
+      () => {
+        refreshAcademicData();
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "grades",
+        filter: `school_id=eq.${schoolId}`,
+      },
+      () => {
+        refreshAcademicData();
+      }
+    )
+    .subscribe();
 
-    const channel =
-      supabase
-        .channel(
-          `student-academic-${schoolId}-${connectedUserId}`
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "learning_contents",
-            filter: `school_id=eq.${schoolId}`,
-          },
-          () => {
-            refreshAcademicData();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "exercises",
-            filter: `school_id=eq.${schoolId}`,
-          },
-          () => {
-            refreshAcademicData();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "assessments",
-            filter: `school_id=eq.${schoolId}`,
-          },
-          () => {
-            refreshAcademicData();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "grades",
-            filter: `school_id=eq.${schoolId}`,
-          },
-          () => {
-            refreshAcademicData();
-          }
-        )
-        .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [
-    profile?.id,
-    profile?.school_id,
-    session?.user?.id,
-  ]);
+return () => {
+  supabase.removeChannel(
+    channel
+  );
+};
+}, [
+profile?.id,
+profile?.school_id,
+session?.user?.id,
+]);
   /* =======================================================
      PRÉSENCES — NOUVELLE FONCTION
   ======================================================= */
