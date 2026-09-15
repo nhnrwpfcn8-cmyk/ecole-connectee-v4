@@ -167,8 +167,8 @@ export default function ParentDashboard({
   const [adminMeetings, setAdminMeetings] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [currentParentId, setCurrentParentId] = useState(null);
-  const [replyText, setReplyText] = useState("");
-  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyDrafts, setReplyDrafts] = useState({});
+  const [replyLoadingId, setReplyLoadingId] = useState(null);
 
   const [activeSchoolId, setActiveSchoolId] =
     useState(profile?.school_id || null);
