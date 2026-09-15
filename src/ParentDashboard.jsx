@@ -1721,7 +1721,8 @@ export default function ParentDashboard({
                       display: "flex",
                       justifyContent:
                         "space-between",
-                      alignItems: "flex-start",
+                      alignItems:
+                        "flex-start",
                       gap: "12px",
                     }}
                   >
@@ -2370,30 +2371,37 @@ export default function ParentDashboard({
 
   return (
     <div
-      className="app-container"
       style={{
         minHeight: "100vh",
-        padding: "24px 14px",
+        background: "#f8fafc",
+        display: "flex",
+        color: "#0f172a",
       }}
     >
-      <div
-        className="dashboard-card"
+      {/* =====================================================
+          SIDEBAR PARENT
+          ===================================================== */}
+      <aside
         style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-          borderRadius: "20px",
-          overflow: "hidden",
-          background: "#f8fafc",
-          border:
+          width: "250px",
+          minWidth: "250px",
+          minHeight: "100vh",
+          background: "#ffffff",
+          borderRight:
             "1px solid #e2e8f0",
+          display: "flex",
+          flexDirection: "column",
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+          boxShadow:
+            "2px 0 12px rgba(15,23,42,0.04)",
+          zIndex: 20,
         }}
       >
         <div
-          className="dashboard-header"
           style={{
-            alignItems: "center",
-            padding: "18px 20px",
-            background: "#ffffff",
+            padding: "22px 18px",
             borderBottom:
               "1px solid #e2e8f0",
           }}
@@ -2406,133 +2414,367 @@ export default function ParentDashboard({
             }}
           >
             <div
-              className="small-logo"
               style={{
                 width: "42px",
                 height: "42px",
                 borderRadius: "12px",
+                background: "#4f46e5",
+                color: "#ffffff",
                 display: "grid",
                 placeItems: "center",
-                background:
-                  "#4f46e5",
-                color: "#ffffff",
                 fontWeight: 900,
+                fontSize: "14px",
                 boxShadow:
                   "0 5px 15px rgba(79,70,229,0.25)",
+                flexShrink: 0,
               }}
             >
               EC
             </div>
 
             <div>
-              <h1
+              <div
                 style={{
-                  margin: 0,
-                  fontSize: "20px",
-                  color: "#0f172a",
+                  fontSize: "16px",
                   fontWeight: 900,
+                  color: "#0f172a",
                 }}
               >
                 École Connectée
-              </h1>
+              </div>
 
               <div
                 style={{
+                  fontSize: "11px",
                   color: "#64748b",
-                  fontSize: "12px",
                   marginTop: "2px",
                 }}
               >
-                Portail Parent
+                Espace Parent
               </div>
             </div>
           </div>
-
-          <button
-            className="logout-button"
-            onClick={onLogout}
-            style={{
-              borderRadius: "10px",
-              fontWeight: 800,
-            }}
-          >
-            Se déconnecter
-          </button>
         </div>
 
         <div
-          className="welcome-section"
           style={{
-            margin: "0",
-            padding: "22px 20px 18px",
-            background:
-              "linear-gradient(135deg,#4f46e5 0%,#6366f1 55%,#818cf8 100%)",
-            color: "#ffffff",
+            padding: "18px",
+            borderBottom:
+              "1px solid #e2e8f0",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "13px",
+              gap: "10px",
             }}
           >
             <div
               style={{
-                width: "50px",
-                height: "50px",
-                borderRadius: "15px",
-                background:
-                  "rgba(255,255,255,0.18)",
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                background: "#eef2ff",
+                color: "#4338ca",
                 display: "grid",
                 placeItems: "center",
-                fontSize: "25px",
+                fontSize: "19px",
+                flexShrink: 0,
               }}
             >
               👨‍👩‍👧
             </div>
 
-            <div>
-              <h2
+            <div
+              style={{
+                minWidth: 0,
+              }}
+            >
+              <div
                 style={{
-                  margin: 0,
-                  color: "#ffffff",
-                  fontSize: "21px",
-                  fontWeight: 900,
-                }}
-              >
-                Bonjour
-                {profile?.full_name
-                  ? `, ${profile.full_name}`
-                  : ""}{" "}
-                👋
-              </h2>
-
-              <p
-                style={{
-                  margin:
-                    "5px 0 0",
-                  color:
-                    "rgba(255,255,255,0.88)",
                   fontSize: "13px",
+                  fontWeight: 800,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
                 }}
               >
-                👨‍👩‍👧 Parent
-                {unreadNotifications >
-                  0 ||
-                unreadMessages > 0
-                  ? " · 🔔 Nouvelles informations"
-                  : ""}
-              </p>
+                {profile?.full_name ||
+                  "Parent"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#64748b",
+                  marginTop: "2px",
+                }}
+              >
+                Parent
+              </div>
             </div>
           </div>
         </div>
+
+        <nav
+          style={{
+            flex: 1,
+            padding: "14px 10px",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "10px",
+              fontWeight: 900,
+              color: "#94a3b8",
+              textTransform:
+                "uppercase",
+              letterSpacing:
+                "0.08em",
+              padding:
+                "5px 10px 10px",
+            }}
+          >
+            Navigation
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gap: "4px",
+            }}
+          >
+            {MENU.map((item) => {
+              const active =
+                page === item.id;
+
+              const hasNotificationBadge =
+                item.id ===
+                  "notifications" &&
+                unreadNotifications > 0;
+
+              const hasMessageBadge =
+                item.id ===
+                  "administrative" &&
+                unreadMessages > 0;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    setPage(item.id)
+                  }
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "11px",
+                    border: "none",
+                    borderRadius: "10px",
+                    padding:
+                      "11px 12px",
+                    background: active
+                      ? "#eef2ff"
+                      : "transparent",
+                    color: active
+                      ? "#4338ca"
+                      : "#475569",
+                    fontWeight: active
+                      ? 800
+                      : 650,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "24px",
+                      textAlign: "center",
+                      fontSize: "18px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.icon}
+                  </span>
+
+                  <span
+                    style={{
+                      flex: 1,
+                    }}
+                  >
+                    {item.label}
+                  </span>
+
+                  {hasNotificationBadge && (
+                    <span
+                      style={{
+                        minWidth: "20px",
+                        height: "20px",
+                        padding: "0 5px",
+                        borderRadius: "999px",
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "10px",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {unreadNotifications}
+                    </span>
+                  )}
+
+                  {hasMessageBadge && (
+                    <span
+                      style={{
+                        minWidth: "20px",
+                        height: "20px",
+                        padding: "0 5px",
+                        borderRadius: "999px",
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "10px",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {unreadMessages}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* DÉCONNEXION EN BAS */}
+        <div
+          style={{
+            padding: "15px",
+            borderTop:
+              "1px solid #e2e8f0",
+            marginTop: "auto",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onLogout}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "11px 14px",
+              borderRadius: "10px",
+              border:
+                "1px solid #fecaca",
+              background: "#fff1f2",
+              color: "#dc2626",
+              fontWeight: 800,
+              fontSize: "13px",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "17px",
+              }}
+            >
+              🚪
+            </span>
+
+            <span>
+              Déconnexion
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      {/* =====================================================
+          CONTENU PRINCIPAL
+          ===================================================== */}
+      <main
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: "100vh",
+          background: "#f8fafc",
+        }}
+      >
+        <header
+          style={{
+            background: "#ffffff",
+            borderBottom:
+              "1px solid #e2e8f0",
+            padding:
+              "18px 26px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent:
+              "space-between",
+            gap: "16px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                color: "#4f46e5",
+                fontSize: "11px",
+                fontWeight: 900,
+                textTransform:
+                  "uppercase",
+                letterSpacing:
+                  "0.08em",
+              }}
+            >
+              ESPACE PARENT
+            </div>
+
+            <h1
+              style={{
+                margin:
+                  "4px 0 0",
+                fontSize: "22px",
+                fontWeight: 900,
+                color: "#0f172a",
+              }}
+            >
+              Bonjour
+              {profile?.full_name
+                ? `, ${profile.full_name}`
+                : ""}{" "}
+              👋
+            </h1>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "9px",
+              color: "#64748b",
+              fontSize: "12px",
+            }}
+          >
+            <span>👨‍👩‍👧</span>
+            <span>Parent</span>
+          </div>
+        </header>
 
         {error && (
           <div
             className="error-message"
             style={{
-              margin: "15px 20px 0",
+              margin:
+                "18px 26px 0",
             }}
           >
             {error}
@@ -2542,18 +2784,16 @@ export default function ParentDashboard({
         {loading ? (
           <div
             style={{
-              padding: "20px",
-              background: "#f8fafc",
+              padding: "26px",
             }}
           >
             <Card>
               <div
                 style={{
-                  textAlign:
-                    "center",
-                  padding: "30px 20px",
-                  color:
-                    "#64748b",
+                  textAlign: "center",
+                  padding:
+                    "35px 20px",
+                  color: "#64748b",
                 }}
               >
                 Chargement de votre
@@ -2565,155 +2805,14 @@ export default function ParentDashboard({
           <div
             style={{
               padding:
-                "18px 20px 28px",
-              background:
-                "#f8fafc",
+                "24px 26px 35px",
+              maxWidth: "1250px",
             }}
           >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit,minmax(130px,1fr))",
-                gap: "8px",
-                marginBottom:
-                  "22px",
-              }}
-            >
-              {MENU.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() =>
-                    setPage(item.id)
-                  }
-                  style={{
-                    position:
-                      "relative",
-                    border:
-                      page === item.id
-                        ? "2px solid #4f46e5"
-                        : "1px solid #e2e8f0",
-                    background:
-                      page === item.id
-                        ? "#eef2ff"
-                        : "#ffffff",
-                    borderRadius:
-                      "12px",
-                    padding:
-                      "11px 7px",
-                    cursor:
-                      "pointer",
-                    fontWeight: 800,
-                    color:
-                      page === item.id
-                        ? "#4338ca"
-                        : "#334155",
-                    boxShadow:
-                      "0 2px 7px rgba(15,23,42,0.04)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize:
-                        "19px",
-                    }}
-                  >
-                    {item.icon}
-                  </span>
-
-                  <span
-                    style={{
-                      display:
-                        "block",
-                      marginTop:
-                        "4px",
-                      fontSize:
-                        "11px",
-                      lineHeight:
-                        "1.25",
-                    }}
-                  >
-                    {item.label}
-                  </span>
-
-                  {item.id ===
-                    "notifications" &&
-                    unreadNotifications >
-                      0 && (
-                      <span
-                        style={{
-                          position:
-                            "absolute",
-                          top: "4px",
-                          right: "5px",
-                          minWidth:
-                            "19px",
-                          height:
-                            "19px",
-                          padding:
-                            "0 5px",
-                          borderRadius:
-                            "999px",
-                          background:
-                            "#dc2626",
-                          color:
-                            "#fff",
-                          fontSize:
-                            "10px",
-                          display:
-                            "grid",
-                          placeItems:
-                            "center",
-                        }}
-                      >
-                        {
-                          unreadNotifications
-                        }
-                      </span>
-                    )}
-
-                  {item.id ===
-                    "administrative" &&
-                    unreadMessages >
-                      0 && (
-                      <span
-                        style={{
-                          position:
-                            "absolute",
-                          top: "4px",
-                          right: "5px",
-                          minWidth:
-                            "19px",
-                          height:
-                            "19px",
-                          padding:
-                            "0 5px",
-                          borderRadius:
-                            "999px",
-                          background:
-                            "#dc2626",
-                          color:
-                            "#fff",
-                          fontSize:
-                            "10px",
-                          display:
-                            "grid",
-                          placeItems:
-                            "center",
-                        }}
-                      >
-                        {unreadMessages}
-                      </span>
-                    )}
-                </button>
-              ))}
-            </div>
-
             {renderPage()}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
