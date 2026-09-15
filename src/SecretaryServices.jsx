@@ -21,18 +21,15 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  // Message parent
   const [messageSubject, setMessageSubject] = useState('')
   const [messageText, setMessageText] = useState('')
 
-  // Information aux parents
   const [announcementTitle, setAnnouncementTitle] = useState('')
   const [announcementText, setAnnouncementText] = useState('')
   const [announcementTarget, setAnnouncementTarget] = useState('all')
   const [announcementClass, setAnnouncementClass] = useState('')
   const [announcementParent, setAnnouncementParent] = useState('')
 
-  // Convocation / rendez-vous
   const [meetingParent, setMeetingParent] = useState('')
   const [meetingStudent, setMeetingStudent] = useState('')
   const [meetingReason, setMeetingReason] = useState('')
@@ -169,27 +166,12 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     }
   }
 
-  /*
-   * RECHERCHE DES ÉLÈVES
-   *
-   * La recherche se fait maintenant directement sur students.
-   * Le parent n'est plus recherché avec students.parent_id,
-   * car cette colonne n'existe pas.
-   *
-   * La relation correcte est :
-   * students.id
-   *      ↓
-   * parent_students.student_id
-   *      ↓
-   * parent_students.parent_id
-   *      ↓
-   * parents.id
-   */
   const filteredStudents = useMemo(() => {
     const value = search.trim().toLowerCase()
 
+    // Modification : aucun élève affiché avant une recherche
     if (!value) {
-      return students
+      return []
     }
 
     return students.filter((student) => {
@@ -226,10 +208,6 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     })
   }, [students, search])
 
-  /*
-   * Recherche des parents d'un élève
-   * via parent_students.
-   */
   async function getParentsOfStudent(studentId) {
     if (!studentId || !schoolId) {
       return []
@@ -312,10 +290,6 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     }
   }
 
-  /*
-   * Sélection d'un élève.
-   * On retrouve automatiquement son ou ses parents.
-   */
   async function handleSelectStudent(student) {
     setSelectedStudent(student)
     setSelectedParent(null)
@@ -335,10 +309,6 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
       return
     }
 
-    /*
-     * Si plusieurs parents existent, on sélectionne
-     * automatiquement le parent principal.
-     */
     const primaryParent =
       studentParents.find(
         (parent) => parent.is_primary
@@ -346,19 +316,11 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
 
     setSelectedParent(primaryParent)
     setMeetingParent(primaryParent.id)
+    setAnnouncementParent(primaryParent.id)
 
-    /*
-     * On affiche aussi tous les parents associés
-     * dans selectedChildren pour conserver une structure
-     * simple dans l'interface.
-     */
     setSelectedChildren(studentParents)
   }
 
-  /*
-   * Sélection directe d'un parent parmi les parents
-   * associés à l'élève.
-   */
   function handleSelectParent(parent) {
     setSelectedParent(parent)
     setMeetingParent(parent.id)
@@ -366,6 +328,23 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
 
     setMessage('')
     setError('')
+  }
+
+  /*
+   * Nouveau bouton retour :
+   * retour direct au menu principal du secrétaire.
+   */
+  function handleBackToMenu() {
+    setSearch('')
+    setSelectedStudent(null)
+    setSelectedParent(null)
+    setSelectedChildren([])
+    setMessage('')
+    setError('')
+
+    if (onBack) {
+      onBack()
+    }
   }
 
   function className(classId) {
@@ -649,21 +628,6 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     }
   }
 
-  function statusLabel(status) {
-    switch (status) {
-      case 'planned':
-        return 'Planifié'
-      case 'confirmed':
-        return 'Confirmé'
-      case 'completed':
-        return 'Terminé'
-      case 'cancelled':
-        return 'Annulé'
-      default:
-        return status
-    }
-  }
-
   if (loading) {
     return (
       <div style={styles.page}>
@@ -703,10 +667,10 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
         <div style={styles.headerActions}>
           <button
             type="button"
-            onClick={onBack}
+            onClick={handleBackToMenu}
             style={styles.secondaryButton}
           >
-            🏠 Menu principal
+            ← Retour au menu
           </button>
 
           <button
@@ -821,10 +785,25 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
             <div style={styles.twoColumns}>
               <div style={styles.card}>
                 <h3 style={styles.blackText}>
-                  Liste des élèves
+                  {search.trim()
+                    ? 'Résultats de recherche'
+                    : 'Recherche d’un élève'}
                 </h3>
 
-                {filteredStudents.length === 0 ? (
+                {!search.trim() ? (
+                  <div style={styles.emptySmall}>
+                    <div style={styles.emptyIcon}>
+                      🔎
+                    </div>
+
+                    <p style={styles.blackText}>
+                      Commencez à saisir le nom,
+                      prénom ou matricule d’un élève
+                      pour afficher les résultats.
+                    </p>
+                  </div>
+                ) : filteredStudents.length ===
+                  0 ? (
                   <p style={styles.blackText}>
                     Aucun élève trouvé.
                   </p>
@@ -847,7 +826,11 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                               : {}),
                           }}
                         >
-                          <strong style={styles.blackText}>
+                          <strong
+                            style={
+                              styles.blackText
+                            }
+                          >
                             {student.first_name}{' '}
                             {student.last_name}
                           </strong>
@@ -893,9 +876,8 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                     </h3>
 
                     <p style={styles.blackText}>
-                      Recherchez un élève à gauche
-                      pour retrouver automatiquement
-                      son ou ses parents.
+                      Les informations de l’élève
+                      et son parent apparaîtront ici.
                     </p>
                   </div>
                 ) : (
@@ -906,26 +888,20 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
 
                     <div style={styles.infoBox}>
                       <p style={styles.blackText}>
-                        <strong>
-                          Nom :
-                        </strong>{' '}
+                        <strong>Nom :</strong>{' '}
                         {selectedStudent.first_name}{' '}
                         {selectedStudent.last_name}
                       </p>
 
                       <p style={styles.blackText}>
-                        <strong>
-                          Classe :
-                        </strong>{' '}
+                        <strong>Classe :</strong>{' '}
                         {className(
                           selectedStudent.class_id
                         )}
                       </p>
 
                       <p style={styles.blackText}>
-                        <strong>
-                          Matricule :
-                        </strong>{' '}
+                        <strong>Matricule :</strong>{' '}
                         {selectedStudent.student_code ||
                           '-'}
                       </p>
@@ -1978,12 +1954,14 @@ const styles = {
     color: '#000000',
   },
 
-  emptyIcon: {
-    fontSize: '42px',
+  emptySmall: {
+    padding: '35px 15px',
+    textAlign: 'center',
+    color: '#000000',
   },
 
-  muted: {
-    color: '#000000',
+  emptyIcon: {
+    fontSize: '42px',
   },
 
   success: {
