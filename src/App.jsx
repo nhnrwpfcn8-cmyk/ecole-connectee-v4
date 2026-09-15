@@ -7,6 +7,7 @@ import SecretaryDashboard from './SecretaryDashboard'
 import SecretaryServices from './SecretaryServices'
 import TeacherDashboard from './TeacherDashboard'
 import StudentDashboard from './StudentDashboard'
+import ParentDashboard from './ParentDashboard'
 
 import './App.css'
 
@@ -569,80 +570,11 @@ function App() {
     role === 'parent'
   ) {
     return (
-      <div className="app-container">
-
-        <div className="dashboard-card">
-
-          <div className="dashboard-header">
-
-            <div>
-
-              <div className="small-logo">
-                EC
-              </div>
-
-              <h1>
-                École Connectée
-              </h1>
-
-            </div>
-
-            <button
-              className="logout-button"
-              onClick={handleLogout}
-            >
-              Se déconnecter
-            </button>
-
-          </div>
-
-          <div className="welcome-section">
-
-            <h2>
-              Bienvenue
-              {profile?.full_name
-                ? `, ${profile.full_name}`
-                : ''}{' '}
-              👋
-            </h2>
-
-            <p>
-              Vous êtes connecté à votre espace Parent.
-            </p>
-
-          </div>
-
-          <div className="role-card">
-
-            <span className="role-label">
-              Votre rôle
-            </span>
-
-            <strong>
-              Parent
-            </strong>
-
-          </div>
-
-          <div className="feature-card">
-
-            <h3>
-              👨‍👩‍👧 Espace Parent
-            </h3>
-
-            <p>
-              Votre espace parent est maintenant reconnu par École Connectée.
-            </p>
-
-            <p>
-              Le tableau de bord Parent sera construit après l'activation complète de l'espace Élève.
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
+      <ParentDashboard
+        profile={profile}
+        session={session}
+        onLogout={handleLogout}
+      />
     )
   }
 
