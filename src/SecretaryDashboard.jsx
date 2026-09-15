@@ -220,6 +220,7 @@ export default function SecretaryDashboard({
   session,
   onLogout,
   onOpenServices,
+  onOpenParentCommunication,
 }) {
   const [activeSection, setActiveSection] = useState("overview");
 
