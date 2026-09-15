@@ -864,7 +864,6 @@ export default function ParentDashboard({
       if (notificationsError) {
         throw notificationsError;
       }
-setAdminMessages(messageRows || []);
 
 // NOUVEAU : CONVOCATIONS
 const {
@@ -891,9 +890,6 @@ if (meetingsError) {
 setAdminMeetings(meetingRows || []);
 
 setNotifications(notificationRows || []);
-      setNotifications(
-        notificationRows || []
-      );
     } catch (err) {
       console.error(
         "Erreur espace Parent :",
@@ -1298,7 +1294,7 @@ setNotifications(notificationRows || []);
               disponible
               {grades.length > 1
                 ? "s"
-                : ""}
+                : ""}{" "}
             </div>
           </button>
 
@@ -1991,357 +1987,356 @@ setNotifications(notificationRows || []);
   }
 
   function AdministrativePage() {
-    ```jsx
-return (
-  <>
-    <PageTitle
-      icon="🏢"
-      title="Service administratif"
-      description="Informations et échanges avec le secrétariat."
-      onBack={() => setPage("home")}
-    />
+    return (
+      <>
+        <PageTitle
+          icon="🏢"
+          title="Service administratif"
+          description="Informations et échanges avec le secrétariat."
+          onBack={() => setPage("home")}
+        />
 
-    {adminAnnouncements.length > 0 && (
-      <div style={{ marginBottom: "20px" }}>
-        <h3
-          style={{
-            margin: "0 0 12px",
-            color: "#0f172a",
-            fontSize: "17px",
-          }}
-        >
-          📢 Informations de l'administration
-        </h3>
+        {adminAnnouncements.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h3
+              style={{
+                margin: "0 0 12px",
+                color: "#0f172a",
+                fontSize: "17px",
+              }}
+            >
+              📢 Informations de l'administration
+            </h3>
 
-        <div
-          style={{
-            display: "grid",
-            gap: "12px",
-          }}
-        >
-          {adminAnnouncements.map(
-            (item) => (
-              <Card key={item.id}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <strong
-                    style={{
-                      color: "#0f172a",
-                      fontSize: "16px",
-                    }}
-                  >
-                    {item.title}
-                  </strong>
-
-                  <span
-                    style={{
-                      color: "#4f46e5",
-                      fontWeight: 800,
-                      fontSize: "11px",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    📢 Information
-                  </span>
-                </div>
-
-                <p
-                  style={{
-                    margin:
-                      "12px 0 10px",
-                    color: "#475569",
-                    lineHeight: 1.6,
-                    fontSize: "14px",
-                    whiteSpace:
-                      "pre-wrap",
-                  }}
-                >
-                  {item.message}
-                </p>
-
-                <div
-                  style={{
-                    color: "#94a3b8",
-                    fontSize: "12px",
-                  }}
-                >
-                  Publiée le{" "}
-                  {formatDate(
-                    item.published_at ||
-                      item.created_at
-                  )}
-                </div>
-              </Card>
-            )
-          )}
-        </div>
-      </div>
-    )}
-
-    {/* CONVOCATIONS */}
-    {adminMeetings.length > 0 && (
-      <div style={{ marginBottom: "20px" }}>
-        <h3
-          style={{
-            margin: "0 0 12px",
-            color: "#0f172a",
-            fontSize: "17px",
-          }}
-        >
-          📅 Convocations
-        </h3>
-
-        <div
-          style={{
-            display: "grid",
-            gap: "12px",
-          }}
-        >
-          {adminMeetings.map((meeting) => {
-            const child = children.find(
-              (item) =>
-                item.id === meeting.student_id
-            );
-
-            return (
-              <Card key={meeting.id}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <strong
-                    style={{
-                      color: "#0f172a",
-                      fontSize: "16px",
-                    }}
-                  >
-                    📅 Convocation
-                  </strong>
-
-                  <span
-                    style={{
-                      color: "#4f46e5",
-                      fontWeight: 800,
-                      fontSize: "11px",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {meeting.status ||
-                      "À venir"}
-                  </span>
-                </div>
-
-                <p
-                  style={{
-                    margin:
-                      "12px 0 10px",
-                    color: "#475569",
-                    lineHeight: 1.6,
-                    fontSize: "14px",
-                  }}
-                >
-                  <strong>Motif :</strong>{" "}
-                  {meeting.reason ||
-                    "Non renseigné"}
-                </p>
-
-                {child && (
-                  <p
-                    style={{
-                      margin:
-                        "0 0 10px",
-                      color: "#475569",
-                      lineHeight: 1.6,
-                      fontSize: "14px",
-                    }}
-                  >
-                    <strong>Élève :</strong>{" "}
-                    {child.first_name}{" "}
-                    {child.last_name}
-                  </p>
-                )}
-
-                <p
-                  style={{
-                    margin:
-                      "0 0 10px",
-                    color: "#475569",
-                    lineHeight: 1.6,
-                    fontSize: "14px",
-                  }}
-                >
-                  <strong>Date :</strong>{" "}
-                  {meeting.meeting_date
-                    ? new Date(
-                        `${meeting.meeting_date}T00:00:00`
-                      ).toLocaleDateString(
-                        "fr-FR"
-                      )
-                    : "Non renseignée"}
-                </p>
-
-                {meeting.meeting_time && (
-                  <p
-                    style={{
-                      margin:
-                        "0 0 10px",
-                      color: "#475569",
-                      lineHeight: 1.6,
-                      fontSize: "14px",
-                    }}
-                  >
-                    <strong>Heure :</strong>{" "}
-                    {String(
-                      meeting.meeting_time
-                    ).slice(0, 5)}
-                  </p>
-                )}
-
-                {meeting.notes && (
-                  <p
-                    style={{
-                      margin: 0,
-                      color: "#475569",
-                      lineHeight: 1.6,
-                      fontSize: "14px",
-                      whiteSpace:
-                        "pre-wrap",
-                    }}
-                  >
-                    <strong>Notes :</strong>{" "}
-                    {meeting.notes}
-                  </p>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-      </div>
-    )}
-
-    {adminMessages.length > 0 && (
-      <div>
-        <h3
-          style={{
-            margin: "0 0 12px",
-            color: "#0f172a",
-            fontSize: "17px",
-          }}
-        >
-          💬 Messages du secrétariat
-        </h3>
-
-        <div
-          style={{
-            display: "grid",
-            gap: "12px",
-          }}
-        >
-          {adminMessages.map(
-            (item) => (
-              <Card key={item.id}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "10px",
-                  }}
-                >
-                  <strong
-                    style={{
-                      color: "#0f172a",
-                    }}
-                  >
-                    {item.subject}
-                  </strong>
-
-                  {!item.read_at && (
-                    <span
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              {adminAnnouncements.map(
+                (item) => (
+                  <Card key={item.id}>
+                    <div
                       style={{
-                        color: "#dc2626",
-                        fontWeight: 800,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                          fontSize: "16px",
+                        }}
+                      >
+                        {item.title}
+                      </strong>
+
+                      <span
+                        style={{
+                          color: "#4f46e5",
+                          fontWeight: 800,
+                          fontSize: "11px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        📢 Information
+                      </span>
+                    </div>
+
+                    <p
+                      style={{
+                        margin:
+                          "12px 0 10px",
+                        color: "#475569",
+                        lineHeight: 1.6,
+                        fontSize: "14px",
+                        whiteSpace:
+                          "pre-wrap",
+                      }}
+                    >
+                      {item.message}
+                    </p>
+
+                    <div
+                      style={{
+                        color: "#94a3b8",
                         fontSize: "12px",
                       }}
                     >
-                      Nouveau
-                    </span>
-                  )}
-                </div>
+                      Publiée le{" "}
+                      {formatDate(
+                        item.published_at ||
+                          item.created_at
+                      )}
+                    </div>
+                  </Card>
+                )
+              )}
+            </div>
+          </div>
+        )}
 
-                <p
-                  style={{
-                    color: "#475569",
-                    lineHeight: 1.6,
-                    fontSize: "14px",
-                  }}
-                >
-                  {item.message}
-                </p>
+        {/* CONVOCATIONS */}
+        {adminMeetings.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h3
+              style={{
+                margin: "0 0 12px",
+                color: "#0f172a",
+                fontSize: "17px",
+              }}
+            >
+              📅 Convocations
+            </h3>
 
-                <div
-                  style={{
-                    color: "#94a3b8",
-                    fontSize: "12px",
-                  }}
-                >
-                  {formatDate(
-                    item.created_at
-                  )}
-                </div>
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              {adminMeetings.map((meeting) => {
+                const child = children.find(
+                  (item) =>
+                    item.id === meeting.student_id
+                );
 
-                {!item.read_at && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      markMessageRead(
-                        item.id
-                      )
-                    }
-                    style={{
-                      marginTop: "11px",
-                      border:
-                        "1px solid #c7d2fe",
-                      background:
-                        "#eef2ff",
-                      color: "#4338ca",
-                      borderRadius: "9px",
-                      padding:
-                        "9px 12px",
-                      cursor: "pointer",
-                      fontWeight: 800,
-                      fontSize: "12px",
-                    }}
-                  >
-                    ✓ Marquer comme lu
-                  </button>
-                )}
-              </Card>
-            )
+                return (
+                  <Card key={meeting.id}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                          fontSize: "16px",
+                        }}
+                      >
+                        📅 Convocation
+                      </strong>
+
+                      <span
+                        style={{
+                          color: "#4f46e5",
+                          fontWeight: 800,
+                          fontSize: "11px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {meeting.status ||
+                          "À venir"}
+                      </span>
+                    </div>
+
+                    <p
+                      style={{
+                        margin:
+                          "12px 0 10px",
+                        color: "#475569",
+                        lineHeight: 1.6,
+                        fontSize: "14px",
+                      }}
+                    >
+                      <strong>Motif :</strong>{" "}
+                      {meeting.reason ||
+                        "Non renseigné"}
+                    </p>
+
+                    {child && (
+                      <p
+                        style={{
+                          margin:
+                            "0 0 10px",
+                          color: "#475569",
+                          lineHeight: 1.6,
+                          fontSize: "14px",
+                        }}
+                      >
+                        <strong>Élève :</strong>{" "}
+                        {child.first_name}{" "}
+                        {child.last_name}
+                      </p>
+                    )}
+
+                    <p
+                      style={{
+                        margin:
+                          "0 0 10px",
+                        color: "#475569",
+                        lineHeight: 1.6,
+                        fontSize: "14px",
+                      }}
+                    >
+                      <strong>Date :</strong>{" "}
+                      {meeting.meeting_date
+                        ? new Date(
+                            `${meeting.meeting_date}T00:00:00`
+                          ).toLocaleDateString(
+                            "fr-FR"
+                          )
+                        : "Non renseignée"}
+                    </p>
+
+                    {meeting.meeting_time && (
+                      <p
+                        style={{
+                          margin:
+                            "0 0 10px",
+                          color: "#475569",
+                          lineHeight: 1.6,
+                          fontSize: "14px",
+                        }}
+                      >
+                        <strong>Heure :</strong>{" "}
+                        {String(
+                          meeting.meeting_time
+                        ).slice(0, 5)}
+                      </p>
+                    )}
+
+                    {meeting.notes && (
+                      <p
+                        style={{
+                          margin: 0,
+                          color: "#475569",
+                          lineHeight: 1.6,
+                          fontSize: "14px",
+                          whiteSpace:
+                            "pre-wrap",
+                        }}
+                      >
+                        <strong>Notes :</strong>{" "}
+                        {meeting.notes}
+                      </p>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {adminMessages.length > 0 && (
+          <div>
+            <h3
+              style={{
+                margin: "0 0 12px",
+                color: "#0f172a",
+                fontSize: "17px",
+              }}
+            >
+              💬 Messages du secrétariat
+            </h3>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              {adminMessages.map(
+                (item) => (
+                  <Card key={item.id}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                        }}
+                      >
+                        {item.subject}
+                      </strong>
+
+                      {!item.read_at && (
+                        <span
+                          style={{
+                            color: "#dc2626",
+                            fontWeight: 800,
+                            fontSize: "12px",
+                          }}
+                        >
+                          Nouveau
+                        </span>
+                      )}
+                    </div>
+
+                    <p
+                      style={{
+                        color: "#475569",
+                        lineHeight: 1.6,
+                        fontSize: "14px",
+                      }}
+                    >
+                      {item.message}
+                    </p>
+
+                    <div
+                      style={{
+                        color: "#94a3b8",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {formatDate(
+                        item.created_at
+                      )}
+                    </div>
+
+                    {!item.read_at && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          markMessageRead(
+                            item.id
+                          )
+                        }
+                        style={{
+                          marginTop: "11px",
+                          border:
+                            "1px solid #c7d2fe",
+                          background:
+                            "#eef2ff",
+                          color: "#4338ca",
+                          borderRadius: "9px",
+                          padding:
+                            "9px 12px",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                          fontSize: "12px",
+                        }}
+                      >
+                        ✓ Marquer comme lu
+                      </button>
+                    )}
+                  </Card>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {!adminAnnouncements.length &&
+          !adminMeetings.length &&
+          !adminMessages.length && (
+            <Empty
+              text="Aucune information, convocation ou message du service administratif."
+            />
           )}
-        </div>
-      </div>
-    )}
-
-    {!adminAnnouncements.length &&
-      !adminMeetings.length &&
-      !adminMessages.length && (
-        <Empty
-          text="Aucune information, convocation ou message du service administratif."
-        />
-      )}
-  </>
-);
-```
+      </>
+    );
+  }
 
   function NotificationsPage() {
     return (
