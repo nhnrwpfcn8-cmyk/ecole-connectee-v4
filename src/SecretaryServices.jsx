@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 
 function SecretaryServices({ session, profile, onLogout, onBack }) {
   const [activeTab, setActiveTab] = useState('parents')
+
   const [parents, setParents] = useState([])
   const [classes, setClasses] = useState([])
   const [students, setStudents] = useState([])
@@ -12,6 +13,7 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
 
   const [selectedParent, setSelectedParent] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
+  const [selectedChildren, setSelectedChildren] = useState([])
 
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
@@ -68,7 +70,10 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
             phone,
             email,
             address,
-            active
+            active,
+            family_identifier,
+            login_identifier,
+            generated_login
           `)
           .eq('school_id', schoolId)
           .order('full_name'),
@@ -87,7 +92,10 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
             last_name,
             student_code,
             class_id,
-            active
+            active,
+            family_identifier,
+            login_identifier,
+            generated_login
           `)
           .eq('school_id', schoolId)
           .order('last_name'),
@@ -161,78 +169,223 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     }
   }
 
-  // Recherche améliorée : nom, téléphone ou email.
-  // Les espaces et majuscules/minuscules ne bloquent plus la recherche.
-  const filteredParents = useMemo(() => {
-    const value = search
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ')
+  /*
+   * RECHERCHE DES ÉLÈVES
+   *
+   * La recherche se fait maintenant directement sur students.
+   * Le parent n'est plus recherché avec students.parent_id,
+   * car cette colonne n'existe pas.
+   *
+   * La relation correcte est :
+   * students.id
+   *      ↓
+   * parent_students.student_id
+   *      ↓
+   * parent_students.parent_id
+   *      ↓
+   * parents.id
+   */
+  const filteredStudents = useMemo(() => {
+    const value = search.trim().toLowerCase()
 
-    if (!value) return parents
+    if (!value) {
+      return students
+    }
 
-    const searchPhone = value.replace(/\s+/g, '')
+    return students.filter((student) => {
+      const fullName =
+        `${student.first_name || ''} ${student.last_name || ''}`
+          .trim()
+          .toLowerCase()
 
-    return parents.filter((parent) => {
-      const fullName = String(parent.full_name || '').toLowerCase()
-      const phone = String(parent.phone || '').toLowerCase()
-      const email = String(parent.email || '').toLowerCase()
+      const reverseName =
+        `${student.last_name || ''} ${student.first_name || ''}`
+          .trim()
+          .toLowerCase()
 
-      const normalizedPhone = phone.replace(/\s+/g, '')
+      const studentCode =
+        student.student_code?.toLowerCase() || ''
+
+      const familyIdentifier =
+        student.family_identifier?.toLowerCase() || ''
+
+      const loginIdentifier =
+        student.login_identifier?.toLowerCase() || ''
+
+      const generatedLogin =
+        student.generated_login?.toLowerCase() || ''
 
       return (
         fullName.includes(value) ||
-        phone.includes(value) ||
-        normalizedPhone.includes(searchPhone) ||
-        email.includes(value)
+        reverseName.includes(value) ||
+        studentCode.includes(value) ||
+        familyIdentifier.includes(value) ||
+        loginIdentifier.includes(value) ||
+        generatedLogin.includes(value)
       )
     })
-  }, [parents, search])
+  }, [students, search])
 
-  function getParentStudents(parentId) {
-    return students.filter((student) => {
-      return student.parent_id === parentId
-    })
-  }
-
-  async function getChildrenOfParent(parentId) {
-    const { data, error } = await supabase
-      .from('parent_students')
-      .select('student_id')
-      .eq('parent_id', parentId)
-
-    if (error) {
-      console.error(error)
+  /*
+   * Recherche des parents d'un élève
+   * via parent_students.
+   */
+  async function getParentsOfStudent(studentId) {
+    if (!studentId || !schoolId) {
       return []
     }
 
-    const ids = (data || []).map((item) => item.student_id)
+    try {
+      const { data: relations, error: relationError } =
+        await supabase
+          .from('parent_students')
+          .select(`
+            id,
+            parent_id,
+            student_id,
+            relationship,
+            is_primary
+          `)
+          .eq('student_id', studentId)
 
-    return students.filter((student) => ids.includes(student.id))
+      if (relationError) {
+        throw relationError
+      }
+
+      const parentIds = [
+        ...new Set(
+          (relations || [])
+            .map((item) => item.parent_id)
+            .filter(Boolean)
+        ),
+      ]
+
+      if (parentIds.length === 0) {
+        return []
+      }
+
+      const { data: parentData, error: parentError } =
+        await supabase
+          .from('parents')
+          .select(`
+            id,
+            full_name,
+            phone,
+            email,
+            address,
+            active,
+            family_identifier,
+            login_identifier,
+            generated_login
+          `)
+          .eq('school_id', schoolId)
+          .in('id', parentIds)
+          .order('full_name')
+
+      if (parentError) {
+        throw parentError
+      }
+
+      return (parentData || []).map((parent) => {
+        const relation = (relations || []).find(
+          (item) => item.parent_id === parent.id
+        )
+
+        return {
+          ...parent,
+          relationship: relation?.relationship || null,
+          is_primary: relation?.is_primary || false,
+        }
+      })
+    } catch (err) {
+      console.error(
+        'Erreur récupération parent de l’élève :',
+        err
+      )
+
+      setError(
+        err.message ||
+          'Impossible de retrouver le parent de cet élève.'
+      )
+
+      return []
+    }
   }
 
-  const [selectedChildren, setSelectedChildren] = useState([])
+  /*
+   * Sélection d'un élève.
+   * On retrouve automatiquement son ou ses parents.
+   */
+  async function handleSelectStudent(student) {
+    setSelectedStudent(student)
+    setSelectedParent(null)
+    setSelectedChildren([])
+    setMeetingStudent(student.id)
+    setMeetingParent('')
 
-  async function handleSelectParent(parent) {
+    setMessage('')
+    setError('')
+
+    const studentParents = await getParentsOfStudent(student.id)
+
+    if (studentParents.length === 0) {
+      setError(
+        `Aucun parent associé à ${student.first_name} ${student.last_name}.`
+      )
+      return
+    }
+
+    /*
+     * Si plusieurs parents existent, on sélectionne
+     * automatiquement le parent principal.
+     */
+    const primaryParent =
+      studentParents.find(
+        (parent) => parent.is_primary
+      ) || studentParents[0]
+
+    setSelectedParent(primaryParent)
+    setMeetingParent(primaryParent.id)
+
+    /*
+     * On affiche aussi tous les parents associés
+     * dans selectedChildren pour conserver une structure
+     * simple dans l'interface.
+     */
+    setSelectedChildren(studentParents)
+  }
+
+  /*
+   * Sélection directe d'un parent parmi les parents
+   * associés à l'élève.
+   */
+  function handleSelectParent(parent) {
     setSelectedParent(parent)
-    setSelectedStudent(null)
     setMeetingParent(parent.id)
     setAnnouncementParent(parent.id)
 
-    const children = await getChildrenOfParent(parent.id)
-    setSelectedChildren(children)
+    setMessage('')
+    setError('')
   }
 
   function className(classId) {
-    return classes.find((item) => item.id === classId)?.name || 'Classe non définie'
+    return (
+      classes.find((item) => item.id === classId)?.name ||
+      'Classe non définie'
+    )
   }
 
   function parentName(parentId) {
-    return parents.find((item) => item.id === parentId)?.full_name || 'Parent'
+    return (
+      parents.find((item) => item.id === parentId)?.full_name ||
+      'Parent'
+    )
   }
 
   function studentName(studentId) {
-    const student = students.find((item) => item.id === studentId)
+    const student = students.find(
+      (item) => item.id === studentId
+    )
 
     if (!student) return 'Élève'
 
@@ -245,13 +398,25 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     setMessage('')
     setError('')
 
-    if (!selectedParent) {
-      setError('Veuillez sélectionner un parent.')
+    if (!selectedStudent) {
+      setError('Veuillez d’abord sélectionner un élève.')
       return
     }
 
-    if (!messageSubject.trim() || !messageText.trim()) {
-      setError('Veuillez remplir le sujet et le message.')
+    if (!selectedParent) {
+      setError(
+        'Aucun parent sélectionné pour cet élève.'
+      )
+      return
+    }
+
+    if (
+      !messageSubject.trim() ||
+      !messageText.trim()
+    ) {
+      setError(
+        'Veuillez remplir le sujet et le message.'
+      )
       return
     }
 
@@ -270,14 +435,20 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
 
       if (error) throw error
 
-      setMessage('Message envoyé au parent avec succès.')
+      setMessage(
+        `Message envoyé à ${selectedParent.full_name} avec succès.`
+      )
+
       setMessageSubject('')
       setMessageText('')
 
       await loadData()
     } catch (err) {
       console.error(err)
-      setError(err.message || 'Erreur lors de l’envoi du message.')
+      setError(
+        err.message ||
+          'Erreur lors de l’envoi du message.'
+      )
     } finally {
       setSaving(false)
     }
@@ -289,8 +460,13 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     setMessage('')
     setError('')
 
-    if (!announcementTitle.trim() || !announcementText.trim()) {
-      setError('Veuillez renseigner le titre et le contenu.')
+    if (
+      !announcementTitle.trim() ||
+      !announcementText.trim()
+    ) {
+      setError(
+        'Veuillez renseigner le titre et le contenu.'
+      )
       return
     }
 
@@ -335,7 +511,10 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
 
       if (error) throw error
 
-      setMessage('Information publiée avec succès.')
+      setMessage(
+        'Information publiée avec succès.'
+      )
+
       setAnnouncementTitle('')
       setAnnouncementText('')
       setAnnouncementTarget('all')
@@ -345,7 +524,10 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
       await loadData()
     } catch (err) {
       console.error(err)
-      setError(err.message || 'Erreur lors de la publication.')
+      setError(
+        err.message ||
+          'Erreur lors de la publication.'
+      )
     } finally {
       setSaving(false)
     }
@@ -363,7 +545,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     }
 
     if (!meetingReason.trim()) {
-      setError('Veuillez renseigner le motif du rendez-vous.')
+      setError(
+        'Veuillez renseigner le motif du rendez-vous.'
+      )
       return
     }
 
@@ -393,7 +577,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
 
       if (error) throw error
 
-      setMessage('Convocation / rendez-vous enregistré avec succès.')
+      setMessage(
+        'Convocation / rendez-vous enregistré avec succès.'
+      )
 
       setMeetingParent('')
       setMeetingStudent('')
@@ -405,13 +591,19 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
       await loadData()
     } catch (err) {
       console.error(err)
-      setError(err.message || 'Erreur lors de la création du rendez-vous.')
+      setError(
+        err.message ||
+          'Erreur lors de la création du rendez-vous.'
+      )
     } finally {
       setSaving(false)
     }
   }
 
-  async function updateMeetingStatus(meetingId, status) {
+  async function updateMeetingStatus(
+    meetingId,
+    status
+  ) {
     setError('')
     setMessage('')
 
@@ -426,7 +618,10 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
       return
     }
 
-    setMessage('Statut du rendez-vous mis à jour.')
+    setMessage(
+      'Statut du rendez-vous mis à jour.'
+    )
+
     await loadData()
   }
 
@@ -434,9 +629,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     if (!date) return '-'
 
     try {
-      return new Date(`${date}T00:00:00`).toLocaleDateString(
-        'fr-FR'
-      )
+      return new Date(
+        `${date}T00:00:00`
+      ).toLocaleDateString('fr-FR')
     } catch {
       return date
     }
@@ -446,7 +641,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     if (!date) return '-'
 
     try {
-      return new Date(date).toLocaleString('fr-FR')
+      return new Date(date).toLocaleString(
+        'fr-FR'
+      )
     } catch {
       return date
     }
@@ -472,8 +669,15 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
       <div style={styles.page}>
         <div style={styles.loadingCard}>
           <div style={styles.logo}>EC</div>
-          <h2>Chargement...</h2>
-          <p>Préparation de l’espace Scolarité & Communication.</p>
+
+          <h2 style={styles.blackText}>
+            Chargement...
+          </h2>
+
+          <p style={styles.blackText}>
+            Préparation de l’espace Scolarité &
+            Communication.
+          </p>
         </div>
       </div>
     )
@@ -546,7 +750,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                 ? styles.activeTab
                 : styles.tab
             }
-            onClick={() => setActiveTab('information')}
+            onClick={() =>
+              setActiveTab('information')
+            }
           >
             📢 Informations
           </button>
@@ -557,7 +763,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                 ? styles.activeTab
                 : styles.tab
             }
-            onClick={() => setActiveTab('meetings')}
+            onClick={() =>
+              setActiveTab('meetings')
+            }
           >
             📅 Convocations
           </button>
@@ -568,7 +776,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                 ? styles.activeTab
                 : styles.tab
             }
-            onClick={() => setActiveTab('history')}
+            onClick={() =>
+              setActiveTab('history')
+            }
           >
             🕘 Historique
           </button>
@@ -578,169 +788,348 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
           <section>
             <div style={styles.sectionHeader}>
               <div>
-                <h2>Communication avec les parents</h2>
-                <p>
-                  Recherchez un parent et envoyez-lui directement
-                  une information.
+                <h2 style={styles.blackText}>
+                  Communication avec les parents
+                </h2>
+
+                <p style={styles.blackText}>
+                  Recherchez un élève pour retrouver
+                  automatiquement son parent.
                 </p>
               </div>
 
               <div style={styles.counter}>
-                {parents.length} parent(s)
+                {students.length} élève(s)
               </div>
             </div>
 
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher un parent, téléphone ou email..."
-              style={styles.input}
-              aria-label="Rechercher un parent"
-            />
+            <div style={styles.searchBox}>
+              <label style={styles.label}>
+                🔎 Rechercher un élève
+              </label>
+
+              <input
+                value={search}
+                onChange={(event) =>
+                  setSearch(event.target.value)
+                }
+                placeholder="Nom, prénom ou matricule de l’élève..."
+                style={styles.input}
+              />
+            </div>
 
             <div style={styles.twoColumns}>
               <div style={styles.card}>
-                <h3>Liste des parents</h3>
+                <h3 style={styles.blackText}>
+                  Liste des élèves
+                </h3>
 
-                {filteredParents.length === 0 ? (
-                  <p style={styles.muted}>
-                    Aucun parent trouvé.
+                {filteredStudents.length === 0 ? (
+                  <p style={styles.blackText}>
+                    Aucun élève trouvé.
                   </p>
                 ) : (
                   <div style={styles.list}>
-                    {filteredParents.map((parent) => (
-                      <button
-                        key={parent.id}
-                        onClick={() => handleSelectParent(parent)}
-                        style={{
-                          ...styles.parentItem,
-                          ...(selectedParent?.id === parent.id
-                            ? styles.selectedParent
-                            : {}),
-                        }}
-                      >
-                        <strong>
-                          {parent.full_name}
-                        </strong>
+                    {filteredStudents.map(
+                      (student) => (
+                        <button
+                          key={student.id}
+                          onClick={() =>
+                            handleSelectStudent(
+                              student
+                            )
+                          }
+                          style={{
+                            ...styles.parentItem,
+                            ...(selectedStudent?.id ===
+                            student.id
+                              ? styles.selectedParent
+                              : {}),
+                          }}
+                        >
+                          <strong style={styles.blackText}>
+                            {student.first_name}{' '}
+                            {student.last_name}
+                          </strong>
 
-                        <span>
-                          {parent.phone || 'Téléphone non renseigné'}
-                        </span>
+                          <span
+                            style={
+                              styles.blackText
+                            }
+                          >
+                            {className(
+                              student.class_id
+                            )}
+                          </span>
 
-                        <span>
-                          {parent.email || 'Email non renseigné'}
-                        </span>
-                      </button>
-                    ))}
+                          {student.student_code && (
+                            <span
+                              style={
+                                styles.blackText
+                              }
+                            >
+                              Matricule :{' '}
+                              {student.student_code}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    )}
                   </div>
                 )}
               </div>
 
               <div style={styles.card}>
-                {!selectedParent ? (
+                {!selectedStudent ? (
                   <div style={styles.empty}>
-                    <div style={styles.emptyIcon}>👨‍👩‍👧</div>
-                    <h3>Sélectionnez un parent</h3>
-                    <p>
-                      Les informations du parent et les enfants
-                      associés apparaîtront ici.
+                    <div
+                      style={styles.emptyIcon}
+                    >
+                      👨‍👩‍👧
+                    </div>
+
+                    <h3 style={styles.blackText}>
+                      Sélectionnez un élève
+                    </h3>
+
+                    <p style={styles.blackText}>
+                      Recherchez un élève à gauche
+                      pour retrouver automatiquement
+                      son ou ses parents.
                     </p>
                   </div>
                 ) : (
                   <>
-                    <h3>
-                      {selectedParent.full_name}
+                    <h3 style={styles.blackText}>
+                      Élève sélectionné
                     </h3>
 
                     <div style={styles.infoBox}>
-                      <p>
-                        <strong>Téléphone :</strong>{' '}
-                        {selectedParent.phone || '-'}
+                      <p style={styles.blackText}>
+                        <strong>
+                          Nom :
+                        </strong>{' '}
+                        {selectedStudent.first_name}{' '}
+                        {selectedStudent.last_name}
                       </p>
 
-                      <p>
-                        <strong>Email :</strong>{' '}
-                        {selectedParent.email || '-'}
+                      <p style={styles.blackText}>
+                        <strong>
+                          Classe :
+                        </strong>{' '}
+                        {className(
+                          selectedStudent.class_id
+                        )}
                       </p>
 
-                      <p>
-                        <strong>Adresse :</strong>{' '}
-                        {selectedParent.address || '-'}
+                      <p style={styles.blackText}>
+                        <strong>
+                          Matricule :
+                        </strong>{' '}
+                        {selectedStudent.student_code ||
+                          '-'}
                       </p>
                     </div>
 
-                    <h4>Enfant(s)</h4>
+                    <h4 style={styles.blackText}>
+                      Parent(s) associé(s)
+                    </h4>
 
-                    {selectedChildren.length === 0 ? (
-                      <p style={styles.muted}>
-                        Aucun enfant associé trouvé.
+                    {selectedChildren.length ===
+                    0 ? (
+                      <p style={styles.blackText}>
+                        Aucun parent associé trouvé.
                       </p>
                     ) : (
                       <div style={styles.children}>
-                        {selectedChildren.map((student) => (
-                          <button
-                            key={student.id}
-                            onClick={() =>
-                              setSelectedStudent(student)
-                            }
-                            style={styles.child}
-                          >
-                            <strong>
-                              {student.first_name}{' '}
-                              {student.last_name}
-                            </strong>
+                        {selectedChildren.map(
+                          (parent) => (
+                            <button
+                              key={parent.id}
+                              onClick={() =>
+                                handleSelectParent(
+                                  parent
+                                )
+                              }
+                              style={{
+                                ...styles.child,
+                                ...(selectedParent?.id ===
+                                parent.id
+                                  ? styles.selectedChild
+                                  : {}),
+                              }}
+                            >
+                              <strong
+                                style={
+                                  styles.blackText
+                                }
+                              >
+                                {parent.full_name}
+                              </strong>
 
-                            <span>
-                              {className(student.class_id)}
-                            </span>
-                          </button>
-                        ))}
+                              <span
+                                style={
+                                  styles.blackText
+                                }
+                              >
+                                {parent.relationship ||
+                                  'Parent / responsable'}
+                              </span>
+
+                              <span
+                                style={
+                                  styles.blackText
+                                }
+                              >
+                                {parent.phone ||
+                                  'Téléphone non renseigné'}
+                              </span>
+
+                              <span
+                                style={
+                                  styles.blackText
+                                }
+                              >
+                                {parent.email ||
+                                  'Email non renseigné'}
+                              </span>
+
+                              {parent.is_primary && (
+                                <small
+                                  style={
+                                    styles.primaryLabel
+                                  }
+                                >
+                                  Parent principal
+                                </small>
+                              )}
+                            </button>
+                          )
+                        )}
                       </div>
                     )}
 
-                    <hr style={styles.hr} />
+                    {selectedParent && (
+                      <>
+                        <hr style={styles.hr} />
 
-                    <h3>Envoyer un message</h3>
+                        <h3 style={styles.blackText}>
+                          Parent sélectionné
+                        </h3>
 
-                    <form onSubmit={sendParentMessage}>
-                      <label style={styles.label}>
-                        Sujet
-                      </label>
+                        <div
+                          style={styles.infoBox}
+                        >
+                          <p
+                            style={
+                              styles.blackText
+                            }
+                          >
+                            <strong>
+                              Nom :
+                            </strong>{' '}
+                            {
+                              selectedParent.full_name
+                            }
+                          </p>
 
-                      <input
-                        value={messageSubject}
-                        onChange={(event) =>
-                          setMessageSubject(event.target.value)
-                        }
-                        placeholder="Ex : Information importante"
-                        style={styles.input}
-                      />
+                          <p
+                            style={
+                              styles.blackText
+                            }
+                          >
+                            <strong>
+                              Téléphone :
+                            </strong>{' '}
+                            {selectedParent.phone ||
+                              '-'}
+                          </p>
 
-                      <label style={styles.label}>
-                        Message
-                      </label>
+                          <p
+                            style={
+                              styles.blackText
+                            }
+                          >
+                            <strong>
+                              Email :
+                            </strong>{' '}
+                            {selectedParent.email ||
+                              '-'}
+                          </p>
 
-                      <textarea
-                        value={messageText}
-                        onChange={(event) =>
-                          setMessageText(event.target.value)
-                        }
-                        placeholder="Écrivez votre message..."
-                        rows={6}
-                        style={styles.textarea}
-                      />
+                          <p
+                            style={
+                              styles.blackText
+                            }
+                          >
+                            <strong>
+                              Adresse :
+                            </strong>{' '}
+                            {selectedParent.address ||
+                              '-'}
+                          </p>
+                        </div>
 
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        style={styles.primaryButton}
-                      >
-                        {saving
-                          ? 'Envoi...'
-                          : '✉️ Envoyer au parent'}
-                      </button>
-                    </form>
+                        <h3 style={styles.blackText}>
+                          Envoyer un message
+                        </h3>
+
+                        <form
+                          onSubmit={
+                            sendParentMessage
+                          }
+                        >
+                          <label
+                            style={styles.label}
+                          >
+                            Sujet
+                          </label>
+
+                          <input
+                            value={
+                              messageSubject
+                            }
+                            onChange={(event) =>
+                              setMessageSubject(
+                                event.target.value
+                              )
+                            }
+                            placeholder="Ex : Information importante"
+                            style={styles.input}
+                          />
+
+                          <label
+                            style={styles.label}
+                          >
+                            Message
+                          </label>
+
+                          <textarea
+                            value={messageText}
+                            onChange={(event) =>
+                              setMessageText(
+                                event.target.value
+                              )
+                            }
+                            placeholder="Écrivez votre message..."
+                            rows={6}
+                            style={styles.textarea}
+                          />
+
+                          <button
+                            type="submit"
+                            disabled={saving}
+                            style={
+                              styles.primaryButton
+                            }
+                          >
+                            {saving
+                              ? 'Envoi...'
+                              : '✉️ Envoyer au parent'}
+                          </button>
+                        </form>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -752,16 +1141,22 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
           <section>
             <div style={styles.sectionHeader}>
               <div>
-                <h2>Informations à transmettre aux parents</h2>
-                <p>
-                  Publiez une information générale, par classe ou
-                  pour un parent précis.
+                <h2 style={styles.blackText}>
+                  Informations à transmettre aux
+                  parents
+                </h2>
+
+                <p style={styles.blackText}>
+                  Publiez une information générale,
+                  par classe ou pour un parent précis.
                 </p>
               </div>
             </div>
 
             <div style={styles.card}>
-              <form onSubmit={publishAnnouncement}>
+              <form
+                onSubmit={publishAnnouncement}
+              >
                 <label style={styles.label}>
                   Destinataires
                 </label>
@@ -769,7 +1164,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                 <select
                   value={announcementTarget}
                   onChange={(event) =>
-                    setAnnouncementTarget(event.target.value)
+                    setAnnouncementTarget(
+                      event.target.value
+                    )
                   }
                   style={styles.input}
                 >
@@ -786,7 +1183,8 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   </option>
                 </select>
 
-                {announcementTarget === 'class' && (
+                {announcementTarget ===
+                  'class' && (
                   <>
                     <label style={styles.label}>
                       Classe
@@ -795,7 +1193,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                     <select
                       value={announcementClass}
                       onChange={(event) =>
-                        setAnnouncementClass(event.target.value)
+                        setAnnouncementClass(
+                          event.target.value
+                        )
                       }
                       style={styles.input}
                     >
@@ -818,7 +1218,8 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   </>
                 )}
 
-                {announcementTarget === 'parent' && (
+                {announcementTarget ===
+                  'parent' && (
                   <>
                     <label style={styles.label}>
                       Parent
@@ -827,7 +1228,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                     <select
                       value={announcementParent}
                       onChange={(event) =>
-                        setAnnouncementParent(event.target.value)
+                        setAnnouncementParent(
+                          event.target.value
+                        )
                       }
                       style={styles.input}
                     >
@@ -854,7 +1257,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                 <input
                   value={announcementTitle}
                   onChange={(event) =>
-                    setAnnouncementTitle(event.target.value)
+                    setAnnouncementTitle(
+                      event.target.value
+                    )
                   }
                   placeholder="Ex : Réunion de parents"
                   style={styles.input}
@@ -867,7 +1272,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                 <textarea
                   value={announcementText}
                   onChange={(event) =>
-                    setAnnouncementText(event.target.value)
+                    setAnnouncementText(
+                      event.target.value
+                    )
                   }
                   placeholder="Écrivez l'information à transmettre..."
                   rows={8}
@@ -892,19 +1299,26 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
           <section>
             <div style={styles.sectionHeader}>
               <div>
-                <h2>Convocations & rendez-vous</h2>
-                <p>
-                  Organisez les rendez-vous entre l'école et les
-                  parents.
+                <h2 style={styles.blackText}>
+                  Convocations & rendez-vous
+                </h2>
+
+                <p style={styles.blackText}>
+                  Organisez les rendez-vous entre
+                  l'école et les parents.
                 </p>
               </div>
             </div>
 
             <div style={styles.twoColumns}>
               <div style={styles.card}>
-                <h3>Nouveau rendez-vous</h3>
+                <h3 style={styles.blackText}>
+                  Nouveau rendez-vous
+                </h3>
 
-                <form onSubmit={createMeeting}>
+                <form
+                  onSubmit={createMeeting}
+                >
                   <label style={styles.label}>
                     Parent
                   </label>
@@ -912,8 +1326,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   <select
                     value={meetingParent}
                     onChange={(event) => {
-                      setMeetingParent(event.target.value)
-                      setMeetingStudent('')
+                      setMeetingParent(
+                        event.target.value
+                      )
                     }}
                     style={styles.input}
                   >
@@ -938,7 +1353,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   <select
                     value={meetingStudent}
                     onChange={(event) =>
-                      setMeetingStudent(event.target.value)
+                      setMeetingStudent(
+                        event.target.value
+                      )
                     }
                     style={styles.input}
                   >
@@ -946,24 +1363,15 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                       Aucun élève précis
                     </option>
 
-                    {students
-                      .filter((student) => {
-                        if (!meetingParent) return true
-
-                        return selectedChildren.some(
-                          (child) =>
-                            child.id === student.id
-                        )
-                      })
-                      .map((student) => (
-                        <option
-                          key={student.id}
-                          value={student.id}
-                        >
-                          {student.first_name}{' '}
-                          {student.last_name}
-                        </option>
-                      ))}
+                    {students.map((student) => (
+                      <option
+                        key={student.id}
+                        value={student.id}
+                      >
+                        {student.first_name}{' '}
+                        {student.last_name}
+                      </option>
+                    ))}
                   </select>
 
                   <label style={styles.label}>
@@ -973,7 +1381,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   <input
                     value={meetingReason}
                     onChange={(event) =>
-                      setMeetingReason(event.target.value)
+                      setMeetingReason(
+                        event.target.value
+                      )
                     }
                     placeholder="Ex : Entretien scolaire"
                     style={styles.input}
@@ -987,7 +1397,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                     type="date"
                     value={meetingDate}
                     onChange={(event) =>
-                      setMeetingDate(event.target.value)
+                      setMeetingDate(
+                        event.target.value
+                      )
                     }
                     style={styles.input}
                   />
@@ -1000,7 +1412,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                     type="time"
                     value={meetingTime}
                     onChange={(event) =>
-                      setMeetingTime(event.target.value)
+                      setMeetingTime(
+                        event.target.value
+                      )
                     }
                     style={styles.input}
                   />
@@ -1012,7 +1426,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   <textarea
                     value={meetingNotes}
                     onChange={(event) =>
-                      setMeetingNotes(event.target.value)
+                      setMeetingNotes(
+                        event.target.value
+                      )
                     }
                     rows={5}
                     placeholder="Notes internes..."
@@ -1032,10 +1448,12 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
               </div>
 
               <div style={styles.card}>
-                <h3>Rendez-vous programmés</h3>
+                <h3 style={styles.blackText}>
+                  Rendez-vous programmés
+                </h3>
 
                 {meetings.length === 0 ? (
-                  <p style={styles.muted}>
+                  <p style={styles.blackText}>
                     Aucun rendez-vous enregistré.
                   </p>
                 ) : (
@@ -1046,15 +1464,29 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                         style={styles.meeting}
                       >
                         <div>
-                          <strong>
-                            {parentName(meeting.parent_id)}
+                          <strong
+                            style={
+                              styles.blackText
+                            }
+                          >
+                            {parentName(
+                              meeting.parent_id
+                            )}
                           </strong>
 
-                          <p>
+                          <p
+                            style={
+                              styles.blackText
+                            }
+                          >
                             {meeting.reason}
                           </p>
 
-                          <span>
+                          <span
+                            style={
+                              styles.blackText
+                            }
+                          >
                             {formatDate(
                               meeting.meeting_date
                             )}
@@ -1065,7 +1497,11 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                           </span>
 
                           {meeting.student_id && (
-                            <small>
+                            <small
+                              style={
+                                styles.blackText
+                              }
+                            >
                               Élève :{' '}
                               {studentName(
                                 meeting.student_id
@@ -1082,7 +1518,9 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                               event.target.value
                             )
                           }
-                          style={styles.statusSelect}
+                          style={
+                            styles.statusSelect
+                          }
                         >
                           <option value="planned">
                             Planifié
@@ -1113,19 +1551,24 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
           <section>
             <div style={styles.sectionHeader}>
               <div>
-                <h2>Historique des communications</h2>
-                <p>
-                  Retrouvez les messages et informations déjà
-                  transmis.
+                <h2 style={styles.blackText}>
+                  Historique des communications
+                </h2>
+
+                <p style={styles.blackText}>
+                  Retrouvez les messages et
+                  informations déjà transmis.
                 </p>
               </div>
             </div>
 
             <div style={styles.card}>
-              <h3>Messages envoyés</h3>
+              <h3 style={styles.blackText}>
+                Messages envoyés
+              </h3>
 
               {messages.length === 0 ? (
-                <p style={styles.muted}>
+                <p style={styles.blackText}>
                   Aucun message envoyé.
                 </p>
               ) : (
@@ -1133,20 +1576,45 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   {messages.map((item) => (
                     <div
                       key={item.id}
-                      style={styles.historyItem}
+                      style={
+                        styles.historyItem
+                      }
                     >
-                      <strong>
+                      <strong
+                        style={
+                          styles.blackText
+                        }
+                      >
                         {item.subject}
                       </strong>
 
-                      <span>
-                        À : {parentName(item.parent_id)}
+                      <span
+                        style={
+                          styles.blackText
+                        }
+                      >
+                        À :{' '}
+                        {parentName(
+                          item.parent_id
+                        )}
                       </span>
 
-                      <p>{item.message}</p>
+                      <p
+                        style={
+                          styles.blackText
+                        }
+                      >
+                        {item.message}
+                      </p>
 
-                      <small>
-                        {formatDateTime(item.created_at)}
+                      <small
+                        style={
+                          styles.blackText
+                        }
+                      >
+                        {formatDateTime(
+                          item.created_at
+                        )}
                       </small>
                     </div>
                   ))}
@@ -1155,10 +1623,12 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
             </div>
 
             <div style={styles.card}>
-              <h3>Informations publiées</h3>
+              <h3 style={styles.blackText}>
+                Informations publiées
+              </h3>
 
               {announcements.length === 0 ? (
-                <p style={styles.muted}>
+                <p style={styles.blackText}>
                   Aucune information publiée.
                 </p>
               ) : (
@@ -1166,17 +1636,29 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                   {announcements.map((item) => (
                     <div
                       key={item.id}
-                      style={styles.historyItem}
+                      style={
+                        styles.historyItem
+                      }
                     >
-                      <strong>
+                      <strong
+                        style={
+                          styles.blackText
+                        }
+                      >
                         {item.title}
                       </strong>
 
-                      <span>
+                      <span
+                        style={
+                          styles.blackText
+                        }
+                      >
                         Destinataires :{' '}
-                        {item.target_type === 'all'
+                        {item.target_type ===
+                        'all'
                           ? 'Tous les parents'
-                          : item.target_type === 'class'
+                          : item.target_type ===
+                              'class'
                             ? `Classe ${className(
                                 item.target_class_id
                               )}`
@@ -1185,9 +1667,19 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
                               )}
                       </span>
 
-                      <p>{item.message}</p>
+                      <p
+                        style={
+                          styles.blackText
+                        }
+                      >
+                        {item.message}
+                      </p>
 
-                      <small>
+                      <small
+                        style={
+                          styles.blackText
+                        }
+                      >
                         {formatDateTime(
                           item.published_at ||
                             item.created_at
@@ -1209,9 +1701,13 @@ const styles = {
   page: {
     minHeight: '100vh',
     background: '#f5f7fb',
-    color: '#172033',
+    color: '#000000',
     fontFamily:
       'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+
+  blackText: {
+    color: '#000000',
   },
 
   header: {
@@ -1223,6 +1719,7 @@ const styles = {
     alignItems: 'center',
     gap: '20px',
     flexWrap: 'wrap',
+    color: '#000000',
   },
 
   brand: {
@@ -1246,11 +1743,12 @@ const styles = {
   title: {
     margin: 0,
     fontSize: '22px',
+    color: '#000000',
   },
 
   subtitle: {
     margin: '4px 0 0',
-    color: '#64748b',
+    color: '#000000',
   },
 
   headerActions: {
@@ -1263,6 +1761,7 @@ const styles = {
     maxWidth: '1250px',
     margin: '0 auto',
     padding: '24px',
+    color: '#000000',
   },
 
   loadingCard: {
@@ -1272,7 +1771,9 @@ const styles = {
     borderRadius: '20px',
     padding: '40px',
     textAlign: 'center',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+    boxShadow:
+      '0 10px 30px rgba(0,0,0,0.08)',
+    color: '#000000',
   },
 
   tabs: {
@@ -1285,6 +1786,7 @@ const styles = {
   tab: {
     border: '1px solid #dbe2ea',
     background: '#ffffff',
+    color: '#000000',
     padding: '12px 18px',
     borderRadius: '10px',
     cursor: 'pointer',
@@ -1307,14 +1809,24 @@ const styles = {
     gap: '20px',
     alignItems: 'center',
     marginBottom: '20px',
+    color: '#000000',
   },
 
   counter: {
     background: '#e8efff',
-    color: '#1d4ed8',
+    color: '#000000',
     padding: '8px 14px',
     borderRadius: '999px',
     fontWeight: '700',
+  },
+
+  searchBox: {
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: '16px',
+    padding: '18px',
+    marginBottom: '20px',
+    color: '#000000',
   },
 
   twoColumns: {
@@ -1330,7 +1842,9 @@ const styles = {
     borderRadius: '16px',
     padding: '22px',
     marginBottom: '20px',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.04)',
+    boxShadow:
+      '0 4px 15px rgba(0,0,0,0.04)',
+    color: '#000000',
   },
 
   input: {
@@ -1342,6 +1856,7 @@ const styles = {
     fontSize: '15px',
     marginBottom: '14px',
     background: '#ffffff',
+    color: '#000000',
   },
 
   textarea: {
@@ -1354,12 +1869,15 @@ const styles = {
     marginBottom: '14px',
     resize: 'vertical',
     fontFamily: 'inherit',
+    background: '#ffffff',
+    color: '#000000',
   },
 
   label: {
     display: 'block',
     fontWeight: '700',
     marginBottom: '7px',
+    color: '#000000',
   },
 
   primaryButton: {
@@ -1375,6 +1893,7 @@ const styles = {
   secondaryButton: {
     border: '1px solid #cbd5e1',
     background: '#ffffff',
+    color: '#000000',
     padding: '10px 15px',
     borderRadius: '10px',
     cursor: 'pointer',
@@ -1395,6 +1914,7 @@ const styles = {
     width: '100%',
     textAlign: 'left',
     background: '#ffffff',
+    color: '#000000',
     border: '1px solid #e2e8f0',
     borderRadius: '10px',
     padding: '14px',
@@ -1424,6 +1944,7 @@ const styles = {
   child: {
     border: '1px solid #e2e8f0',
     background: '#f8fafc',
+    color: '#000000',
     padding: '12px',
     borderRadius: '10px',
     textAlign: 'left',
@@ -1433,8 +1954,19 @@ const styles = {
     gap: '4px',
   },
 
+  selectedChild: {
+    border: '2px solid #1d4ed8',
+    background: '#eff6ff',
+  },
+
+  primaryLabel: {
+    color: '#000000',
+    fontWeight: '700',
+  },
+
   infoBox: {
     background: '#f8fafc',
+    color: '#000000',
     padding: '14px',
     borderRadius: '10px',
     marginBottom: '18px',
@@ -1443,7 +1975,7 @@ const styles = {
   empty: {
     padding: '60px 20px',
     textAlign: 'center',
-    color: '#64748b',
+    color: '#000000',
   },
 
   emptyIcon: {
@@ -1451,12 +1983,12 @@ const styles = {
   },
 
   muted: {
-    color: '#64748b',
+    color: '#000000',
   },
 
   success: {
     background: '#dcfce7',
-    color: '#166534',
+    color: '#000000',
     border: '1px solid #bbf7d0',
     padding: '12px 15px',
     borderRadius: '10px',
@@ -1465,7 +1997,7 @@ const styles = {
 
   error: {
     background: '#fee2e2',
-    color: '#991b1b',
+    color: '#000000',
     border: '1px solid #fecaca',
     padding: '12px 15px',
     borderRadius: '10px',
@@ -1486,6 +2018,7 @@ const styles = {
     justifyContent: 'space-between',
     gap: '15px',
     alignItems: 'flex-start',
+    color: '#000000',
   },
 
   statusSelect: {
@@ -1493,12 +2026,14 @@ const styles = {
     borderRadius: '8px',
     padding: '8px',
     background: '#ffffff',
+    color: '#000000',
   },
 
   historyItem: {
     border: '1px solid #e2e8f0',
     borderRadius: '12px',
     padding: '15px',
+    color: '#000000',
   },
 }
 
