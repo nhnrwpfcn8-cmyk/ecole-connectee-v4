@@ -270,13 +270,10 @@ export default function ParentDashboard({
          * 6. Présence
          */
         const { data: attendanceRows, error: attendanceError } =
-          await supabase
-            .from("attendance")
-            .select("*")
-            .in("student_id", studentIds)
-            .order("date", {
-              ascending: false,
-            });
+  await supabase
+    .from("attendance")
+    .select("*")
+    .in("student_id", studentIds);
         if (attendanceError) {
           throw attendanceError;
         }
