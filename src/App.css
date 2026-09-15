@@ -1802,3 +1802,338 @@ button:disabled {
     font-size: 15px;
   }
 }
+/* =========================================================
+   ÉCOLE CONNECTÉE — DESIGN MOBILE OFFICIEL
+   Design uniquement — aucune logique fonctionnelle modifiée
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+  /* ---------- BASE MOBILE ---------- */
+
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---------- CONTENEURS GÉNÉRAUX ---------- */
+
+  .app-container {
+    width: 100% !important;
+    min-height: 100dvh !important;
+    padding: 12px !important;
+    overflow-x: hidden !important;
+  }
+
+  .dashboard-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 22px !important;
+    overflow: hidden !important;
+  }
+
+  /* ---------- HEADER ---------- */
+
+  .dashboard-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 50 !important;
+    background: rgba(255,255,255,0.96) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+  }
+
+  .dashboard-header h1 {
+    font-size: 19px !important;
+  }
+
+  /* ---------- CARTES ---------- */
+
+  .welcome-section {
+    margin: 12px !important;
+    border-radius: 18px !important;
+  }
+
+  .role-card,
+  .feature-card {
+    border-radius: 16px !important;
+  }
+
+  /* ---------- BOUTONS ---------- */
+
+  .app-container button {
+    min-height: 44px;
+  }
+
+  .app-container input,
+  .app-container select,
+  .app-container textarea {
+    min-height: 44px;
+    max-width: 100%;
+  }
+
+  /* =====================================================
+     ADMIN PRINCIPAL
+     ===================================================== */
+
+  .admin-layout {
+    display: block !important;
+    min-height: 100dvh !important;
+    padding-bottom: 82px !important;
+  }
+
+  .admin-sidebar {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    top: auto !important;
+
+    width: auto !important;
+    min-width: 0 !important;
+    height: 64px !important;
+    min-height: 0 !important;
+
+    padding: 7px !important;
+    border-radius: 22px !important;
+
+    z-index: 1000 !important;
+
+    box-shadow:
+      0 14px 35px rgba(15,23,42,0.22) !important;
+  }
+
+  .admin-brand,
+  .admin-sidebar-footer {
+    display: none !important;
+  }
+
+  .admin-nav {
+    width: 100% !important;
+    height: 100% !important;
+
+    display: grid !important;
+    grid-template-columns:
+      repeat(5, minmax(0, 1fr)) !important;
+
+    gap: 4px !important;
+    overflow: hidden !important;
+  }
+
+  .admin-nav-item {
+    min-width: 0 !important;
+    height: 50px !important;
+
+    padding: 5px 2px !important;
+
+    border-radius: 15px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    gap: 3px !important;
+
+    text-align: center !important;
+
+    font-size: 9px !important;
+  }
+
+  .admin-nav-item span {
+    font-size: 18px !important;
+    line-height: 1 !important;
+  }
+
+  .admin-main {
+    width: 100% !important;
+    margin-left: 0 !important;
+
+    padding:
+      18px
+      14px
+      96px !important;
+  }
+
+  .admin-topbar h1 {
+    font-size: 24px !important;
+  }
+
+  .admin-stats-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+
+    gap: 10px !important;
+  }
+
+  .admin-stat-card {
+    min-height: 105px !important;
+    padding: 14px !important;
+    border-radius: 16px !important;
+  }
+
+  .admin-stat-icon {
+    width: 42px !important;
+    height: 42px !important;
+    border-radius: 12px !important;
+  }
+
+  .admin-stat-card strong {
+    font-size: 22px !important;
+  }
+
+  .admin-panel-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .admin-panel {
+    padding: 16px !important;
+    border-radius: 16px !important;
+  }
+
+  .admin-quick-grid {
+    grid-template-columns:
+      1fr 1fr !important;
+
+    gap: 8px !important;
+  }
+
+  /* =====================================================
+     ADMIN ÉCOLE / PROFESSEUR
+     ===================================================== */
+
+  .school-admin-layout {
+    display: block !important;
+    min-height: 100dvh !important;
+    padding-bottom: 82px !important;
+  }
+
+  .school-admin-sidebar {
+    position: fixed !important;
+
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    top: auto !important;
+
+    width: auto !important;
+    min-width: 0 !important;
+    height: 64px !important;
+    min-height: 0 !important;
+
+    padding: 7px !important;
+
+    border-radius: 22px !important;
+
+    z-index: 1000 !important;
+
+    box-shadow:
+      0 14px 35px rgba(15,23,42,0.22) !important;
+  }
+
+  .school-admin-brand,
+  .school-admin-sidebar-bottom,
+  .school-admin-user {
+    display: none !important;
+  }
+
+  .school-admin-nav {
+    width: 100% !important;
+    height: 100% !important;
+
+    display: grid !important;
+
+    grid-template-columns:
+      repeat(5, minmax(0, 1fr)) !important;
+
+    gap: 4px !important;
+  }
+
+  .school-admin-nav button,
+  .school-admin-nav-item {
+    min-width: 0 !important;
+    height: 50px !important;
+
+    padding: 5px 2px !important;
+
+    border-radius: 15px !important;
+
+    display: flex !important;
+    flex-direction: column !important;
+
+    align-items: center !important;
+    justify-content: center !important;
+
+    gap: 3px !important;
+
+    font-size: 9px !important;
+  }
+
+  .school-admin-nav-icon {
+    width: auto !important;
+    font-size: 18px !important;
+    line-height: 1 !important;
+  }
+
+  .school-admin-main {
+    width: 100% !important;
+    margin-left: 0 !important;
+
+    padding:
+      18px
+      14px
+      96px !important;
+  }
+
+  /* =====================================================
+     TABLEAUX SUR MOBILE
+     ===================================================== */
+
+  .admin-table-wrap,
+  .school-admin-table-wrap {
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  table {
+    font-size: 12px !important;
+  }
+
+  /* =====================================================
+     IMAGES / VIDÉOS / DOCUMENTS
+     ===================================================== */
+
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+
+  /* =====================================================
+     TOUCH
+     ===================================================== */
+
+  button,
+  [role="button"],
+  a {
+    touch-action: manipulation;
+  }
+}
