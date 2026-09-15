@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
+
 const MENU = [
   { id: "home", icon: "🏠", label: "Accueil" },
   { id: "children", icon: "👦", label: "Mes enfants" },
@@ -18,12 +19,145 @@ const MENU = [
     label: "Notifications",
   },
 ];
+
+function formatDate(value) {
+  if (!value) return "—";
+
+  return new Date(value).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatScore(value, max = 20) {
+  const score = Number(value);
+  const maximum = Number(max) || 20;
+
+  if (Number.isNaN(score)) return "—";
+
+  return `${score} / ${maximum}`;
+}
+
+function PageTitle({
+  icon,
+  title,
+  description,
+  onBack,
+}) {
+  return (
+    <div style={{ marginBottom: "22px" }}>
+      <button
+        type="button"
+        onClick={onBack}
+        style={{
+          border: "1px solid #e2e8f0",
+          background: "#ffffff",
+          color: "#334155",
+          borderRadius: "10px",
+          padding: "9px 13px",
+          cursor: "pointer",
+          fontWeight: 700,
+          fontSize: "13px",
+          marginBottom: "14px",
+          boxShadow: "0 1px 3px rgba(15,23,42,0.05)",
+        }}
+      >
+        ← Retour
+      </button>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}
+      >
+        <div
+          style={{
+            width: "46px",
+            height: "46px",
+            borderRadius: "13px",
+            background: "#eef2ff",
+            display: "grid",
+            placeItems: "center",
+            fontSize: "23px",
+            flexShrink: 0,
+          }}
+        >
+          {icon}
+        </div>
+
+        <div>
+          <h2
+            style={{
+              margin: 0,
+              color: "#0f172a",
+              fontSize: "22px",
+              fontWeight: 800,
+            }}
+          >
+            {title}
+          </h2>
+
+          {description && (
+            <p
+              style={{
+                margin: "5px 0 0",
+                color: "#64748b",
+                fontSize: "13px",
+              }}
+            >
+              {description}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Card({ children, style = {} }) {
+  return (
+    <div
+      style={{
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        borderRadius: "16px",
+        padding: "18px",
+        boxShadow: "0 3px 12px rgba(15,23,42,0.05)",
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Empty({ text }) {
+  return (
+    <Card>
+      <div
+        style={{
+          color: "#64748b",
+          textAlign: "center",
+          padding: "24px 15px",
+          fontSize: "14px",
+        }}
+      >
+        {text}
+      </div>
+    </Card>
+  );
+}
+
 export default function ParentDashboard({
   profile,
   session,
   onLogout,
 }) {
   const [page, setPage] = useState("home");
+
   const [children, setChildren] = useState([]);
   const [grades, setGrades] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -31,1682 +165,2587 @@ export default function ParentDashboard({
   const [adminMessages, setAdminMessages] = useState([]);
   const [adminAnnouncements, setAdminAnnouncements] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [activeSchoolId, setActiveSchoolId] = useState(
-    profile?.school_id || null
-  );
+
+  const [activeSchoolId, setActiveSchoolId] =
+    useState(profile?.school_id || null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const schoolId = activeSchoolId || profile?.school_id;
+
+  const schoolId =
+    activeSchoolId || profile?.school_id;
+
   const unreadNotifications = useMemo(
     () =>
-      notifications.filter((notification) => !notification.read_at)
-        .length,
+      notifications.filter(
+        (item) => !item.read_at
+      ).length,
     [notifications]
   );
+
   const unreadMessages = useMemo(
-    () => adminMessages.filter((message) => !message.read_at).length,
+    () =>
+      adminMessages.filter(
+        (item) => !item.read_at
+      ).length,
     [adminMessages]
   );
-  const loadParentData = async () => {
+
+  async function loadParentData() {
+    const connectedUserId =
+      session?.user?.id || profile?.id;
+
+    if (!connectedUserId) {
+      setLoading(false);
+      setError(
+        "Impossible d'identifier le compte connecté."
+      );
+      return;
+    }
+
     setLoading(true);
     setError("");
+
     try {
-      const connectedUserId =
-        session?.user?.id || profile?.id || null;
-      if (!connectedUserId) {
-        throw new Error("Utilisateur connecté introuvable.");
-      }
-      /*
-       * 1. Récupération du profil connecté
-       */
-      const { data: freshProfile, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select(
-            "id,school_id,full_name,role,active"
-          )
-          .eq("id", connectedUserId)
-          .maybeSingle();
+      const {
+        data: freshProfile,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select(
+          "id,school_id,full_name,role,active"
+        )
+        .eq("id", connectedUserId)
+        .maybeSingle();
+
       if (profileError) {
         throw profileError;
       }
-      if (!freshProfile) {
-        throw new Error("Profil parent introuvable.");
-      }
-      if (freshProfile.role !== "parent") {
-        throw new Error(
-          "Le compte connecté n'est pas configuré comme parent."
-        );
-      }
+
       const resolvedSchoolId =
-        freshProfile.school_id ||
+        freshProfile?.school_id ||
         profile?.school_id ||
         null;
-      if (!resolvedSchoolId) {
-        throw new Error(
-          "École du parent introuvable."
-        );
-      }
+
       setActiveSchoolId(resolvedSchoolId);
-      /*
-       * 2. Récupération du parent correspondant au profil
-       */
-      const { data: parent, error: parentError } =
-        await supabase
-          .from("parents")
-          .select(
-            "id,profile_id,school_id,full_name,phone,email,address,active"
-          )
-          .eq("profile_id", connectedUserId)
-          .eq("school_id", resolvedSchoolId)
-          .maybeSingle();
+
+      if (!resolvedSchoolId) {
+        setError(
+          "Aucune école n'est associée à ce compte."
+        );
+
+        setChildren([]);
+        setGrades([]);
+        setAttendance([]);
+        setBulletins([]);
+        setAdminMessages([]);
+        setAdminAnnouncements([]);
+        setNotifications([]);
+
+        return;
+      }
+
+      if (
+        freshProfile?.role &&
+        freshProfile.role !== "parent"
+      ) {
+        setError(
+          "Ce compte n'est pas configuré comme compte parent."
+        );
+
+        return;
+      }
+
+      const {
+        data: parent,
+        error: parentError,
+      } = await supabase
+        .from("parents")
+        .select(
+          "id,profile_id,school_id,full_name,phone,email,address,active"
+        )
+        .eq("profile_id", connectedUserId)
+        .eq("school_id", resolvedSchoolId)
+        .maybeSingle();
+
       if (parentError) {
         throw parentError;
       }
+
       if (!parent) {
-        throw new Error(
-          "Fiche parent introuvable."
+        setChildren([]);
+        setGrades([]);
+        setAttendance([]);
+        setBulletins([]);
+        setAdminMessages([]);
+        setAdminAnnouncements([]);
+        setNotifications([]);
+
+        setError(
+          "Aucun profil parent associé à ce compte."
         );
+
+        return;
       }
-      /*
-       * 3. Récupération des enfants liés au parent
-       */
-      const { data: parentLinks, error: linksError } =
-        await supabase
-          .from("parent_students")
-          .select(
-            "id,parent_id,student_id,relationship,is_primary"
-          )
-          .eq("parent_id", parent.id);
+
+      const {
+        data: links,
+        error: linksError,
+      } = await supabase
+        .from("parent_students")
+        .select(
+          "id,parent_id,student_id,relationship,is_primary,created_at"
+        )
+        .eq("parent_id", parent.id);
+
       if (linksError) {
         throw linksError;
       }
-      const studentIds = [
-        ...new Set(
-          (parentLinks || [])
-            .map((link) => link.student_id)
-            .filter(Boolean)
-        ),
-      ];
-      let loadedChildren = [];
-      if (studentIds.length > 0) {
-        /*
-         * 4. Récupération des enfants
-         */
-        const { data: studentRows, error: studentsError } =
-          await supabase
-            .from("students")
-            .select(
-              "id,profile_id,school_id,class_id,first_name,last_name,student_code,photo_url,active,date_of_birth,birth_place"
-            )
-            .eq("school_id", resolvedSchoolId)
-            .in("id", studentIds);
+
+      const studentIds = (links || [])
+        .map((item) => item.student_id)
+        .filter(Boolean);
+
+      let studentRows = [];
+
+      if (studentIds.length) {
+        const {
+          data,
+          error: studentsError,
+        } = await supabase
+          .from("students")
+          .select(
+            "id,profile_id,school_id,class_id,first_name,last_name,student_code,photo_url,active"
+          )
+          .eq("school_id", resolvedSchoolId)
+          .in("id", studentIds);
+
         if (studentsError) {
           throw studentsError;
         }
-        const classIds = [
+
+        studentRows = data || [];
+      }
+
+      const classIds = [
+        ...new Set(
+          studentRows
+            .map((student) => student.class_id)
+            .filter(Boolean)
+        ),
+      ];
+
+      let classRows = [];
+
+      if (classIds.length) {
+        const {
+          data,
+          error: classesError,
+        } = await supabase
+          .from("classes")
+          .select(
+            "id,name,level,school_id"
+          )
+          .eq("school_id", resolvedSchoolId)
+          .in("id", classIds);
+
+        if (classesError) {
+          throw classesError;
+        }
+
+        classRows = data || [];
+      }
+
+      const classMap = new Map(
+        classRows.map((item) => [
+          String(item.id),
+          item,
+        ])
+      );
+
+      const childMap = new Map();
+
+      studentRows.forEach((student) => {
+        const link =
+          (links || []).find(
+            (item) =>
+              item.student_id === student.id
+          );
+
+        childMap.set(
+          String(student.id),
+          {
+            ...student,
+
+            relationship:
+              link?.relationship ||
+              "Parent",
+
+            is_primary:
+              link?.is_primary ||
+              false,
+
+            class_name:
+              classMap.get(
+                String(student.class_id)
+              )?.name ||
+              "Classe non renseignée",
+
+            class_level:
+              classMap.get(
+                String(student.class_id)
+              )?.level || "",
+          }
+        );
+      });
+
+      const normalizedChildren =
+        studentRows
+          .map(
+            (student) =>
+              childMap.get(
+                String(student.id)
+              )
+          )
+          .filter(Boolean);
+
+      setChildren(normalizedChildren);
+
+      /*
+       * =====================================================
+       * INFORMATIONS DU SERVICE ADMINISTRATIF
+       * =====================================================
+       *
+       * Les informations sont filtrées par :
+       * - school_id de l'école du parent
+       * - tous les parents
+       * - les classes des enfants du parent
+       * - le parent connecté
+       *
+       * Aucune information d'une autre école n'est conservée.
+       */
+
+      const {
+        data: announcementRows,
+        error: announcementsError,
+      } = await supabase
+        .from("secretary_parent_announcements")
+        .select(`
+          id,
+          school_id,
+          secretary_id,
+          target_type,
+          target_class_id,
+          target_parent_id,
+          title,
+          message,
+          published_at,
+          created_at
+        `)
+        .eq("school_id", resolvedSchoolId)
+        .order("published_at", {
+          ascending: false,
+        });
+
+      if (announcementsError) {
+        throw announcementsError;
+      }
+
+      const childClassIds = new Set(
+        studentRows
+          .map((student) =>
+            student.class_id
+              ? String(student.class_id)
+              : null
+          )
+          .filter(Boolean)
+      );
+
+      const visibleAnnouncements =
+        (announcementRows || []).filter(
+          (announcement) => {
+            const targetType =
+              String(
+                announcement.target_type ||
+                  ""
+              ).toLowerCase();
+
+            if (
+              targetType === "all" ||
+              targetType ===
+                "all_parents" ||
+              targetType ===
+                "parents"
+            ) {
+              return true;
+            }
+
+            if (
+              targetType === "class" ||
+              targetType ===
+                "classe"
+            ) {
+              return (
+                announcement.target_class_id &&
+                childClassIds.has(
+                  String(
+                    announcement.target_class_id
+                  )
+                )
+              );
+            }
+
+            if (
+              targetType === "parent" ||
+              targetType ===
+                "individual"
+            ) {
+              return (
+                announcement.target_parent_id ===
+                parent.id
+              );
+            }
+
+            return false;
+          }
+        );
+
+      setAdminAnnouncements(
+        visibleAnnouncements
+      );
+
+      if (studentIds.length) {
+        const {
+          data: gradeRows,
+          error: gradesError,
+        } = await supabase
+          .from("grades")
+          .select(`
+            id,
+            assessment_id,
+            student_id,
+            teacher_id,
+            school_id,
+            score,
+            appreciation,
+            stars,
+            comment,
+            created_at,
+            updated_at
+          `)
+          .eq("school_id", resolvedSchoolId)
+          .in("student_id", studentIds)
+          .order("created_at", {
+            ascending: false,
+          });
+
+        if (gradesError) {
+          throw gradesError;
+        }
+
+        const assessmentIds = [
           ...new Set(
-            (studentRows || [])
-              .map((student) => student.class_id)
+            (gradeRows || [])
+              .map(
+                (grade) =>
+                  grade.assessment_id
+              )
               .filter(Boolean)
           ),
         ];
-        let classMap = {};
-        if (classIds.length > 0) {
-          const { data: classRows, error: classesError } =
-            await supabase
-              .from("classes")
-              .select(
-                "id,school_id,name,level"
-              )
-              .eq("school_id", resolvedSchoolId)
-              .in("id", classIds);
-          if (classesError) {
-            throw classesError;
+
+        let assessmentRows = [];
+
+        if (assessmentIds.length) {
+          const {
+            data,
+            error:
+              assessmentsError,
+          } = await supabase
+            .from("assessments")
+            .select(`
+              id,
+              school_id,
+              class_id,
+              subject_id,
+              title,
+              max_score,
+              evaluation_date,
+              coefficient
+            `)
+            .eq("school_id", resolvedSchoolId)
+            .in("id", assessmentIds);
+
+          if (assessmentsError) {
+            throw assessmentsError;
           }
-          classMap = Object.fromEntries(
-            (classRows || []).map((item) => [
-              item.id,
+
+          assessmentRows = data || [];
+        }
+
+        const subjectIds = [
+          ...new Set(
+            assessmentRows
+              .map(
+                (item) =>
+                  item.subject_id
+              )
+              .filter(Boolean)
+          ),
+        ];
+
+        let subjectRows = [];
+
+        if (subjectIds.length) {
+          const {
+            data,
+            error: subjectsError,
+          } = await supabase
+            .from("subjects")
+            .select(
+              "id,name,school_id"
+            )
+            .eq("school_id", resolvedSchoolId)
+            .in("id", subjectIds);
+
+          if (subjectsError) {
+            throw subjectsError;
+          }
+
+          subjectRows = data || [];
+        }
+
+        const subjectMap =
+          new Map(
+            subjectRows.map((item) => [
+              String(item.id),
               item,
             ])
           );
-        }
-        loadedChildren = (studentRows || []).map(
-          (student) => {
-            const link = (parentLinks || []).find(
-              (item) =>
-                item.student_id === student.id
-            );
-            const studentClass =
-              student.class_id
-                ? classMap[student.class_id]
-                : null;
-            return {
-              ...student,
-              relationship:
-                link?.relationship || "",
-              is_primary:
-                link?.is_primary || false,
-              class_name:
-                studentClass?.name || "",
-              class_level:
-                studentClass?.level || "",
-            };
-          }
-        );
-      }
-      setChildren(loadedChildren);
-      /*
-       * 5. Notes
-       */
-      if (studentIds.length > 0) {
-        const [
-          gradesResponse,
-          assessmentsResponse,
-          subjectsResponse,
-        ] = await Promise.all([
-          supabase
-            .from("grades")
-            .select("*")
-            .eq("school_id", resolvedSchoolId)
-            .in("student_id", studentIds),
-          supabase
-            .from("assessments")
-            .select("*")
-            .eq("school_id", resolvedSchoolId),
-          supabase
-            .from("subjects")
-            .select("*")
-            .eq("school_id", resolvedSchoolId),
-        ]);
-        if (gradesResponse.error) {
-          throw gradesResponse.error;
-        }
-        if (assessmentsResponse.error) {
-          throw assessmentsResponse.error;
-        }
-        if (subjectsResponse.error) {
-          throw subjectsResponse.error;
-        }
-        const assessmentsMap = Object.fromEntries(
-          (assessmentsResponse.data || []).map(
-            (item) => [item.id, item]
-          )
-        );
-        const subjectsMap = Object.fromEntries(
-          (subjectsResponse.data || []).map(
-            (item) => [item.id, item]
-          )
-        );
-        const childMap = Object.fromEntries(
-          loadedChildren.map((child) => [
-            child.id,
-            child,
-          ])
-        );
-        const normalizedGrades = (
-          gradesResponse.data || []
-        ).map((grade) => {
-          const assessment =
-            assessmentsMap[grade.assessment_id];
-          const subject =
-            subjectsMap[
-              grade.subject_id ||
-                assessment?.subject_id
-            ];
-          const child =
-            childMap[grade.student_id];
-          return {
-            ...grade,
-            assessment,
-            subject,
-            child_name: child
-              ? `${child.first_name} ${child.last_name}`
-              : "",
-          };
-        });
+
+        const assessmentMap =
+          new Map(
+            assessmentRows.map(
+              (item) => [
+                String(item.id),
+                {
+                  ...item,
+                  subject_name:
+                    subjectMap.get(
+                      String(
+                        item.subject_id
+                      )
+                    )?.name ||
+                    "Matière non renseignée",
+                },
+              ]
+            )
+          );
+
+        const normalizedGrades =
+          (gradeRows || []).map(
+            (grade) => {
+              const assessment =
+                assessmentMap.get(
+                  String(
+                    grade.assessment_id
+                  )
+                );
+
+              const child =
+                childMap.get(
+                  String(
+                    grade.student_id
+                  )
+                );
+
+              const subjectId =
+                assessment?.subject_id ||
+                null;
+
+              const subject =
+                subjectMap.get(
+                  String(subjectId)
+                );
+
+              return {
+                ...grade,
+
+                child_name: child
+                  ? `${child.first_name} ${child.last_name}`
+                  : "Élève",
+
+                subject_id:
+                  subjectId,
+
+                subject_name:
+                  subject?.name ||
+                  assessment?.subject_name ||
+                  "Matière non renseignée",
+
+                assessment_title:
+                  assessment?.title ||
+                  "Évaluation",
+
+                assessment_date:
+                  assessment?.evaluation_date ||
+                  null,
+
+                max_score:
+                  assessment?.max_score ||
+                  20,
+
+                coefficient:
+                  assessment?.coefficient ||
+                  1,
+              };
+            }
+          );
+
         setGrades(normalizedGrades);
-        /*
-         * 6. Présence
-         */
-        const { data: attendanceRows, error: attendanceError } =
-  await supabase
-    .from("attendance")
-    .select("*")
-    .in("student_id", studentIds);
+
+        const {
+          data: attendanceRows,
+          error: attendanceError,
+        } = await supabase
+          .from("attendance")
+          .select(`
+            id,
+            student_id,
+            class_id,
+            attendance_date,
+            status,
+            justification,
+            justified,
+            created_at
+          `)
+          .in("student_id", studentIds)
+          .order("attendance_date", {
+            ascending: false,
+          });
+
         if (attendanceError) {
           throw attendanceError;
         }
-        const normalizedAttendance = (
-          attendanceRows || []
-        ).map((item) => {
-          const child =
-            childMap[item.student_id];
-          return {
-            ...item,
-            child_name: child
-              ? `${child.first_name} ${child.last_name}`
-              : "",
-          };
-        });
-        setAttendance(normalizedAttendance);
-        /*
-         * 7. Bulletins
-         */
-        const { data: bulletinRows, error: bulletinsError } =
-          await supabase
-            .from("bulletins")
-            .select("*")
-            .eq("school_id", resolvedSchoolId)
-            .in("student_id", studentIds)
-            .in("status", [
-              "validated",
-              "sent",
-            ])
-            .order("created_at", {
-              ascending: false,
-            });
+
+        setAttendance(
+          (attendanceRows || []).map(
+            (item) => {
+              const child =
+                childMap.get(
+                  String(
+                    item.student_id
+                  )
+                );
+
+              return {
+                ...item,
+
+                child_name: child
+                  ? `${child.first_name} ${child.last_name}`
+                  : "Élève",
+              };
+            }
+          )
+        );
+
+        const {
+          data: bulletinRows,
+          error: bulletinsError,
+        } = await supabase
+          .from("bulletins")
+          .select(`
+            id,
+            school_id,
+            student_id,
+            trimester,
+            status,
+            pdf_url,
+            generated_at,
+            validated_at,
+            sent_at,
+            created_at,
+            updated_at
+          `)
+          .eq("school_id", resolvedSchoolId)
+          .in("student_id", studentIds)
+          .in("status", [
+            "validated",
+            "sent",
+          ])
+          .order("created_at", {
+            ascending: false,
+          });
+
         if (bulletinsError) {
           throw bulletinsError;
         }
-        const normalizedBulletins = (
-          bulletinRows || []
-        ).map((bulletin) => {
-          const child =
-            childMap[bulletin.student_id];
-          return {
-            ...bulletin,
-            child_name: child
-              ? `${child.first_name} ${child.last_name}`
-              : "",
-          };
-        });
-        setBulletins(normalizedBulletins);
+
+        setBulletins(
+          (bulletinRows || []).map(
+            (item) => {
+              const child =
+                childMap.get(
+                  String(
+                    item.student_id
+                  )
+                );
+
+              return {
+                ...item,
+
+                child_name: child
+                  ? `${child.first_name} ${child.last_name}`
+                  : "Élève",
+              };
+            }
+          )
+        );
       } else {
         setGrades([]);
         setAttendance([]);
         setBulletins([]);
       }
-      /*
-       * 8. Messages du service administratif
-       */
-      const { data: messageRows, error: messagesError } =
-        await supabase
-          .from("secretary_parent_messages")
-          .select("*")
-          .eq("school_id", resolvedSchoolId)
-          .eq("parent_id", parent.id)
-          .order("created_at", {
-            ascending: false,
-          });
+
+      const {
+        data: messages,
+        error: messagesError,
+      } = await supabase
+        .from(
+          "secretary_parent_messages"
+        )
+        .select(`
+          id,
+          school_id,
+          secretary_id,
+          parent_id,
+          subject,
+          message,
+          read_at,
+          created_at
+        `)
+        .eq("school_id", resolvedSchoolId)
+        .eq("parent_id", parent.id)
+        .order("created_at", {
+          ascending: false,
+        });
+
       if (messagesError) {
         throw messagesError;
       }
-      setAdminMessages(messageRows || []);
-      /*
-       * 9. INFORMATIONS ADMINISTRATIVES
-       *
-       * Le parent reçoit :
-       * - les annonces destinées à tous les parents ;
-       * - les annonces destinées à la classe de son enfant ;
-       * - les annonces destinées directement à ce parent.
-       *
-       * Toutes les annonces sont obligatoirement limitées
-       * à l'école du parent.
-       */
-      const { data: announcementRows, error: announcementsError } =
-        await supabase
-          .from("secretary_parent_announcements")
-          .select(
-            "id,school_id,secretary_id,target_type,target_class_id,target_parent_id,title,message,published_at,created_at"
-          )
-          .eq("school_id", resolvedSchoolId)
-          .order("published_at", {
-            ascending: false,
-          });
-      if (announcementsError) {
-        throw announcementsError;
-      }
-      const childClassIds = [
-        ...new Set(
-          loadedChildren
-            .map((child) => child.class_id)
-            .filter(Boolean)
-        ),
-      ];
-      const visibleAnnouncements = (
-        announcementRows || []
-      ).filter((announcement) => {
-        /*
-         * Tous les parents
-         */
-        if (
-          announcement.target_type === "all"
-        ) {
-          return true;
-        }
-        /*
-         * Parent précis
-         */
-        if (
-          announcement.target_type === "parent"
-        ) {
-          return (
-            announcement.target_parent_id ===
-            parent.id
-          );
-        }
-        /*
-         * Classe précise
-         */
-        if (
-          announcement.target_type === "class"
-        ) {
-          return childClassIds.includes(
-            announcement.target_class_id
-          );
-        }
-        return false;
-      });
-      setAdminAnnouncements(
-        visibleAnnouncements
-      );
-      /*
-       * 10. Notifications parent
-       */
-      const { data: notificationRows, error: notificationsError } =
-        await supabase
-          .from("parent_notifications")
-          .select("*")
-          .eq("school_id", resolvedSchoolId)
-          .eq("parent_id", parent.id)
-          .order("created_at", {
-            ascending: false,
-          });
+
+      setAdminMessages(messages || []);
+
+      const {
+        data: notificationRows,
+        error:
+          notificationsError,
+      } = await supabase
+        .from("parent_notifications")
+        .select(`
+          id,
+          school_id,
+          parent_id,
+          title,
+          message,
+          type,
+          reference_id,
+          read_at,
+          created_at,
+          bulletin_id
+        `)
+        .eq("school_id", resolvedSchoolId)
+        .eq("parent_id", parent.id)
+        .order("created_at", {
+          ascending: false,
+        });
+
       if (notificationsError) {
         throw notificationsError;
       }
+
       setNotifications(
         notificationRows || []
       );
     } catch (err) {
       console.error(
-        "Erreur ParentDashboard:",
+        "Erreur espace Parent :",
         err
       );
-      setError(
+
+      const errorMessage =
         err?.message ||
-          "Impossible de charger les données du parent."
+        err?.details ||
+        err?.hint ||
+        "Erreur inconnue";
+
+      setError(
+        `Impossible de charger votre espace Parent : ${errorMessage}`
       );
     } finally {
       setLoading(false);
     }
-  };
+  }
+
   useEffect(() => {
     loadParentData();
   }, [
-    session?.user?.id,
     profile?.id,
     profile?.school_id,
+    session?.user?.id,
   ]);
-  /*
-   * Realtime :
-   * - messages administratifs
-   * - informations administratives
-   * - notifications
-   */
+
   useEffect(() => {
     const connectedUserId =
-      session?.user?.id || profile?.id || null;
+      session?.user?.id ||
+      profile?.id;
+
     const currentSchoolId =
-      activeSchoolId || profile?.school_id;
+      activeSchoolId ||
+      profile?.school_id;
+
     if (
       !connectedUserId ||
       !currentSchoolId
     ) {
-      return undefined;
+      return;
     }
-    let messageChannel = null;
-    let announcementChannel = null;
-    let notificationChannel = null;
-    const setupRealtime = async () => {
-      /*
-       * Retrouver le parent connecté
-       */
-      const { data: parent } =
-        await supabase
-          .from("parents")
-          .select("id")
-          .eq("profile_id", connectedUserId)
-          .eq("school_id", currentSchoolId)
-          .maybeSingle();
-      if (!parent) {
+
+    let channel = null;
+    let active = true;
+
+    async function subscribeRealtime() {
+      const {
+        data: parent,
+      } = await supabase
+        .from("parents")
+        .select("id")
+        .eq("profile_id", connectedUserId)
+        .eq("school_id", currentSchoolId)
+        .maybeSingle();
+
+      if (
+        !active ||
+        !parent?.id
+      ) {
         return;
       }
-      /*
-       * Messages
-       */
-      messageChannel = supabase
-        .channel(
-          `parent-secretary-messages-${parent.id}`
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "secretary_parent_messages",
-            filter: `parent_id=eq.${parent.id}`,
-          },
-          () => {
-            loadParentData();
-          }
-        )
-        .subscribe();
-      /*
-       * Informations administratives
-       */
-      announcementChannel = supabase
-        .channel(
-          `parent-secretary-announcements-${parent.id}`
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "secretary_parent_announcements",
-            filter: `school_id=eq.${currentSchoolId}`,
-          },
-          () => {
-            loadParentData();
-          }
-        )
-        .subscribe();
-      /*
-       * Notifications
-       */
-      notificationChannel = supabase
-        .channel(
-          `parent-notifications-${parent.id}`
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "parent_notifications",
-            filter: `parent_id=eq.${parent.id}`,
-          },
-          () => {
-            loadParentData();
-          }
-        )
-        .subscribe();
-    };
-    setupRealtime();
+
+      channel =
+        supabase
+          .channel(
+            `parent-dashboard-${currentSchoolId}-${parent.id}`
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table:
+                "secretary_parent_messages",
+              filter:
+                `parent_id=eq.${parent.id}`,
+            },
+            () => {
+              loadParentData();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table:
+                "secretary_parent_announcements",
+              filter:
+                `school_id=eq.${currentSchoolId}`,
+            },
+            () => {
+              loadParentData();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table:
+                "parent_notifications",
+              filter:
+                `parent_id=eq.${parent.id}`,
+            },
+            () => {
+              loadParentData();
+            }
+          )
+          .subscribe();
+    }
+
+    subscribeRealtime();
+
     return () => {
-      if (messageChannel) {
-        supabase.removeChannel(
-          messageChannel
-        );
-      }
-      if (announcementChannel) {
-        supabase.removeChannel(
-          announcementChannel
-        );
-      }
-      if (notificationChannel) {
-        supabase.removeChannel(
-          notificationChannel
-        );
+      active = false;
+
+      if (channel) {
+        supabase.removeChannel(channel);
       }
     };
   }, [
-    session?.user?.id,
     profile?.id,
-    activeSchoolId,
     profile?.school_id,
+    session?.user?.id,
+    activeSchoolId,
   ]);
-  const markNotificationRead = async (
+
+  async function markNotificationRead(
     notificationId
-  ) => {
-    if (!schoolId) return;
-    const { error: updateError } =
-      await supabase
-        .from("parent_notifications")
-        .update({
-          read_at: new Date().toISOString(),
-        })
-        .eq("id", notificationId)
-        .eq("school_id", schoolId);
+  ) {
+    const currentSchoolId =
+      activeSchoolId ||
+      profile?.school_id;
+
+    const now =
+      new Date().toISOString();
+
+    const {
+      error: updateError,
+    } = await supabase
+      .from("parent_notifications")
+      .update({
+        read_at: now,
+      })
+      .eq("id", notificationId)
+      .eq("school_id", currentSchoolId);
+
     if (updateError) {
       console.error(
-        "Erreur lecture notification:",
+        "Erreur notification :",
         updateError
       );
       return;
     }
-    setNotifications((current) =>
-      current.map((notification) =>
-        notification.id === notificationId
-          ? {
-              ...notification,
-              read_at:
-                new Date().toISOString(),
-            }
-          : notification
-      )
+
+    setNotifications(
+      (current) =>
+        current.map((item) =>
+          item.id === notificationId
+            ? {
+                ...item,
+                read_at: now,
+              }
+            : item
+        )
     );
-  };
-  const markMessageRead = async (
+  }
+
+  async function markMessageRead(
     messageId
-  ) => {
-    if (!schoolId) return;
-    const { error: updateError } =
-      await supabase
-        .from("secretary_parent_messages")
-        .update({
-          read_at: new Date().toISOString(),
-        })
-        .eq("id", messageId)
-        .eq("school_id", schoolId);
+  ) {
+    const currentSchoolId =
+      activeSchoolId ||
+      profile?.school_id;
+
+    const now =
+      new Date().toISOString();
+
+    const {
+      error: updateError,
+    } = await supabase
+      .from("secretary_parent_messages")
+      .update({
+        read_at: now,
+      })
+      .eq("id", messageId)
+      .eq("school_id", currentSchoolId);
+
     if (updateError) {
       console.error(
-        "Erreur lecture message:",
+        "Erreur message :",
         updateError
       );
       return;
     }
-    setAdminMessages((current) =>
-      current.map((message) =>
-        message.id === messageId
-          ? {
-              ...message,
-              read_at:
-                new Date().toISOString(),
-            }
-          : message
-      )
+
+    setAdminMessages(
+      (current) =>
+        current.map((item) =>
+          item.id === messageId
+            ? {
+                ...item,
+                read_at: now,
+              }
+            : item
+        )
     );
-  };
-  /*
-   * =========================
-   * PAGES
-   * =========================
-   */
-  const HomePage = () => {
+  }
+
+  function HomePage() {
+    const homeItems =
+      MENU.filter(
+        (item) =>
+          item.id !== "home"
+      );
+
     return (
-      <div>
-        <h1
+      <>
+        <div
           style={{
-            color: "#111827",
-            marginBottom: 8,
+            background:
+              "linear-gradient(135deg,#eef2ff 0%,#f8fafc 55%,#ffffff 100%)",
+            border: "1px solid #e0e7ff",
+            borderRadius: "18px",
+            padding: "22px",
+            marginBottom: "20px",
           }}
         >
-          Bienvenue dans votre espace parent
-        </h1>
-        <p
-          style={{
-            color: "#4b5563",
-            marginBottom: 24,
-          }}
-        >
-          Suivez la scolarité de vos enfants.
-        </p>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+            }}
+          >
+            <div
+              style={{
+                width: "58px",
+                height: "58px",
+                borderRadius: "16px",
+                background: "#4f46e5",
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontSize: "28px",
+                boxShadow:
+                  "0 6px 18px rgba(79,70,229,0.25)",
+              }}
+            >
+              👨‍👩‍👧
+            </div>
+
+            <div>
+              <div
+                style={{
+                  color: "#4f46e5",
+                  fontWeight: 800,
+                  fontSize: "12px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Espace Parent
+              </div>
+
+              <h2
+                style={{
+                  margin: "3px 0 4px",
+                  color: "#0f172a",
+                  fontSize: "22px",
+                }}
+              >
+                Bonjour
+                {profile?.full_name
+                  ? `, ${profile.full_name}`
+                  : ""}{" "}
+                👋
+              </h2>
+
+              <p
+                style={{
+                  margin: 0,
+                  color: "#64748b",
+                  fontSize: "13px",
+                }}
+              >
+                Suivez la scolarité de
+                vos enfants depuis un
+                seul espace.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div
           style={{
             display: "grid",
             gridTemplateColumns:
               "repeat(auto-fit,minmax(180px,1fr))",
-            gap: 16,
-            marginBottom: 24,
+            gap: "12px",
+            marginBottom: "22px",
           }}
         >
-          <div className="card">
-            <div className="card-title">
-              👦 Enfants
+          <button
+            type="button"
+            onClick={() =>
+              setPage("children")
+            }
+            style={{
+              textAlign: "left",
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "25px",
+                marginBottom: "9px",
+              }}
+            >
+              👦
             </div>
-            <div className="card-value">
+
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
               {children.length}
             </div>
-          </div>
-          <div className="card">
-            <div className="card-title">
-              📊 Notes
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Enfant
+              {children.length > 1
+                ? "s"
+                : ""}
             </div>
-            <div className="card-value">
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPage("grades")
+            }
+            style={{
+              textAlign: "left",
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "25px",
+                marginBottom: "9px",
+              }}
+            >
+              📊
+            </div>
+
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
               {grades.length}
             </div>
-          </div>
-          <div className="card">
-            <div className="card-title">
-              🕐 Présences
-            </div>
-            <div className="card-value">
-              {attendance.length}
-            </div>
-          </div>
-          <div className="card">
-            <div className="card-title">
-              🔔 Notifications
-            </div>
-            <div className="card-value">
-              {unreadNotifications}
-            </div>
-          </div>
-        </div>
-        {unreadMessages > 0 && (
-          <div
-            style={{
-              padding: 16,
-              borderRadius: 12,
-              background: "#eef6ff",
-              border: "1px solid #bfdbfe",
-              marginBottom: 24,
-              color: "#111827",
-            }}
-          >
-            <strong>
-              🏢 Service administratif
-            </strong>
-            <div style={{ marginTop: 6 }}>
-              Vous avez{" "}
-              <strong>
-                {unreadMessages}
-              </strong>{" "}
-              message
-              {unreadMessages > 1
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Note
+              {grades.length > 1
                 ? "s"
                 : ""}{" "}
-              non lu
-              {unreadMessages > 1
+              disponible
+              {grades.length > 1
                 ? "s"
-                : ""}.
+                : ""}
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                setPage("administrative")
-              }
-              style={{
-                marginTop: 12,
-                border: "none",
-                background: "#2563eb",
-                color: "#fff",
-                padding:
-                  "10px 14px",
-                borderRadius: 8,
-                cursor: "pointer",
-              }}
-            >
-              Voir le service administratif
-            </button>
-          </div>
-        )}
-        <div className="card">
-          <h2
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPage("attendance")
+            }
             style={{
-              color: "#111827",
-              marginTop: 0,
+              textAlign: "left",
+              background: "#fff",
+              border: "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
             }}
           >
-            Mes enfants
-          </h2>
-          {children.length === 0 ? (
-            <p style={{ color: "#4b5563" }}>
-              Aucun enfant associé à ce compte.
-            </p>
-          ) : (
             <div
               style={{
-                display: "grid",
-                gap: 12,
+                fontSize: "25px",
+                marginBottom: "9px",
               }}
             >
-              {children.map((child) => (
-                <div
-                  key={child.id}
-                  style={{
-                    padding: 14,
-                    border:
-                      "1px solid #e5e7eb",
-                    borderRadius: 10,
-                  }}
-                >
-                  <strong
-                    style={{
-                      color: "#111827",
-                    }}
-                  >
-                    {child.first_name}{" "}
-                    {child.last_name}
-                  </strong>
+              🕐
+            </div>
+
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color: "#0f172a",
+              }}
+            >
+              {attendance.length}
+            </div>
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Présence
+              {attendance.length > 1
+                ? "s"
+                : ""}
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPage("notifications")
+            }
+            style={{
+              textAlign: "left",
+              background: "#fff",
+              border:
+                unreadNotifications > 0
+                  ? "2px solid #fecaca"
+                  : "1px solid #e2e8f0",
+              borderRadius: "16px",
+              padding: "18px",
+              cursor: "pointer",
+              boxShadow:
+                "0 3px 12px rgba(15,23,42,0.05)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "25px",
+                marginBottom: "9px",
+              }}
+            >
+              🔔
+            </div>
+
+            <div
+              style={{
+                fontSize: "25px",
+                fontWeight: 800,
+                color:
+                  unreadNotifications > 0
+                    ? "#dc2626"
+                    : "#0f172a",
+              }}
+            >
+              {unreadNotifications}
+            </div>
+
+            <div
+              style={{
+                color: "#64748b",
+                fontSize: "13px",
+                marginTop: "3px",
+              }}
+            >
+              Nouvelle
+              {unreadNotifications > 1
+                ? "s"
+                : ""}{" "}
+              information
+              {unreadNotifications > 1
+                ? "s"
+                : ""}
+            </div>
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "12px",
+          }}
+        >
+          <div>
+            <h3
+              style={{
+                margin: 0,
+                color: "#0f172a",
+                fontSize: "18px",
+              }}
+            >
+              👦 Mes enfants
+            </h3>
+
+            <p
+              style={{
+                margin: "4px 0 0",
+                color: "#64748b",
+                fontSize: "13px",
+              }}
+            >
+              Consultez rapidement leur
+              situation scolaire.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setPage("children")
+            }
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "#4f46e5",
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Voir tout →
+          </button>
+        </div>
+
+        {!children.length ? (
+          <Empty
+            text="Aucun enfant n'est encore rattaché à votre compte."
+          />
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            {children.map(
+              (child) => (
+                <Card key={child.id}>
                   <div
                     style={{
-                      color: "#4b5563",
-                      marginTop: 4,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "14px",
                     }}
                   >
-                    {child.class_name ||
-                      "Classe non renseignée"}
+                    <div
+                      style={{
+                        width: "54px",
+                        height: "54px",
+                        borderRadius: "15px",
+                        background: "#eef2ff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "25px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      👦
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                          fontSize: "17px",
+                        }}
+                      >
+                        {child.first_name}{" "}
+                        {child.last_name}
+                      </strong>
+
+                      <div
+                        style={{
+                          color: "#64748b",
+                          marginTop: "5px",
+                          fontSize: "13px",
+                        }}
+                      >
+                        🎓{" "}
+                        {child.class_name}
+
+                        {child.class_level
+                          ? ` · ${child.class_level}`
+                          : ""}
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        Relation :{" "}
+                        {child.relationship}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-  const ChildrenPage = () => {
-    return (
-      <div>
-        <h1 style={{ color: "#111827" }}>
-          Mes enfants
-        </h1>
-        {children.length === 0 ? (
-          <div className="card">
-            <p style={{ color: "#4b5563" }}>
-              Aucun enfant associé à ce compte.
-            </p>
+                </Card>
+              )
+            )}
           </div>
+        )}
+
+        {(unreadMessages > 0 ||
+          adminAnnouncements.length > 0) && (
+          <button
+            type="button"
+            onClick={() =>
+              setPage("administrative")
+            }
+            style={{
+              width: "100%",
+              marginTop: "16px",
+              padding: "14px 16px",
+              borderRadius: "14px",
+              border: "1px solid #fde68a",
+              background: "#fffbeb",
+              color: "#92400e",
+              textAlign: "left",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            🏢 Service administratif —{" "}
+            {unreadMessages > 0
+              ? `${unreadMessages} nouveau${
+                  unreadMessages > 1
+                    ? "x"
+                    : ""
+                } message${
+                  unreadMessages > 1
+                    ? "s"
+                    : ""
+                }`
+              : `${adminAnnouncements.length} information${
+                  adminAnnouncements.length > 1
+                    ? "s"
+                    : ""
+                } disponible${
+                  adminAnnouncements.length > 1
+                    ? "s"
+                    : ""
+                }`}{" "}
+            →
+          </button>
+        )}
+      </>
+    );
+  }
+
+  function ChildrenPage() {
+    return (
+      <>
+        <PageTitle
+          icon="👦"
+          title="Mes enfants"
+          description="Les élèves rattachés à votre compte parent."
+          onBack={() => setPage("home")}
+        />
+
+        {!children.length ? (
+          <Empty
+            text="Aucun enfant n'est encore rattaché à votre compte."
+          />
         ) : (
           <div
             style={{
               display: "grid",
-              gap: 16,
+              gap: "12px",
             }}
           >
-            {children.map((child) => (
-              <div
-                className="card"
-                key={child.id}
-              >
-                <h2
-                  style={{
-                    color: "#111827",
-                    marginTop: 0,
-                  }}
-                >
-                  {child.first_name}{" "}
-                  {child.last_name}
-                </h2>
-                <p
-                  style={{
-                    color: "#4b5563",
-                  }}
-                >
-                  Classe :{" "}
-                  {child.class_name ||
-                    "Non renseignée"}
-                </p>
-                {child.class_level && (
-                  <p
+            {children.map(
+              (child) => (
+                <Card key={child.id}>
+                  <div
                     style={{
-                      color: "#4b5563",
+                      display: "flex",
+                      gap: "14px",
+                      alignItems: "center",
                     }}
                   >
-                    Niveau :{" "}
-                    {child.class_level}
-                  </p>
-                )}
-                {child.student_code && (
-                  <p
+                    <div
+                      style={{
+                        width: "58px",
+                        height: "58px",
+                        borderRadius: "16px",
+                        background: "#eef2ff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "25px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      👦
+                    </div>
+
+                    <div>
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                          fontSize: "17px",
+                        }}
+                      >
+                        {child.first_name}{" "}
+                        {child.last_name}
+                      </strong>
+
+                      <div
+                        style={{
+                          color: "#64748b",
+                          marginTop: "5px",
+                        }}
+                      >
+                        🎓{" "}
+                        {child.class_name}
+
+                        {child.class_level
+                          ? ` · ${child.class_level}`
+                          : ""}
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          marginTop: "5px",
+                        }}
+                      >
+                        Relation :{" "}
+                        {child.relationship}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              )
+            )}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  function GradesPage() {
+    return (
+      <>
+        <PageTitle
+          icon="📊"
+          title="Notes"
+          description="Les résultats de vos enfants, avec leur matière."
+          onBack={() => setPage("home")}
+        />
+
+        {!grades.length ? (
+          <Empty
+            text="Aucune note n'est encore disponible."
+          />
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            {grades.map(
+              (grade) => (
+                <Card key={grade.id}>
+                  <div
                     style={{
-                      color: "#4b5563",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: "12px",
                     }}
                   >
-                    Matricule :{" "}
-                    {child.student_code}
-                  </p>
-                )}
-              </div>
-            ))}
+                    <div>
+                      <div
+                        style={{
+                          color: "#4f46e5",
+                          fontWeight: 800,
+                          fontSize: "13px",
+                        }}
+                      >
+                        📚{" "}
+                        {grade.subject_name}
+                      </div>
+
+                      <h3
+                        style={{
+                          margin: "7px 0 4px",
+                          color: "#0f172a",
+                          fontSize: "17px",
+                        }}
+                      >
+                        {grade.assessment_title}
+                      </h3>
+
+                      <div
+                        style={{
+                          color: "#64748b",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {grade.child_name}{" "}
+                        ·{" "}
+                        {formatDate(
+                          grade.assessment_date
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        background: "#eef2ff",
+                        color: "#4338ca",
+                        borderRadius: "12px",
+                        padding: "9px 12px",
+                        fontWeight: 900,
+                        fontSize: "16px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatScore(
+                        grade.score,
+                        grade.max_score
+                      )}
+                    </div>
+                  </div>
+
+                  {grade.appreciation && (
+                    <div
+                      style={{
+                        marginTop: "13px",
+                        padding: "11px 13px",
+                        borderRadius: "10px",
+                        background: "#f8fafc",
+                        color: "#475569",
+                        fontSize: "13px",
+                      }}
+                    >
+                      <strong>
+                        Appréciation :
+                      </strong>{" "}
+                      {grade.appreciation}
+                    </div>
+                  )}
+                </Card>
+              )
+            )}
           </div>
         )}
-      </div>
+      </>
     );
-  };
-  const GradesPage = () => {
+  }
+
+  function AttendancePage() {
     return (
-      <div>
-        <h1 style={{ color: "#111827" }}>
-          Notes
-        </h1>
-        {grades.length === 0 ? (
-          <div className="card">
-            <p style={{ color: "#4b5563" }}>
-              Aucune note disponible.
-            </p>
-          </div>
+      <>
+        <PageTitle
+          icon="🕐"
+          title="Présence"
+          description="Suivi des présences, absences et retards."
+          onBack={() => setPage("home")}
+        />
+
+        {!attendance.length ? (
+          <Empty
+            text="Aucune présence enregistrée."
+          />
         ) : (
           <div
             style={{
               display: "grid",
-              gap: 12,
+              gap: "10px",
             }}
           >
-            {grades.map((grade) => (
-              <div
-                className="card"
-                key={grade.id}
-              >
-                <strong
-                  style={{
-                    color: "#111827",
-                  }}
-                >
-                  {grade.child_name ||
-                    "Élève"}
-                </strong>
-                <div
-                  style={{
-                    color: "#374151",
-                    marginTop: 6,
-                  }}
-                >
-                  Matière :{" "}
-                  {grade.subject?.name ||
-                    "Non renseignée"}
-                </div>
-                <div
-                  style={{
-                    color: "#374151",
-                    marginTop: 4,
-                  }}
-                >
-                  Évaluation :{" "}
-                  {grade.assessment?.title ||
-                    grade.assessment?.name ||
-                    "Non renseignée"}
-                </div>
-                <div
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 700,
-                    color: "#111827",
-                    marginTop: 10,
-                  }}
-                >
-                  {grade.score ??
-                    grade.grade ??
-                    "-"}
-                </div>
-              </div>
-            ))}
+            {attendance.map(
+              (item) => (
+                <Card key={item.id}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <div>
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                        }}
+                      >
+                        {item.child_name}
+                      </strong>
+
+                      <div
+                        style={{
+                          color: "#64748b",
+                          marginTop: "4px",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {formatDate(
+                          item.attendance_date
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: "13px",
+                      }}
+                    >
+                      {item.status ===
+                        "present" &&
+                        "🟢 Présent"}
+
+                      {item.status ===
+                        "absent" &&
+                        "🔴 Absent"}
+
+                      {item.status ===
+                        "late" &&
+                        "🟠 En retard"}
+
+                      {item.status ===
+                        "excused" &&
+                        "🔵 Excusé"}
+                    </div>
+                  </div>
+                </Card>
+              )
+            )}
           </div>
         )}
-      </div>
+      </>
     );
-  };
-  const AttendancePage = () => {
+  }
+
+  function BulletinsPage() {
     return (
-      <div>
-        <h1 style={{ color: "#111827" }}>
-          Présence
-        </h1>
-        {attendance.length === 0 ? (
-          <div className="card">
-            <p style={{ color: "#4b5563" }}>
-              Aucune donnée de présence disponible.
-            </p>
-          </div>
+      <>
+        <PageTitle
+          icon="📄"
+          title="Bulletins"
+          description="Bulletins validés et transmis par l'école."
+          onBack={() => setPage("home")}
+        />
+
+        {!bulletins.length ? (
+          <Empty
+            text="Aucun bulletin disponible."
+          />
         ) : (
           <div
             style={{
               display: "grid",
-              gap: 12,
+              gap: "12px",
             }}
           >
-            {attendance.map((item) => (
-              <div
-                className="card"
-                key={item.id}
-              >
-                <strong
-                  style={{
-                    color: "#111827",
-                  }}
-                >
-                  {item.child_name ||
-                    "Élève"}
-                </strong>
-                <div
-                  style={{
-                    color: "#4b5563",
-                    marginTop: 6,
-                  }}
-                >
-                  Date :{" "}
-                  {item.date ||
-                    item.attendance_date ||
-                    "-"}
-                </div>
-                <div
-                  style={{
-                    color: "#4b5563",
-                    marginTop: 4,
-                  }}
-                >
-                  Statut :{" "}
-                  {item.status ||
-                    "-"}
-                </div>
-              </div>
-            ))}
+            {bulletins.map(
+              (bulletin) => (
+                <Card key={bulletin.id}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "44px",
+                        height: "44px",
+                        borderRadius: "12px",
+                        background: "#f1f5f9",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "21px",
+                      }}
+                    >
+                      📄
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                        }}
+                      >
+                        {bulletin.child_name}
+                      </strong>
+
+                      <div
+                        style={{
+                          marginTop: "5px",
+                          color: "#475569",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {bulletin.trimester}
+                      </div>
+
+                      <div
+                        style={{
+                          color: "#64748b",
+                          fontSize: "12px",
+                          marginTop: "4px",
+                        }}
+                      >
+                        Statut :{" "}
+                        {bulletin.status}
+                      </div>
+                    </div>
+                  </div>
+
+                  {bulletin.pdf_url && (
+                    <a
+                      href={bulletin.pdf_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        marginTop: "13px",
+                        padding: "10px 13px",
+                        borderRadius: "10px",
+                        background: "#eef2ff",
+                        color: "#4338ca",
+                        textDecoration: "none",
+                        fontWeight: 800,
+                        fontSize: "13px",
+                      }}
+                    >
+                      📥 Ouvrir le bulletin
+                    </a>
+                  )}
+                </Card>
+              )
+            )}
           </div>
         )}
-      </div>
+      </>
     );
-  };
-  const BulletinsPage = () => {
+  }
+
+  function AdministrativePage() {
     return (
-      <div>
-        <h1 style={{ color: "#111827" }}>
-          Bulletins
-        </h1>
-        {bulletins.length === 0 ? (
-          <div className="card">
-            <p style={{ color: "#4b5563" }}>
-              Aucun bulletin disponible.
-            </p>
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: 12,
-            }}
-          >
-            {bulletins.map((bulletin) => (
-              <div
-                className="card"
-                key={bulletin.id}
-              >
-                <strong
-                  style={{
-                    color: "#111827",
-                  }}
-                >
-                  {bulletin.child_name ||
-                    "Élève"}
-                </strong>
-                <div
-                  style={{
-                    color: "#4b5563",
-                    marginTop: 6,
-                  }}
-                >
-                  {bulletin.title ||
-                    "Bulletin scolaire"}
-                </div>
-                <div
-                  style={{
-                    color: "#4b5563",
-                    marginTop: 4,
-                  }}
-                >
-                  Statut :{" "}
-                  {bulletin.status ||
-                    "-"}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-  /*
-   * =========================
-   * SERVICE ADMINISTRATIF
-   * =========================
-   */
-  const AdministrativePage = () => {
-    return (
-      <div>
-        <h1
-          style={{
-            color: "#111827",
-            marginBottom: 8,
-          }}
-        >
-          Service administratif
-        </h1>
-        <p
-          style={{
-            color: "#4b5563",
-            marginBottom: 24,
-          }}
-        >
-          Informations et échanges avec le
-          service administratif de votre école.
-        </p>
-        {/* INFORMATIONS PUBLIEES PAR LE SECRETARIAT */}
-        <div
-          className="card"
-          style={{
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              color: "#111827",
-              marginTop: 0,
-            }}
-          >
-            📢 Informations administratives
-          </h2>
-          {adminAnnouncements.length === 0 ? (
-            <p style={{ color: "#4b5563" }}>
-              Aucune information administrative
-              disponible.
-            </p>
-          ) : (
+      <>
+        <PageTitle
+          icon="🏢"
+          title="Service administratif"
+          description="Informations et échanges avec le secrétariat."
+          onBack={() => setPage("home")}
+        />
+
+        {adminAnnouncements.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h3
+              style={{
+                margin: "0 0 12px",
+                color: "#0f172a",
+                fontSize: "17px",
+              }}
+            >
+              📢 Informations de l'administration
+            </h3>
+
             <div
               style={{
                 display: "grid",
-                gap: 14,
+                gap: "12px",
               }}
             >
               {adminAnnouncements.map(
-                (announcement) => (
-                  <div
-                    key={announcement.id}
-                    style={{
-                      padding: 16,
-                      border:
-                        "1px solid #e5e7eb",
-                      borderRadius: 12,
-                      background:
-                        "#f9fafb",
-                    }}
-                  >
+                (item) => (
+                  <Card key={item.id}>
                     <div
                       style={{
                         display: "flex",
-                        justifyContent:
-                          "space-between",
-                        gap: 12,
-                        alignItems:
-                          "flex-start",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        alignItems: "flex-start",
                       }}
                     >
                       <strong
                         style={{
-                          color: "#111827",
-                          fontSize: 17,
+                          color: "#0f172a",
+                          fontSize: "16px",
                         }}
                       >
-                        {announcement.title}
+                        {item.title}
                       </strong>
+
                       <span
                         style={{
-                          fontSize: 12,
-                          color: "#6b7280",
-                          whiteSpace:
-                            "nowrap",
+                          color: "#4f46e5",
+                          fontWeight: 800,
+                          fontSize: "11px",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        {announcement.published_at
-                          ? new Date(
-                              announcement.published_at
-                            ).toLocaleDateString(
-                              "fr-FR"
-                            )
-                          : ""}
+                        📢 Information
                       </span>
                     </div>
+
                     <p
                       style={{
-                        color: "#374151",
-                        marginBottom: 0,
+                        margin:
+                          "12px 0 10px",
+                        color: "#475569",
+                        lineHeight: 1.6,
+                        fontSize: "14px",
                         whiteSpace:
                           "pre-wrap",
-                        lineHeight: 1.6,
                       }}
                     >
-                      {announcement.message}
+                      {item.message}
                     </p>
-                  </div>
+
+                    <div
+                      style={{
+                        color: "#94a3b8",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Publiée le{" "}
+                      {formatDate(
+                        item.published_at ||
+                          item.created_at
+                      )}
+                    </div>
+                  </Card>
                 )
               )}
             </div>
-          )}
-        </div>
-        {/* MESSAGES DU SECRETARIAT */}
-        <div className="card">
-          <h2
-            style={{
-              color: "#111827",
-              marginTop: 0,
-            }}
-          >
-            💬 Messages du service administratif
-          </h2>
-          {adminMessages.length === 0 ? (
-            <p style={{ color: "#4b5563" }}>
-              Aucun message du service
-              administratif.
-            </p>
-          ) : (
+          </div>
+        )}
+
+        {adminMessages.length > 0 && (
+          <div>
+            <h3
+              style={{
+                margin: "0 0 12px",
+                color: "#0f172a",
+                fontSize: "17px",
+              }}
+            >
+              💬 Messages du secrétariat
+            </h3>
+
             <div
               style={{
                 display: "grid",
-                gap: 14,
+                gap: "12px",
               }}
             >
               {adminMessages.map(
-                (message) => (
-                  <div
-                    key={message.id}
-                    style={{
-                      padding: 16,
-                      border:
-                        "1px solid #e5e7eb",
-                      borderRadius: 12,
-                      background:
-                        message.read_at
-                          ? "#ffffff"
-                          : "#eff6ff",
-                    }}
-                  >
+                (item) => (
+                  <Card key={item.id}>
                     <div
                       style={{
                         display: "flex",
-                        justifyContent:
-                          "space-between",
-                        gap: 12,
-                        alignItems:
-                          "flex-start",
+                        justifyContent: "space-between",
+                        gap: "10px",
                       }}
                     >
                       <strong
                         style={{
-                          color: "#111827",
+                          color: "#0f172a",
                         }}
                       >
-                        {message.subject}
+                        {item.subject}
                       </strong>
-                      {!message.read_at && (
+
+                      {!item.read_at && (
                         <span
                           style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#2563eb",
+                            color: "#dc2626",
+                            fontWeight: 800,
+                            fontSize: "12px",
                           }}
                         >
                           Nouveau
                         </span>
                       )}
                     </div>
+
                     <p
                       style={{
-                        color: "#374151",
-                        whiteSpace:
-                          "pre-wrap",
+                        color: "#475569",
                         lineHeight: 1.6,
+                        fontSize: "14px",
                       }}
                     >
-                      {message.message}
+                      {item.message}
                     </p>
+
                     <div
                       style={{
-                        display: "flex",
-                        justifyContent:
-                          "space-between",
-                        alignItems:
-                          "center",
-                        gap: 12,
-                        flexWrap: "wrap",
+                        color: "#94a3b8",
+                        fontSize: "12px",
                       }}
                     >
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: "#6b7280",
-                        }}
-                      >
-                        {message.created_at
-                          ? new Date(
-                              message.created_at
-                            ).toLocaleString(
-                              "fr-FR"
-                            )
-                          : ""}
-                      </span>
-                      {!message.read_at && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            markMessageRead(
-                              message.id
-                            )
-                          }
-                          style={{
-                            border:
-                              "1px solid #2563eb",
-                            background:
-                              "#ffffff",
-                            color:
-                              "#2563eb",
-                            padding:
-                              "8px 12px",
-                            borderRadius: 8,
-                            cursor:
-                              "pointer",
-                          }}
-                        >
-                          Marquer comme lu
-                        </button>
+                      {formatDate(
+                        item.created_at
                       )}
                     </div>
-                  </div>
+
+                    {!item.read_at && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          markMessageRead(
+                            item.id
+                          )
+                        }
+                        style={{
+                          marginTop: "11px",
+                          border:
+                            "1px solid #c7d2fe",
+                          background:
+                            "#eef2ff",
+                          color: "#4338ca",
+                          borderRadius: "9px",
+                          padding:
+                            "9px 12px",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                          fontSize: "12px",
+                        }}
+                      >
+                        ✓ Marquer comme lu
+                      </button>
+                    )}
+                  </Card>
                 )
               )}
             </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-  const CommunicationPage = () => {
-    return (
-      <div>
-        <h1 style={{ color: "#111827" }}>
-          Communication
-        </h1>
-        <div className="card">
-          <p style={{ color: "#4b5563" }}>
-            La communication sera disponible
-            prochainement.
-          </p>
-        </div>
-      </div>
-    );
-  };
-  const NotificationsPage = () => {
-    return (
-      <div>
-        <h1 style={{ color: "#111827" }}>
-          Notifications
-        </h1>
-        {notifications.length === 0 ? (
-          <div className="card">
-            <p style={{ color: "#4b5563" }}>
-              Aucune notification.
-            </p>
           </div>
+        )}
+
+        {!adminAnnouncements.length &&
+          !adminMessages.length && (
+            <Empty
+              text="Aucune information ou message du service administratif."
+            />
+          )}
+      </>
+    );
+  }
+
+  function NotificationsPage() {
+    return (
+      <>
+        <PageTitle
+          icon="🔔"
+          title="Notifications"
+          description="Les informations importantes de l'école."
+          onBack={() => setPage("home")}
+        />
+
+        {!notifications.length ? (
+          <Empty
+            text="Aucune notification."
+          />
         ) : (
           <div
             style={{
               display: "grid",
-              gap: 12,
+              gap: "12px",
             }}
           >
             {notifications.map(
-              (notification) => (
-                <div
-                  className="card"
-                  key={notification.id}
-                  style={{
-                    background:
-                      notification.read_at
-                        ? "#ffffff"
-                        : "#eff6ff",
-                  }}
-                >
+              (item) => (
+                <Card key={item.id}>
                   <div
                     style={{
                       display: "flex",
-                      justifyContent:
-                        "space-between",
-                      gap: 12,
+                      justifyContent: "space-between",
+                      gap: "10px",
                     }}
                   >
                     <strong
                       style={{
-                        color: "#111827",
+                        color: "#0f172a",
                       }}
                     >
-                      {notification.title ||
-                        "Notification"}
+                      {item.title}
                     </strong>
-                    {!notification.read_at && (
+
+                    {!item.read_at && (
                       <span
                         style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "#2563eb",
+                          color: "#dc2626",
+                          fontWeight: 800,
+                          fontSize: "12px",
                         }}
                       >
                         Nouveau
                       </span>
                     )}
                   </div>
+
                   <p
                     style={{
-                      color: "#374151",
-                      whiteSpace:
-                        "pre-wrap",
+                      color: "#475569",
+                      lineHeight: 1.6,
+                      fontSize: "14px",
                     }}
                   >
-                    {notification.message ||
-                      notification.body ||
-                      ""}
+                    {item.message}
                   </p>
-                  {!notification.read_at && (
+
+                  <div
+                    style={{
+                      color: "#94a3b8",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {formatDate(
+                      item.created_at
+                    )}
+                  </div>
+
+                  {!item.read_at && (
                     <button
                       type="button"
                       onClick={() =>
                         markNotificationRead(
-                          notification.id
+                          item.id
                         )
                       }
                       style={{
+                        marginTop: "11px",
                         border:
-                          "1px solid #2563eb",
+                          "1px solid #c7d2fe",
                         background:
-                          "#ffffff",
-                        color:
-                          "#2563eb",
+                          "#eef2ff",
+                        color: "#4338ca",
+                        borderRadius: "9px",
                         padding:
-                          "8px 12px",
-                        borderRadius: 8,
-                        cursor:
-                          "pointer",
+                          "9px 12px",
+                        cursor: "pointer",
+                        fontWeight: 800,
+                        fontSize: "12px",
                       }}
                     >
-                      Marquer comme lu
+                      ✓ Marquer comme lu
                     </button>
                   )}
-                </div>
+                </Card>
               )
             )}
           </div>
         )}
-      </div>
-    );
-  };
-  const renderPage = () => {
-    switch (page) {
-      case "home":
-        return <HomePage />;
-      case "children":
-        return <ChildrenPage />;
-      case "grades":
-        return <GradesPage />;
-      case "attendance":
-        return <AttendancePage />;
-      case "bulletins":
-        return <BulletinsPage />;
-      case "communication":
-        return <CommunicationPage />;
-      case "administrative":
-        return <AdministrativePage />;
-      case "notifications":
-        return <NotificationsPage />;
-      default:
-        return <HomePage />;
-    }
-  };
-  if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "#111827",
-        }}
-      >
-        Chargement de votre espace parent...
-      </div>
+      </>
     );
   }
+
+  function CommunicationPage() {
+    return (
+      <>
+        <PageTitle
+          icon="💬"
+          title="Communication"
+          description="Espace de communication lié à la scolarité."
+          onBack={() => setPage("home")}
+        />
+
+        <Empty
+          text="La communication parent sera reliée à son module dédié."
+        />
+      </>
+    );
+  }
+
+  function renderPage() {
+    if (page === "home")
+      return <HomePage />;
+
+    if (page === "children")
+      return <ChildrenPage />;
+
+    if (page === "grades")
+      return <GradesPage />;
+
+    if (page === "attendance")
+      return <AttendancePage />;
+
+    if (page === "bulletins")
+      return <BulletinsPage />;
+
+    if (page === "communication")
+      return <CommunicationPage />;
+
+    if (page === "administrative")
+      return <AdministrativePage />;
+
+    if (page === "notifications")
+      return <NotificationsPage />;
+
+    return <HomePage />;
+  }
+
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "#f3f4f6",
+        background: "#f8fafc",
         display: "flex",
-        color: "#111827",
+        color: "#0f172a",
       }}
     >
-      {/* SIDEBAR */}
       <aside
         style={{
-          width: 250,
+          width: "250px",
+          minWidth: "250px",
+          minHeight: "100vh",
           background: "#ffffff",
           borderRight:
-            "1px solid #e5e7eb",
-          padding: 18,
-          boxSizing: "border-box",
+            "1px solid #e2e8f0",
+          display: "flex",
+          flexDirection: "column",
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+          boxShadow:
+            "2px 0 12px rgba(15,23,42,0.04)",
+          zIndex: 20,
         }}
       >
         <div
           style={{
-            fontWeight: 800,
-            fontSize: 20,
-            marginBottom: 24,
-            color: "#111827",
-          }}
-        >
-          École Connectée
-        </div>
-        <div
-          style={{
-            marginBottom: 18,
-            padding: 12,
-            borderRadius: 10,
-            background: "#f9fafb",
+            padding: "22px 18px",
+            borderBottom:
+              "1px solid #e2e8f0",
           }}
         >
           <div
             style={{
-              fontWeight: 700,
-              color: "#111827",
+              display: "flex",
+              alignItems: "center",
+              gap: "11px",
             }}
           >
-            {profile?.full_name ||
-              "Parent"}
-          </div>
-          <div
-            style={{
-              fontSize: 13,
-              color: "#6b7280",
-              marginTop: 4,
-            }}
-          >
-            Parent
-          </div>
-        </div>
-        <nav
-          style={{
-            display: "grid",
-            gap: 6,
-          }}
-        >
-          {MENU.map((item) => {
-            const active =
-              page === item.id;
-            const badge =
-              item.id ===
-              "notifications"
-                ? unreadNotifications
-                : item.id ===
-                  "administrative"
-                ? unreadMessages
-                : 0;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() =>
-                  setPage(item.id)
-                }
+            <div
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "12px",
+                background: "#4f46e5",
+                color: "#ffffff",
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 900,
+                fontSize: "14px",
+                boxShadow:
+                  "0 5px 15px rgba(79,70,229,0.25)",
+                flexShrink: 0,
+              }}
+            >
+              EC
+            </div>
+
+            <div>
+              <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent:
-                    "space-between",
-                  gap: 10,
-                  width: "100%",
-                  padding:
-                    "11px 12px",
-                  borderRadius: 9,
-                  border: "none",
-                  background: active
-                    ? "#e5edff"
-                    : "transparent",
-                  color: "#111827",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontWeight: active
-                    ? 700
-                    : 500,
+                  fontSize: "16px",
+                  fontWeight: 900,
+                  color: "#0f172a",
                 }}
               >
-                <span>
-                  {item.icon}{" "}
-                  {item.label}
-                </span>
-                {badge > 0 && (
-                  <span
-                    style={{
-                      minWidth: 22,
-                      height: 22,
-                      borderRadius: 999,
-                      background:
-                        "#dc2626",
-                      color: "#ffffff",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      display: "flex",
-                      alignItems:
-                        "center",
-                      justifyContent:
-                        "center",
-                    }}
-                  >
-                    {badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-        <button
-          type="button"
-          onClick={onLogout}
+                École Connectée
+              </div>
+
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#64748b",
+                  marginTop: "2px",
+                }}
+              >
+                Espace Parent
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
           style={{
-            width: "100%",
-            marginTop: 24,
-            padding: 11,
-            borderRadius: 9,
-            border:
-              "1px solid #e5e7eb",
-            background: "#ffffff",
-            color: "#111827",
-            cursor: "pointer",
+            padding: "18px",
+            borderBottom:
+              "1px solid #e2e8f0",
           }}
         >
-          Déconnexion
-        </button>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "50%",
+                background: "#eef2ff",
+                color: "#4338ca",
+                display: "grid",
+                placeItems: "center",
+                fontSize: "19px",
+                flexShrink: 0,
+              }}
+            >
+              👨‍👩‍👧
+            </div>
+
+            <div
+              style={{
+                minWidth: 0,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "13px",
+                  fontWeight: 800,
+                  color: "#0f172a",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {profile?.full_name ||
+                  "Parent"}
+              </div>
+
+              <div
+                style={{
+                  fontSize: "11px",
+                  color: "#64748b",
+                  marginTop: "2px",
+                }}
+              >
+                Parent
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav
+          style={{
+            flex: 1,
+            padding: "14px 10px",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "10px",
+              fontWeight: 900,
+              color: "#94a3b8",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              padding: "5px 10px 10px",
+            }}
+          >
+            Navigation
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gap: "4px",
+            }}
+          >
+            {MENU.map((item) => {
+              const active =
+                page === item.id;
+
+              const hasNotificationBadge =
+                item.id ===
+                  "notifications" &&
+                unreadNotifications > 0;
+
+              const hasMessageBadge =
+                item.id ===
+                  "administrative" &&
+                unreadMessages > 0;
+
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    setPage(item.id)
+                  }
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "11px",
+                    border: "none",
+                    borderRadius: "10px",
+                    padding: "11px 12px",
+                    background: active
+                      ? "#eef2ff"
+                      : "transparent",
+                    color: active
+                      ? "#4338ca"
+                      : "#475569",
+                    fontWeight: active
+                      ? 800
+                      : 650,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "24px",
+                      textAlign: "center",
+                      fontSize: "18px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {item.icon}
+                  </span>
+
+                  <span
+                    style={{
+                      flex: 1,
+                    }}
+                  >
+                    {item.label}
+                  </span>
+
+                  {hasNotificationBadge && (
+                    <span
+                      style={{
+                        minWidth: "20px",
+                        height: "20px",
+                        padding: "0 5px",
+                        borderRadius: "999px",
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "10px",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {unreadNotifications}
+                    </span>
+                  )}
+
+                  {hasMessageBadge && (
+                    <span
+                      style={{
+                        minWidth: "20px",
+                        height: "20px",
+                        padding: "0 5px",
+                        borderRadius: "999px",
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "10px",
+                        fontWeight: 900,
+                      }}
+                    >
+                      {unreadMessages}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        <div
+          style={{
+            padding: "15px",
+            borderTop:
+              "1px solid #e2e8f0",
+            marginTop: "auto",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onLogout}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              padding: "11px 14px",
+              borderRadius: "10px",
+              border: "1px solid #fecaca",
+              background: "#fff1f2",
+              color: "#dc2626",
+              fontWeight: 800,
+              fontSize: "13px",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "17px",
+              }}
+            >
+              🚪
+            </span>
+
+            <span>
+              Déconnexion
+            </span>
+          </button>
+        </div>
       </aside>
-      {/* CONTENU */}
+
       <main
         style={{
           flex: 1,
-          padding: 24,
-          boxSizing: "border-box",
-          overflowX: "hidden",
+          minWidth: 0,
+          minHeight: "100vh",
+          background: "#f8fafc",
         }}
       >
-        {error && (
+        <header
+          style={{
+            background: "#ffffff",
+            borderBottom:
+              "1px solid #e2e8f0",
+            padding: "18px 26px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+          }}
+        >
+          <div>
+            <div
+              style={{
+                color: "#4f46e5",
+                fontSize: "11px",
+                fontWeight: 900,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
+              ESPACE PARENT
+            </div>
+
+            <h1
+              style={{
+                margin: "4px 0 0",
+                fontSize: "22px",
+                fontWeight: 900,
+                color: "#0f172a",
+              }}
+            >
+              Bonjour
+              {profile?.full_name
+                ? `, ${profile.full_name}`
+                : ""}{" "}
+              👋
+            </h1>
+          </div>
+
           <div
             style={{
-              marginBottom: 18,
-              padding: 14,
-              borderRadius: 10,
-              background: "#fef2f2",
-              border:
-                "1px solid #fecaca",
-              color: "#991b1b",
+              display: "flex",
+              alignItems: "center",
+              gap: "9px",
+              color: "#64748b",
+              fontSize: "12px",
+            }}
+          >
+            <span>👨‍👩‍👧</span>
+            <span>Parent</span>
+          </div>
+        </header>
+
+        {error && (
+          <div
+            className="error-message"
+            style={{
+              margin: "18px 26px 0",
             }}
           >
             {error}
           </div>
         )}
-        {renderPage()}
+
+        {loading ? (
+          <div
+            style={{
+              padding: "26px",
+            }}
+          >
+            <Card>
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "35px 20px",
+                  color: "#64748b",
+                }}
+              >
+                Chargement de votre
+                espace Parent...
+              </div>
+            </Card>
+          </div>
+        ) : (
+          <div
+            style={{
+              padding: "24px 26px 35px",
+              maxWidth: "1250px",
+            }}
+          >
+            {renderPage()}
+          </div>
+        )}
       </main>
-      <style>{`
-        .card {
-          background: #ffffff;
-          border: 1px solid #e5e7eb;
-          border-radius: 14px;
-          padding: 18px;
-          box-sizing: border-box;
-        }
-        .card-title {
-          color: #4b5563;
-          font-size: 14px;
-          margin-bottom: 8px;
-        }
-        .card-value {
-          color: #111827;
-          font-size: 28px;
-          font-weight: 800;
-        }
-        @media (max-width: 800px) {
-          aside {
-            width: 210px !important;
-          }
-          main {
-            padding: 16px !important;
-          }
-        }
-        @media (max-width: 650px) {
-          body {
-            overflow-x: hidden;
-          }
-          aside {
-            width: 100% !important;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 50;
-            border-right: none !important;
-            border-top: 1px solid #e5e7eb;
-            padding: 8px !important;
-          }
-          aside > div:first-child,
-          aside > div:nth-child(2),
-          aside > button:last-child {
-            display: none;
-          }
-          aside nav {
-            display: grid !important;
-            grid-template-columns: repeat(
-              4,
-              1fr
-            );
-            gap: 4px !important;
-          }
-          aside nav button {
-            justify-content: center !important;
-            text-align: center !important;
-            padding: 8px 4px !important;
-            font-size: 11px !important;
-          }
-          main {
-            padding-bottom: 90px !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
