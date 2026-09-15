@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 
 function SecretaryParentCommunicationPage({
@@ -11,31 +11,378 @@ function SecretaryParentCommunicationPage({
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
+  const [searchParent, setSearchParent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    if (!schoolId || !secretaryId) return;
-    loadParents();
-  }, [schoolId, secretaryId]);
+  const selectedParent = useMemo(
+    () =>
+      parents.find(
+        (parent) => parent.id === selectedParentId
+      ) || null,
+    [parents, selectedParentId]
+  );
 
-  useEffect(() => {
-    if (!schoolId || !secretaryId || !selectedParentId) {
+  const filteredParents = useMemo(() => {
+    const search = searchParent.trim().toLowerCase();
+
+    if (!search) {
+      return parents;
+    }
+
+    return parents.filter((parent) => {
+      const name = (parent.full_name || "").toLowerCase();
+      const phone = (parent.phone || "").toLowerCase();
+      const email = (parent.email || "").toLowerCase();
+
+      return (
+        name.includes(search) ||
+        phone.includes(search) ||
+        email.includes(search)
+      );
+    });
+  }, [parents, searchParent]);
+
+  async function loadParents() {
+    if (!schoolId) {
+      setError("École non configurée.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    const { data, error: parentsError } = await supabase
+      .from("parents")
+      .select(`
+        id,
+        profile_id,
+        school_id,
+        phone,
+        profiles:profile_id (
+          full_name,
+          phone
+        )
+      `)
+      .eq("school_id", schoolId)
+      .order("created_at", {
+        ascending: true,
+      });
+
+    if (parentsError) {
+      console.error(
+        "Erreur chargement parents :",
+        parentsError
+      );
+      setError(
+        "Impossible de charger la liste des parents."
+      );
+      setLoading(false);
+      return;
+    }
+
+    const formattedParents = (data || []).map((parent) => ({
+      id: parent.id,
+      profile_id: parent.profile_id,
+      school_id: parent.school_id,
+      full_name:
+        parent.profiles?.full_name ||
+        "Parent sans nom",
+      phone:
+        parent.phone ||
+        parent.profiles?.phone ||
+        "",
+      email: "",
+    }));
+
+    setParents(formattedParents);
+
+    setLoading(false);
+  }
+
+  async function loadConversation(parentId) {
+    if (!schoolId || !secretaryId || !parentId) {
       setConversation(null);
       setMessages([]);
       return;
     }
 
-    loadConversation();
-  }, [schoolId, secretaryId, selectedParentId]);
+    setError("");
+
+    const { data: existingConversation, error: conversationError } =
+      await supabase
+        .from("secretary_parent_conversations")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("secretary_id", secretaryId)
+        .eq("parent_id", parentId)
+        .maybeSingle();
+
+    if (conversationError) {
+      console.error(
+        "Erreur conversation :",
+        conversationError
+      );
+      setError(
+        "Impossible de charger la conversation."
+      );
+      return;
+    }
+
+    if (!existingConversation) {
+      setConversation(null);
+      setMessages([]);
+      return;
+    }
+
+    setConversation(existingConversation);
+
+    const { data: conversationMessages, error: messagesError } =
+      await supabase
+        .from("secretary_parent_messages")
+        .select(`
+          id,
+          school_id,
+          secretary_id,
+          parent_id,
+          subject,
+          message,
+          sender_type,
+          read_at,
+          created_at,
+          conversation_id
+        `)
+        .eq("school_id", schoolId)
+        .eq(
+          "conversation_id",
+          existingConversation.id
+        )
+        .order("created_at", {
+          ascending: true,
+        });
+
+    if (messagesError) {
+      console.error(
+        "Erreur messages :",
+        messagesError
+      );
+      setError(
+        "Impossible de charger les messages."
+      );
+      return;
+    }
+
+    setMessages(conversationMessages || []);
+  }
+
+  async function ensureConversation(parentId) {
+    if (!schoolId || !secretaryId || !parentId) {
+      return null;
+    }
+
+    if (conversation?.id) {
+      return conversation;
+    }
+
+    const { data: existingConversation, error: findError } =
+      await supabase
+        .from("secretary_parent_conversations")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("secretary_id", secretaryId)
+        .eq("parent_id", parentId)
+        .maybeSingle();
+
+    if (findError) {
+      console.error(
+        "Erreur recherche conversation :",
+        findError
+      );
+      throw findError;
+    }
+
+    if (existingConversation) {
+      setConversation(existingConversation);
+      return existingConversation;
+    }
+
+    const { data: newConversation, error: createError } =
+      await supabase
+        .from("secretary_parent_conversations")
+        .insert({
+          school_id: schoolId,
+          secretary_id: secretaryId,
+          parent_id: parentId,
+        })
+        .select("*")
+        .single();
+
+    if (createError) {
+      console.error(
+        "Erreur création conversation :",
+        createError
+      );
+      throw createError;
+    }
+
+    setConversation(newConversation);
+
+    return newConversation;
+  }
+
+  async function sendMessage() {
+    const text = message.trim();
+
+    if (!selectedParentId) {
+      setError("Sélectionnez un parent.");
+      return;
+    }
+
+    if (!text) {
+      setError("Écrivez un message.");
+      return;
+    }
+
+    if (!schoolId || !secretaryId) {
+      setError("Informations de connexion manquantes.");
+      return;
+    }
+
+    setSending(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const currentConversation =
+        await ensureConversation(selectedParentId);
+
+      if (!currentConversation?.id) {
+        throw new Error(
+          "Conversation introuvable."
+        );
+      }
+
+      const { data: newMessage, error: insertError } =
+        await supabase
+          .from("secretary_parent_messages")
+          .insert({
+            school_id: schoolId,
+            secretary_id: secretaryId,
+            parent_id: selectedParentId,
+            conversation_id: currentConversation.id,
+            subject: "Communication",
+            message: text,
+            sender_type: "secretary",
+          })
+          .select(`
+            id,
+            school_id,
+            secretary_id,
+            parent_id,
+            subject,
+            message,
+            sender_type,
+            read_at,
+            created_at,
+            conversation_id
+          `)
+          .single();
+
+      if (insertError) {
+        console.error(
+          "Erreur envoi message :",
+          insertError
+        );
+        throw insertError;
+      }
+
+      setMessages((current) => [
+        ...current,
+        newMessage,
+      ]);
+
+      setMessage("");
+
+      setSuccess(
+        `Message envoyé à ${
+          selectedParent?.full_name ||
+          "ce parent"
+        } avec succès`
+      );
+    } catch (sendError) {
+      console.error(
+        "Erreur communication parent :",
+        sendError
+      );
+
+      setError(
+        "Impossible d'envoyer le message."
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function markAsRead(messageId) {
+    if (!schoolId || !messageId) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    const { error: updateError } = await supabase
+      .from("secretary_parent_messages")
+      .update({
+        read_at: now,
+      })
+      .eq("id", messageId)
+      .eq("school_id", schoolId);
+
+    if (updateError) {
+      console.error(
+        "Erreur lecture message :",
+        updateError
+      );
+      return;
+    }
+
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === messageId
+          ? {
+              ...item,
+              read_at: now,
+            }
+          : item
+      )
+    );
+  }
 
   useEffect(() => {
-    if (!conversation?.id) return;
+    loadParents();
+  }, [schoolId]);
+
+  useEffect(() => {
+    setConversation(null);
+    setMessages([]);
+
+    if (selectedParentId) {
+      loadConversation(selectedParentId);
+    }
+  }, [selectedParentId]);
+
+  useEffect(() => {
+    if (!conversation?.id) {
+      return;
+    }
 
     const channel = supabase
-      .channel(`secretary-parent-${conversation.id}`)
+      .channel(
+        `secretary-parent-${conversation.id}`
+      )
       .on(
         "postgres_changes",
         {
@@ -50,9 +397,14 @@ function SecretaryParentCommunicationPage({
               (item) => item.id === payload.new.id
             );
 
-            if (exists) return current;
+            if (exists) {
+              return current;
+            }
 
-            return [...current, payload.new];
+            return [
+              ...current,
+              payload.new,
+            ];
           });
         }
       )
@@ -63,260 +415,26 @@ function SecretaryParentCommunicationPage({
     };
   }, [conversation?.id]);
 
-  async function loadParents() {
-    setLoading(true);
-    setError("");
-
-    const { data, error: parentsError } = await supabase
-      .from("parents")
-      .select(`
-        id,
-        full_name,
-        phone,
-        email,
-        active
-      `)
-      .eq("school_id", schoolId)
-      .order("full_name");
-
-    if (parentsError) {
-      console.error(
-        "Erreur chargement parents :",
-        parentsError
-      );
-
-      setError(
-        parentsError.message ||
-          "Impossible de charger les parents."
-      );
-
-      setParents([]);
-    } else {
-      setParents(data || []);
-    }
-
-    setLoading(false);
-  }
-
-  async function loadConversation() {
-    setError("");
-    setSuccess("");
-
-    const {
-      data: existingConversation,
-      error: conversationError,
-    } = await supabase
-      .from("secretary_parent_conversations")
-      .select(`
-        id,
-        school_id,
-        secretary_id,
-        parent_id,
-        created_at,
-        updated_at
-      `)
-      .eq("school_id", schoolId)
-      .eq("secretary_id", secretaryId)
-      .eq("parent_id", selectedParentId)
-      .maybeSingle();
-
-    if (conversationError) {
-      console.error(
-        "Erreur conversation :",
-        conversationError
-      );
-
-      setConversation(null);
-      setMessages([]);
-
-      setError(
-        conversationError.message ||
-          "Impossible de charger la conversation."
-      );
-
-      return;
-    }
-
-    if (!existingConversation) {
-      setConversation(null);
-      setMessages([]);
-      return;
-    }
-
-    setConversation(existingConversation);
-
-    const {
-      data: conversationMessages,
-      error: messagesError,
-    } = await supabase
-      .from("secretary_parent_messages")
-      .select(`
-        id,
-        conversation_id,
-        school_id,
-        secretary_id,
-        parent_id,
-        subject,
-        message,
-        sender_type,
-        read_at,
-        created_at
-      `)
-      .eq("conversation_id", existingConversation.id)
-      .eq("school_id", schoolId)
-      .order("created_at", { ascending: true });
-
-    if (messagesError) {
-      console.error(
-        "Erreur messages :",
-        messagesError
-      );
-
-      setMessages([]);
-
-      setError(
-        messagesError.message ||
-          "Impossible de charger les messages."
-      );
-
-      return;
-    }
-
-    setMessages(conversationMessages || []);
-  }
-
-  async function ensureConversation() {
-    if (conversation) {
-      return conversation;
-    }
-
-    const { data, error: createError } = await supabase
-      .from("secretary_parent_conversations")
-      .insert({
-        school_id: schoolId,
-        secretary_id: secretaryId,
-        parent_id: selectedParentId,
-      })
-      .select(`
-        id,
-        school_id,
-        secretary_id,
-        parent_id,
-        created_at,
-        updated_at
-      `)
-      .single();
-
-    if (createError) {
-      console.error(
-        "Erreur création conversation :",
-        createError
-      );
-
-      throw createError;
-    }
-
-    setConversation(data);
-
-    return data;
-  }
-
-  async function sendMessage(event) {
-    event.preventDefault();
-
-    setError("");
-    setSuccess("");
-
-    const text = message.trim();
-
-    if (!selectedParentId) {
-      setError("Veuillez sélectionner un parent.");
-      return;
-    }
-
-    if (!text) {
-      setError("Veuillez écrire un message.");
-      return;
-    }
-
-    setSending(true);
-
-    try {
-      const currentConversation =
-        await ensureConversation();
-
-      const { error: insertError } = await supabase
-        .from("secretary_parent_messages")
-        .insert({
-          conversation_id: currentConversation.id,
-          school_id: schoolId,
-          secretary_id: secretaryId,
-          parent_id: selectedParentId,
-          subject: "Communication",
-          message: text,
-          sender_type: "secretary",
-        });
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      setMessage("");
-
-      setSuccess("Message envoyé avec succès.");
-
-      await loadConversation();
-    } catch (err) {
-      console.error(
-        "Erreur envoi message secrétaire-parent :",
-        err
-      );
-
-      setError(
-        err?.message ||
-          "Impossible d'envoyer le message."
-      );
-    } finally {
-      setSending(false);
-    }
-  }
-
-  const selectedParent = parents.find(
-    (parent) => parent.id === selectedParentId
-  );
-
-  if (loading) {
-    return (
-      <div style={styles.page}>
-        <div style={styles.card}>
-          Chargement des parents...
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div style={styles.page}>
       <div style={styles.header}>
+        <button
+          type="button"
+          onClick={onBack}
+          style={styles.backButton}
+        >
+          ← Retour
+        </button>
+
         <div>
-          <h2 style={styles.title}>
-            💬 Communication avec les parents
-          </h2>
+          <h1 style={styles.title}>
+            Communication avec les parents
+          </h1>
 
           <p style={styles.subtitle}>
-            Échange direct entre le secrétariat et les parents.
+            Échangez directement avec les parents de l'école.
           </p>
         </div>
-
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            style={styles.backButton}
-          >
-            ← Retour
-          </button>
-        )}
       </div>
 
       {error && (
@@ -332,18 +450,32 @@ function SecretaryParentCommunicationPage({
       )}
 
       <div style={styles.layout}>
-        <div style={styles.parentsCard}>
-          <h3 style={styles.sectionTitle}>
-            👨‍👩‍👧 Parents
-          </h3>
+        <div style={styles.parentsPanel}>
+          <h2 style={styles.sectionTitle}>
+            Parents
+          </h2>
 
-          {parents.length === 0 ? (
-            <p style={styles.muted}>
-              Aucun parent trouvé dans cette école.
+          <input
+            type="text"
+            value={searchParent}
+            onChange={(event) =>
+              setSearchParent(event.target.value)
+            }
+            placeholder="🔎 Rechercher un parent..."
+            style={styles.searchInput}
+          />
+
+          {loading ? (
+            <p style={styles.emptyText}>
+              Chargement des parents...
+            </p>
+          ) : filteredParents.length === 0 ? (
+            <p style={styles.emptyText}>
+              Aucun parent trouvé.
             </p>
           ) : (
-            <div style={styles.parentsList}>
-              {parents.map((parent) => (
+            <div style={styles.parentList}>
+              {filteredParents.map((parent) => (
                 <button
                   key={parent.id}
                   type="button"
@@ -351,20 +483,26 @@ function SecretaryParentCommunicationPage({
                     setSelectedParentId(parent.id)
                   }
                   style={{
-                    ...styles.parentButton,
+                    ...styles.parentItem,
                     ...(selectedParentId === parent.id
-                      ? styles.parentButtonActive
+                      ? styles.parentItemActive
                       : {}),
                   }}
                 >
-                  <strong>
+                  <div style={styles.parentName}>
                     {parent.full_name}
-                  </strong>
+                  </div>
 
                   {parent.phone && (
-                    <span style={styles.parentInfo}>
-                      {parent.phone}
-                    </span>
+                    <div style={styles.parentInfo}>
+                      📞 {parent.phone}
+                    </div>
+                  )}
+
+                  {parent.email && (
+                    <div style={styles.parentInfo}>
+                      ✉️ {parent.email}
+                    </div>
                   )}
                 </button>
               ))}
@@ -372,33 +510,33 @@ function SecretaryParentCommunicationPage({
           )}
         </div>
 
-        <div style={styles.chatCard}>
+        <div style={styles.conversationPanel}>
           {!selectedParent ? (
-            <div style={styles.empty}>
-              <div style={styles.emptyIcon}>
+            <div style={styles.noSelection}>
+              <div style={styles.noSelectionIcon}>
                 💬
               </div>
 
-              <h3>
+              <h2 style={styles.noSelectionTitle}>
                 Sélectionnez un parent
-              </h3>
+              </h2>
 
-              <p style={styles.muted}>
-                Choisissez un parent pour ouvrir ou créer
-                sa conversation.
+              <p style={styles.noSelectionText}>
+                Choisissez un parent dans la liste pour
+                consulter ou démarrer une conversation.
               </p>
             </div>
           ) : (
             <>
-              <div style={styles.chatHeader}>
+              <div style={styles.conversationHeader}>
                 <div>
-                  <h3 style={styles.sectionTitle}>
+                  <h2 style={styles.conversationTitle}>
                     {selectedParent.full_name}
-                  </h3>
+                  </h2>
 
-                  {selectedParent.email && (
-                    <div style={styles.muted}>
-                      {selectedParent.email}
+                  {selectedParent.phone && (
+                    <div style={styles.conversationInfo}>
+                      📞 {selectedParent.phone}
                     </div>
                   )}
                 </div>
@@ -406,8 +544,18 @@ function SecretaryParentCommunicationPage({
 
               <div style={styles.messages}>
                 {messages.length === 0 ? (
-                  <div style={styles.emptyMessages}>
-                    Aucun message dans cette conversation.
+                  <div style={styles.emptyConversation}>
+                    <div style={styles.emptyConversationIcon}>
+                      💬
+                    </div>
+
+                    <p>
+                      Aucun message dans cette conversation.
+                    </p>
+
+                    <p>
+                      Envoyez le premier message au parent.
+                    </p>
                   </div>
                 ) : (
                   messages.map((item) => {
@@ -431,17 +579,27 @@ function SecretaryParentCommunicationPage({
                               ? styles.secretaryBubble
                               : styles.parentBubble),
                           }}
+                          onClick={() => {
+                            if (
+                              !item.read_at &&
+                              !isSecretary
+                            ) {
+                              markAsRead(item.id);
+                            }
+                          }}
                         >
-                          <div>
+                          <div
+                            style={styles.messageText}
+                          >
                             {item.message}
                           </div>
 
-                          <div style={styles.messageDate}>
-                            {item.created_at
-                              ? new Date(
-                                  item.created_at
-                                ).toLocaleString("fr-FR")
-                              : ""}
+                          <div
+                            style={styles.messageDate}
+                          >
+                            {new Date(
+                              item.created_at
+                            ).toLocaleString("fr-FR")}
                           </div>
                         </div>
                       </div>
@@ -450,33 +608,33 @@ function SecretaryParentCommunicationPage({
                 )}
               </div>
 
-              <form
-                onSubmit={sendMessage}
-                style={styles.form}
-              >
+              <div style={styles.composer}>
                 <textarea
                   value={message}
                   onChange={(event) =>
                     setMessage(event.target.value)
                   }
                   placeholder="Écrivez votre message..."
-                  rows={4}
                   style={styles.textarea}
+                  rows={4}
                 />
 
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={sendMessage}
                   disabled={sending}
                   style={{
                     ...styles.sendButton,
-                    opacity: sending ? 0.6 : 1,
+                    ...(sending
+                      ? styles.sendButtonDisabled
+                      : {}),
                   }}
                 >
                   {sending
                     ? "Envoi..."
                     : "✉️ Envoyer"}
                 </button>
-              </form>
+              </div>
             </>
           )}
         </div>
@@ -487,139 +645,161 @@ function SecretaryParentCommunicationPage({
 
 const styles = {
   page: {
-    padding: "20px",
-    maxWidth: "1200px",
-    margin: "0 auto",
+    minHeight: "100vh",
+    background: "#f5f7fb",
+    padding: "24px",
     boxSizing: "border-box",
-    color: "#000000",
   },
 
   header: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "15px",
-    marginBottom: "20px",
-    flexWrap: "wrap",
-    color: "#000000",
+    alignItems: "flex-start",
+    gap: "16px",
+    marginBottom: "24px",
+  },
+
+  backButton: {
+    border: "none",
+    background: "#ffffff",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    fontWeight: "600",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
   },
 
   title: {
     margin: 0,
-    fontSize: "24px",
-    fontWeight: 800,
-    color: "#000000",
+    color: "#111827",
+    fontSize: "26px",
   },
 
   subtitle: {
     margin: "6px 0 0",
-    color: "#000000",
-    fontSize: "14px",
-  },
-
-  backButton: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#000000",
-    borderRadius: "9px",
-    padding: "10px 14px",
-    cursor: "pointer",
-    fontWeight: 700,
+    color: "#6b7280",
   },
 
   error: {
     background: "#fee2e2",
     color: "#991b1b",
-    borderRadius: "10px",
     padding: "12px 14px",
-    marginBottom: "15px",
+    borderRadius: "10px",
+    marginBottom: "16px",
   },
 
   success: {
     background: "#dcfce7",
     color: "#166534",
-    borderRadius: "10px",
     padding: "12px 14px",
-    marginBottom: "15px",
+    borderRadius: "10px",
+    marginBottom: "16px",
   },
 
   layout: {
     display: "grid",
-    gridTemplateColumns: "300px 1fr",
-    gap: "18px",
+    gridTemplateColumns: "320px 1fr",
+    gap: "20px",
+    alignItems: "stretch",
   },
 
-  parentsCard: {
+  parentsPanel: {
     background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
-    padding: "15px",
-    color: "#000000",
-  },
-
-  chatCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
-    overflow: "hidden",
+    borderRadius: "16px",
+    padding: "18px",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
     minHeight: "600px",
-    display: "flex",
-    flexDirection: "column",
-    color: "#000000",
+    boxSizing: "border-box",
   },
 
   sectionTitle: {
-    margin: 0,
-    fontSize: "17px",
-    fontWeight: 800,
-    color: "#000000",
+    marginTop: 0,
+    marginBottom: "14px",
+    color: "#111827",
   },
 
-  parentsList: {
+  searchInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "11px 12px",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    outline: "none",
+    marginBottom: "14px",
+    fontSize: "14px",
+  },
+
+  parentList: {
     display: "flex",
     flexDirection: "column",
     gap: "8px",
-    marginTop: "15px",
+    maxHeight: "520px",
+    overflowY: "auto",
   },
 
-  parentButton: {
+  parentItem: {
     width: "100%",
     textAlign: "left",
-    border: "1px solid #e2e8f0",
+    border: "1px solid #e5e7eb",
     background: "#ffffff",
-    color: "#000000",
     borderRadius: "10px",
-    padding: "11px",
+    padding: "12px",
     cursor: "pointer",
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
   },
 
-  parentButtonActive: {
-    background: "#eef2ff",
-    border: "1px solid #6366f1",
-    color: "#000000",
+  parentItemActive: {
+    border: "2px solid #2563eb",
+    background: "#eff6ff",
+  },
+
+  parentName: {
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: "5px",
   },
 
   parentInfo: {
-    color: "#000000",
-    fontSize: "12px",
+    fontSize: "13px",
+    color: "#6b7280",
+    marginTop: "3px",
   },
 
-  chatHeader: {
-    padding: "16px",
-    borderBottom: "1px solid #e2e8f0",
-    color: "#000000",
+  emptyText: {
+    color: "#6b7280",
+    fontSize: "14px",
+  },
+
+  conversationPanel: {
+    background: "#ffffff",
+    borderRadius: "16px",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+    minHeight: "600px",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+
+  conversationHeader: {
+    padding: "18px",
+    borderBottom: "1px solid #e5e7eb",
+  },
+
+  conversationTitle: {
+    margin: 0,
+    color: "#111827",
+  },
+
+  conversationInfo: {
+    marginTop: "5px",
+    color: "#6b7280",
+    fontSize: "13px",
   },
 
   messages: {
     flex: 1,
-    padding: "16px",
+    padding: "18px",
     overflowY: "auto",
-    background: "#f8fafc",
     minHeight: "350px",
-    color: "#000000",
+    maxHeight: "500px",
   },
 
   messageRow: {
@@ -628,93 +808,127 @@ const styles = {
   },
 
   messageBubble: {
-    maxWidth: "75%",
-    padding: "10px 13px",
-    borderRadius: "12px",
-    fontSize: "14px",
-    lineHeight: 1.45,
+    maxWidth: "70%",
+    padding: "11px 14px",
+    borderRadius: "14px",
   },
 
   secretaryBubble: {
-    background: "#4f46e5",
+    background: "#2563eb",
     color: "#ffffff",
+    borderBottomRightRadius: "4px",
   },
 
   parentBubble: {
-    background: "#e2e8f0",
-    color: "#000000",
+    background: "#f3f4f6",
+    color: "#111827",
+    borderBottomLeftRadius: "4px",
+  },
+
+  messageText: {
+    whiteSpace: "pre-wrap",
+    lineHeight: "1.45",
   },
 
   messageDate: {
     marginTop: "6px",
-    fontSize: "10px",
+    fontSize: "11px",
     opacity: 0.7,
   },
 
-  form: {
-    padding: "15px",
-    borderTop: "1px solid #e2e8f0",
+  composer: {
+    borderTop: "1px solid #e5e7eb",
+    padding: "16px",
     display: "flex",
     flexDirection: "column",
-    gap: "9px",
-    color: "#000000",
+    gap: "10px",
   },
 
   textarea: {
     width: "100%",
     boxSizing: "border-box",
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#000000",
-    borderRadius: "9px",
-    padding: "10px 12px",
-    fontSize: "14px",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    padding: "12px",
     resize: "vertical",
+    fontFamily: "inherit",
+    outline: "none",
   },
 
   sendButton: {
+    alignSelf: "flex-end",
     border: "none",
-    background: "#4f46e5",
+    background: "#2563eb",
     color: "#ffffff",
-    borderRadius: "9px",
-    padding: "11px 15px",
+    padding: "11px 18px",
+    borderRadius: "10px",
     cursor: "pointer",
-    fontWeight: 800,
+    fontWeight: "600",
   },
 
-  empty: {
+  sendButtonDisabled: {
+    opacity: 0.6,
+    cursor: "not-allowed",
+  },
+
+  noSelection: {
     flex: 1,
     display: "flex",
     flexDirection: "column",
-    justifyContent: "center",
     alignItems: "center",
-    padding: "30px",
+    justifyContent: "center",
     textAlign: "center",
-    color: "#000000",
+    padding: "30px",
   },
 
-  emptyIcon: {
+  noSelectionIcon: {
+    fontSize: "48px",
+    marginBottom: "12px",
+  },
+
+  noSelectionTitle: {
+    margin: 0,
+    color: "#111827",
+  },
+
+  noSelectionText: {
+    color: "#6b7280",
+    maxWidth: "450px",
+    lineHeight: "1.5",
+  },
+
+  emptyConversation: {
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+    color: "#6b7280",
+  },
+
+  emptyConversationIcon: {
     fontSize: "40px",
     marginBottom: "10px",
   },
 
-  emptyMessages: {
-    textAlign: "center",
-    color: "#000000",
-    padding: "30px",
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "11px 12px",
+    border: "1px solid #d1d5db",
+    borderRadius: "10px",
+    outline: "none",
+    fontSize: "14px",
   },
 
-  muted: {
-    color: "#000000",
-    fontSize: "13px",
+  messageSubject: {
+    fontWeight: "700",
+    marginBottom: "5px",
   },
 
-  card: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "14px",
-    padding: "20px",
-    color: "#000000",
+  blackText: {
+    color: "#111827",
   },
 };
 
