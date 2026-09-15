@@ -1,3 +1,4 @@
+```js
 (function () {
   "use strict";
 
@@ -74,7 +75,8 @@
         }
 
         /* =====================================================
-           SIDEBAR / DRAWER
+           SIDEBAR MOBILE
+           Même principe visuel que le menu Élève
         ===================================================== */
 
         aside.ec-mobile-sidebar {
@@ -84,8 +86,8 @@
           left: 0 !important;
           bottom: 0 !important;
 
-          width: min(320px, 88vw) !important;
-          min-width: 0 !important;
+          width: 245px !important;
+          min-width: 245px !important;
           max-width: 88vw !important;
 
           height: 100dvh !important;
@@ -102,19 +104,23 @@
 
           background: #ffffff !important;
 
-          box-shadow:
-            10px 0 35px
-            rgba(15, 23, 42, 0.22) !important;
+          border-right:
+            1px solid #e5e7eb !important;
+
+          padding:
+            18px 12px 24px 12px !important;
+
+          flex-shrink: 0 !important;
 
           transform:
             translateX(-110%) !important;
 
           transition:
-            transform 0.28s ease,
-            box-shadow 0.28s ease !important;
+            transform 0.28s ease !important;
 
-          padding-top: 68px !important;
-          padding-bottom: 24px !important;
+          box-shadow:
+            8px 0 30px
+            rgba(15, 23, 42, 0.18) !important;
 
           scrollbar-width: thin !important;
         }
@@ -122,10 +128,6 @@
         aside.ec-mobile-sidebar.ec-mobile-sidebar-open {
           transform:
             translateX(0) !important;
-
-          box-shadow:
-            10px 0 40px
-            rgba(15, 23, 42, 0.28) !important;
         }
 
         /* =====================================================
@@ -138,7 +140,7 @@
           inset: 0 !important;
 
           background:
-            rgba(15, 23, 42, 0.52) !important;
+            rgba(15, 23, 42, 0.48) !important;
 
           z-index: 10000 !important;
 
@@ -154,7 +156,9 @@
 
         .ec-mobile-overlay.ec-mobile-overlay-open {
           opacity: 1 !important;
+
           visibility: visible !important;
+
           pointer-events: auto !important;
         }
 
@@ -172,12 +176,14 @@
           height: 46px !important;
 
           border: 0 !important;
-          border-radius: 14px !important;
+
+          border-radius: 12px !important;
 
           background: #4f46e5 !important;
           color: #ffffff !important;
 
           display: flex !important;
+
           align-items: center !important;
           justify-content: center !important;
 
@@ -195,11 +201,13 @@
           -webkit-tap-highlight-color:
             transparent !important;
 
-          touch-action: manipulation !important;
+          touch-action:
+            manipulation !important;
         }
 
         .ec-mobile-menu-button:active {
-          transform: scale(0.95) !important;
+          transform:
+            scale(0.95) !important;
         }
 
         /* =====================================================
@@ -209,22 +217,24 @@
         .ec-mobile-menu-close {
           position: absolute !important;
 
-          top: 14px !important;
-          right: 14px !important;
+          top: 12px !important;
+          right: 12px !important;
 
-          width: 42px !important;
-          height: 42px !important;
+          width: 40px !important;
+          height: 40px !important;
 
-          min-width: 42px !important;
-          min-height: 42px !important;
+          min-width: 40px !important;
+          min-height: 40px !important;
 
           border: 0 !important;
-          border-radius: 12px !important;
+
+          border-radius: 10px !important;
 
           background: #f3f4f6 !important;
           color: #374151 !important;
 
           display: flex !important;
+
           align-items: center !important;
           justify-content: center !important;
 
@@ -235,109 +245,190 @@
 
           z-index: 10003 !important;
 
-          touch-action: manipulation !important;
+          touch-action:
+            manipulation !important;
+
           -webkit-tap-highlight-color:
             transparent !important;
         }
 
         .ec-mobile-menu-close:active {
-          transform: scale(0.94) !important;
+          transform:
+            scale(0.94) !important;
         }
 
         /* =====================================================
-           ZONE DES MENUS
+           NAVIGATION
+           Reproduction du style du menu Élève
         ===================================================== */
 
-        aside.ec-mobile-sidebar
-        button:not(.ec-mobile-menu-close),
-        aside.ec-mobile-sidebar a {
+        aside.ec-mobile-sidebar nav {
+          width: 100% !important;
+
           box-sizing: border-box !important;
+
+          padding:
+            0 !important;
         }
 
-        /*
-          On augmente uniquement la zone tactile.
-          Les couleurs et le design des dashboards existants
-          restent prioritaires autant que possible.
-        */
+        aside.ec-mobile-sidebar nav > button,
+        aside.ec-mobile-sidebar nav > a {
 
-        aside.ec-mobile-sidebar
-        button:not(.ec-mobile-menu-close),
-        aside.ec-mobile-sidebar
-        a {
+          box-sizing: border-box !important;
+
+          width: 100% !important;
+
           min-height: 46px !important;
 
-          padding-top: 10px !important;
-          padding-bottom: 10px !important;
+          display: flex !important;
+
+          align-items: center !important;
+
+          gap: 10px !important;
+
+          text-align: left !important;
+
+          border-radius: 12px !important;
+
+          padding:
+            11px 12px !important;
 
           margin-top: 3px !important;
           margin-bottom: 3px !important;
 
+          font-size: 14px !important;
+
+          font-weight: 600 !important;
+
           line-height: 1.35 !important;
+
+          text-decoration: none !important;
+
+          color: #374151 !important;
+
+          background: #ffffff !important;
+
+          border:
+            1px solid #e5e7eb !important;
 
           white-space: normal !important;
 
           word-break: normal !important;
 
-          touch-action: manipulation !important;
+          overflow-wrap: break-word !important;
+
+          touch-action:
+            manipulation !important;
 
           -webkit-tap-highlight-color:
             transparent !important;
         }
 
         /*
-          Évite que les éléments du menu se collent
-          visuellement les uns aux autres.
+          Effet tactile identique au principe
+          du menu Élève
+        */
+
+        aside.ec-mobile-sidebar nav > button:not(.ec-mobile-menu-close):active,
+        aside.ec-mobile-sidebar nav > a:active {
+
+          background:
+            #eef2ff !important;
+
+          border-color:
+            #4f46e5 !important;
+        }
+
+        /*
+          Les boutons qui ne sont pas directement
+          dans NAV gardent également une bonne
+          zone tactile.
         */
 
         aside.ec-mobile-sidebar
-        nav > button,
-        aside.ec-mobile-sidebar
-        nav > a,
-        aside.ec-mobile-sidebar
-        ul > li,
+        button:not(.ec-mobile-menu-close),
+        aside.ec-mobile-sidebar a {
+
+          box-sizing: border-box !important;
+
+          min-height: 46px !important;
+
+          touch-action:
+            manipulation !important;
+
+          -webkit-tap-highlight-color:
+            transparent !important;
+        }
+
+        /* =====================================================
+           LISTES
+        ===================================================== */
+
+        aside.ec-mobile-sidebar ul {
+
+          box-sizing: border-box !important;
+
+          width: 100% !important;
+
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+        }
+
+        aside.ec-mobile-sidebar li {
+
+          box-sizing: border-box !important;
+
+          margin-top: 3px !important;
+          margin-bottom: 3px !important;
+        }
+
+        /* =====================================================
+           ELEMENTS HORS NAV
+        ===================================================== */
+
         aside.ec-mobile-sidebar
         > button:not(.ec-mobile-menu-close),
         aside.ec-mobile-sidebar
         > a {
-          margin-top: 4px !important;
-          margin-bottom: 4px !important;
-        }
 
-        /* =====================================================
-           GROUPES DE MENU
-        ===================================================== */
-
-        aside.ec-mobile-sidebar nav {
           width: 100% !important;
-          box-sizing: border-box !important;
 
-          padding-left: 10px !important;
-          padding-right: 10px !important;
-        }
+          border-radius: 12px !important;
 
-        aside.ec-mobile-sidebar ul {
-          box-sizing: border-box !important;
+          padding:
+            11px 12px !important;
 
-          padding-left: 8px !important;
-          padding-right: 8px !important;
-        }
+          margin-top: 3px !important;
+          margin-bottom: 3px !important;
 
-        aside.ec-mobile-sidebar li {
-          box-sizing: border-box !important;
+          font-size: 14px !important;
 
-          margin-top: 4px !important;
-          margin-bottom: 4px !important;
+          font-weight: 600 !important;
+
+          text-align: left !important;
+
+          border:
+            1px solid #e5e7eb !important;
+
+          background:
+            #ffffff !important;
+
+          color:
+            #374151 !important;
         }
 
         /* =====================================================
-           TEXTE DES MENUS
+           GROUPES / SOUS-MENUS
         ===================================================== */
 
         aside.ec-mobile-sidebar
-        button:not(.ec-mobile-menu-close),
-        aside.ec-mobile-sidebar
-        a {
-          overflow-wrap: break-word !important;
+        nav ul {
+
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+
+          margin-left: 0 !important;
+          margin-right: 0 !important;
         }
 
         /* =====================================================
@@ -346,39 +437,38 @@
 
         aside.ec-mobile-sidebar
         .ec-mobile-logout-item {
-          position: sticky !important;
 
-          bottom: 0 !important;
-
-          z-index: 5 !important;
-
-          margin-top: 12px !important;
-          margin-bottom: 4px !important;
+          margin-top: 10px !important;
 
           padding-top: 10px !important;
-          padding-bottom: 10px !important;
-
-          background: #ffffff !important;
 
           border-top:
-            1px solid
-            rgba(148, 163, 184, 0.18) !important;
+            1px solid #e5e7eb !important;
         }
 
         /*
-          Si le bouton/lien de déconnexion n'a pas
-          de conteneur spécifique, cette classe sera
-          ajoutée directement sur son élément parent.
+          Le bouton de déconnexion garde le même
+          style de bouton que les autres éléments.
         */
 
         aside.ec-mobile-sidebar
-        .ec-mobile-logout-item
-        button,
+        .ec-mobile-logout-item button,
         aside.ec-mobile-sidebar
-        .ec-mobile-logout-item
-        a {
+        .ec-mobile-logout-item a {
+
+          width: 100% !important;
+
+          min-height: 46px !important;
+
           margin-top: 0 !important;
           margin-bottom: 0 !important;
+
+          border-radius: 12px !important;
+
+          padding:
+            11px 12px !important;
+
+          text-align: left !important;
         }
 
         /* =====================================================
@@ -388,11 +478,16 @@
         @media (max-width: 420px) {
 
           aside.ec-mobile-sidebar {
-            width: min(300px, 88vw) !important;
+
+            width: 245px !important;
+
+            min-width: 245px !important;
+
             max-width: 88vw !important;
           }
 
           .ec-mobile-menu-button {
+
             top: 12px !important;
             left: 12px !important;
 
@@ -401,6 +496,7 @@
           }
 
           .ec-mobile-menu-close {
+
             top: 12px !important;
             right: 12px !important;
           }
@@ -413,14 +509,19 @@
         @media (max-width: 360px) {
 
           aside.ec-mobile-sidebar {
+
             width: 86vw !important;
+
+            min-width: 0 !important;
+
             max-width: 86vw !important;
           }
 
           aside.ec-mobile-sidebar
-          button:not(.ec-mobile-menu-close),
+          nav > button,
           aside.ec-mobile-sidebar
-          a {
+          nav > a {
+
             min-height: 44px !important;
 
             margin-top: 3px !important;
@@ -447,6 +548,7 @@
 
     clickableItems.forEach(
       (item) => {
+
         if (
           item.classList.contains(
             "ec-mobile-menu-close"
@@ -469,14 +571,11 @@
           text.includes("se deconnecter") ||
           text === "logout"
         ) {
+
           item.classList.add(
             "ec-mobile-logout-item"
           );
 
-          /*
-            On applique également la classe au parent
-            lorsque celui-ci est un élément de menu.
-          */
           const parent =
             item.parentElement;
 
@@ -485,6 +584,7 @@
             parent !== sidebar &&
             parent.tagName !== "NAV"
           ) {
+
             parent.classList.add(
               "ec-mobile-logout-item"
             );
@@ -499,6 +599,7 @@
     overlay,
     menuButton
   ) {
+
     if (!sidebar || !overlay) {
       return;
     }
@@ -516,6 +617,7 @@
     );
 
     if (menuButton) {
+
       menuButton.setAttribute(
         "aria-expanded",
         "false"
@@ -528,6 +630,7 @@
     overlay,
     menuButton
   ) {
+
     if (!sidebar || !overlay) {
       return;
     }
@@ -545,6 +648,7 @@
     );
 
     if (menuButton) {
+
       menuButton.setAttribute(
         "aria-expanded",
         "true"
@@ -553,21 +657,17 @@
   }
 
   function setupDashboard() {
+
     if (!isMobile()) {
       return;
     }
 
-    const sidebar = findSidebar();
+    const sidebar =
+      findSidebar();
 
     if (!sidebar) {
       return;
     }
-
-    /*
-      Même si le dashboard a déjà été initialisé,
-      on continue à identifier les éléments de menu
-      nouvellement créés par React.
-    */
 
     sidebar.classList.add(
       "ec-mobile-sidebar"
@@ -577,6 +677,7 @@
       sidebar.parentElement;
 
     if (layout) {
+
       layout.classList.add(
         "ec-mobile-dashboard-layout"
       );
@@ -584,7 +685,9 @@
       Array.from(
         layout.children
       ).forEach((child) => {
+
         if (child !== sidebar) {
+
           child.classList.add(
             "ec-mobile-content-area"
           );
@@ -598,8 +701,11 @@
       );
 
     if (!overlay) {
+
       overlay =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
       overlay.className =
         "ec-mobile-overlay";
@@ -615,10 +721,14 @@
       );
 
     if (!menuButton) {
-      menuButton =
-        document.createElement("button");
 
-      menuButton.type = "button";
+      menuButton =
+        document.createElement(
+          "button"
+        );
+
+      menuButton.type =
+        "button";
 
       menuButton.className =
         "ec-mobile-menu-button";
@@ -633,7 +743,8 @@
         "false"
       );
 
-      menuButton.innerHTML = "☰";
+      menuButton.innerHTML =
+        "☰";
 
       document.body.appendChild(
         menuButton
@@ -646,10 +757,14 @@
       );
 
     if (!closeButton) {
-      closeButton =
-        document.createElement("button");
 
-      closeButton.type = "button";
+      closeButton =
+        document.createElement(
+          "button"
+        );
+
+      closeButton.type =
+        "button";
 
       closeButton.className =
         "ec-mobile-menu-close";
@@ -659,7 +774,8 @@
         "Fermer le menu"
       );
 
-      closeButton.innerHTML = "✕";
+      closeButton.innerHTML =
+        "✕";
 
       sidebar.prepend(
         closeButton
@@ -669,30 +785,36 @@
     markLogout(sidebar);
 
     /*
-      Évite de recréer les événements plusieurs fois.
+      Évite de recréer les événements
+      plusieurs fois.
     */
 
     if (
       sidebar.dataset.ecMobileMenuReady !==
       "true"
     ) {
+
       sidebar.dataset.ecMobileMenuReady =
         "true";
 
       menuButton.onclick =
         function () {
+
           const isOpen =
             sidebar.classList.contains(
               "ec-mobile-sidebar-open"
             );
 
           if (isOpen) {
+
             closeMenu(
               sidebar,
               overlay,
               menuButton
             );
+
           } else {
+
             openMenu(
               sidebar,
               overlay,
@@ -703,6 +825,7 @@
 
       closeButton.onclick =
         function () {
+
           closeMenu(
             sidebar,
             overlay,
@@ -712,6 +835,7 @@
 
       overlay.onclick =
         function () {
+
           closeMenu(
             sidebar,
             overlay,
@@ -721,8 +845,8 @@
     }
 
     /*
-      Les menus React peuvent être recréés.
-      On marque donc chaque élément déjà traité.
+      Les menus React peuvent être
+      recréés dynamiquement.
     */
 
     sidebar
@@ -730,6 +854,7 @@
         "button, a"
       )
       .forEach((item) => {
+
         if (
           item === closeButton
         ) {
@@ -749,13 +874,16 @@
         item.addEventListener(
           "click",
           function () {
+
             setTimeout(
               function () {
+
                 closeMenu(
                   sidebar,
                   overlay,
                   menuButton
                 );
+
               },
               120
             );
@@ -777,20 +905,25 @@
   }
 
   function run() {
+
     injectStyles();
+
     setupDashboard();
   }
 
   const observer =
     new MutationObserver(
       function () {
+
         if (isMobile()) {
+
           setupDashboard();
         }
       }
     );
 
   function startObserver() {
+
     if (!document.body) {
       return;
     }
@@ -807,6 +940,7 @@
   window.addEventListener(
     "resize",
     function () {
+
       run();
     }
   );
@@ -814,6 +948,7 @@
   window.addEventListener(
     "orientationchange",
     function () {
+
       setTimeout(
         run,
         100
@@ -825,15 +960,22 @@
     document.readyState ===
     "loading"
   ) {
+
     document.addEventListener(
       "DOMContentLoaded",
       function () {
+
         run();
+
         startObserver();
       }
     );
+
   } else {
+
     run();
+
     startObserver();
   }
 })();
+```
