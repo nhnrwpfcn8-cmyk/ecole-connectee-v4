@@ -161,16 +161,30 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
     }
   }
 
+  // Recherche améliorée : nom, téléphone ou email.
+  // Les espaces et majuscules/minuscules ne bloquent plus la recherche.
   const filteredParents = useMemo(() => {
-    const value = search.trim().toLowerCase()
+    const value = search
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
 
     if (!value) return parents
 
+    const searchPhone = value.replace(/\s+/g, '')
+
     return parents.filter((parent) => {
+      const fullName = String(parent.full_name || '').toLowerCase()
+      const phone = String(parent.phone || '').toLowerCase()
+      const email = String(parent.email || '').toLowerCase()
+
+      const normalizedPhone = phone.replace(/\s+/g, '')
+
       return (
-        parent.full_name?.toLowerCase().includes(value) ||
-        parent.phone?.toLowerCase().includes(value) ||
-        parent.email?.toLowerCase().includes(value)
+        fullName.includes(value) ||
+        phone.includes(value) ||
+        normalizedPhone.includes(searchPhone) ||
+        email.includes(value)
       )
     })
   }, [parents, search])
@@ -483,22 +497,22 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
         </div>
 
         <div style={styles.headerActions}>
-  <button
-    type="button"
-    onClick={onBack}
-    style={styles.secondaryButton}
-  >
-    🏠 Menu principal
-  </button>
+          <button
+            type="button"
+            onClick={onBack}
+            style={styles.secondaryButton}
+          >
+            🏠 Menu principal
+          </button>
 
-  <button
-    type="button"
-    onClick={onLogout}
-    style={styles.logoutButton}
-  >
-    Déconnexion
-  </button>
-</div>
+          <button
+            type="button"
+            onClick={onLogout}
+            style={styles.logoutButton}
+          >
+            Déconnexion
+          </button>
+        </div>
       </header>
 
       <main style={styles.container}>
@@ -577,10 +591,12 @@ function SecretaryServices({ session, profile, onLogout, onBack }) {
             </div>
 
             <input
+              type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Rechercher un parent, téléphone ou email..."
               style={styles.input}
+              aria-label="Rechercher un parent"
             />
 
             <div style={styles.twoColumns}>
