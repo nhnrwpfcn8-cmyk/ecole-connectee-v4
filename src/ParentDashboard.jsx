@@ -1,3 +1,4 @@
+```jsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 
@@ -46,11 +47,7 @@ function PageTitle({
   onBack,
 }) {
   return (
-    <div
-      style={{
-        marginBottom: "22px",
-      }}
-    >
+    <div style={{ marginBottom: "22px" }}>
       <button
         type="button"
         onClick={onBack}
@@ -166,10 +163,9 @@ export default function ParentDashboard({
   const [grades, setGrades] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [bulletins, setBulletins] = useState([]);
-  const [adminMessages, setAdminMessages] =
-    useState([]);
-  const [notifications, setNotifications] =
-    useState([]);
+  const [adminMessages, setAdminMessages] = useState([]);
+  const [adminAnnouncements, setAdminAnnouncements] = useState([]);
+  const [notifications, setNotifications] = useState([]);
 
   const [activeSchoolId, setActiveSchoolId] =
     useState(profile?.school_id || null);
@@ -232,9 +228,7 @@ export default function ParentDashboard({
         profile?.school_id ||
         null;
 
-      setActiveSchoolId(
-        resolvedSchoolId
-      );
+      setActiveSchoolId(resolvedSchoolId);
 
       if (!resolvedSchoolId) {
         setError(
@@ -246,6 +240,7 @@ export default function ParentDashboard({
         setAttendance([]);
         setBulletins([]);
         setAdminMessages([]);
+        setAdminAnnouncements([]);
         setNotifications([]);
 
         return;
@@ -270,14 +265,8 @@ export default function ParentDashboard({
         .select(
           "id,profile_id,school_id,full_name,phone,email,address,active"
         )
-        .eq(
-          "profile_id",
-          connectedUserId
-        )
-        .eq(
-          "school_id",
-          resolvedSchoolId
-        )
+        .eq("profile_id", connectedUserId)
+        .eq("school_id", resolvedSchoolId)
         .maybeSingle();
 
       if (parentError) {
@@ -290,6 +279,7 @@ export default function ParentDashboard({
         setAttendance([]);
         setBulletins([]);
         setAdminMessages([]);
+        setAdminAnnouncements([]);
         setNotifications([]);
 
         setError(
@@ -307,19 +297,14 @@ export default function ParentDashboard({
         .select(
           "id,parent_id,student_id,relationship,is_primary,created_at"
         )
-        .eq(
-          "parent_id",
-          parent.id
-        );
+        .eq("parent_id", parent.id);
 
       if (linksError) {
         throw linksError;
       }
 
       const studentIds = (links || [])
-        .map(
-          (item) => item.student_id
-        )
+        .map((item) => item.student_id)
         .filter(Boolean);
 
       let studentRows = [];
@@ -333,14 +318,8 @@ export default function ParentDashboard({
           .select(
             "id,profile_id,school_id,class_id,first_name,last_name,student_code,photo_url,active"
           )
-          .eq(
-            "school_id",
-            resolvedSchoolId
-          )
-          .in(
-            "id",
-            studentIds
-          );
+          .eq("school_id", resolvedSchoolId)
+          .in("id", studentIds);
 
         if (studentsError) {
           throw studentsError;
@@ -352,10 +331,7 @@ export default function ParentDashboard({
       const classIds = [
         ...new Set(
           studentRows
-            .map(
-              (student) =>
-                student.class_id
-            )
+            .map((student) => student.class_id)
             .filter(Boolean)
         ),
       ];
@@ -371,14 +347,8 @@ export default function ParentDashboard({
           .select(
             "id,name,level,school_id"
           )
-          .eq(
-            "school_id",
-            resolvedSchoolId
-          )
-          .in(
-            "id",
-            classIds
-          );
+          .eq("school_id", resolvedSchoolId)
+          .in("id", classIds);
 
         if (classesError) {
           throw classesError;
@@ -388,56 +358,47 @@ export default function ParentDashboard({
       }
 
       const classMap = new Map(
-        classRows.map(
-          (item) => [
-            String(item.id),
-            item,
-          ]
-        )
+        classRows.map((item) => [
+          String(item.id),
+          item,
+        ])
       );
 
       const childMap = new Map();
 
-      studentRows.forEach(
-        (student) => {
-          const link =
-            (links || []).find(
-              (item) =>
-                item.student_id ===
-                student.id
-            );
-
-          childMap.set(
-            String(student.id),
-            {
-              ...student,
-
-              relationship:
-                link?.relationship ||
-                "Parent",
-
-              is_primary:
-                link?.is_primary ||
-                false,
-
-              class_name:
-                classMap.get(
-                  String(
-                    student.class_id
-                  )
-                )?.name ||
-                "Classe non renseignée",
-
-              class_level:
-                classMap.get(
-                  String(
-                    student.class_id
-                  )
-                )?.level || "",
-            }
+      studentRows.forEach((student) => {
+        const link =
+          (links || []).find(
+            (item) =>
+              item.student_id === student.id
           );
-        }
-      );
+
+        childMap.set(
+          String(student.id),
+          {
+            ...student,
+
+            relationship:
+              link?.relationship ||
+              "Parent",
+
+            is_primary:
+              link?.is_primary ||
+              false,
+
+            class_name:
+              classMap.get(
+                String(student.class_id)
+              )?.name ||
+              "Classe non renseignée",
+
+            class_level:
+              classMap.get(
+                String(student.class_id)
+              )?.level || "",
+          }
+        );
+      });
 
       const normalizedChildren =
         studentRows
@@ -449,8 +410,109 @@ export default function ParentDashboard({
           )
           .filter(Boolean);
 
-      setChildren(
-        normalizedChildren
+      setChildren(normalizedChildren);
+
+      /*
+       * =====================================================
+       * INFORMATIONS DU SERVICE ADMINISTRATIF
+       * =====================================================
+       *
+       * Les informations sont filtrées par :
+       * - school_id de l'école du parent
+       * - tous les parents
+       * - les classes des enfants du parent
+       * - le parent connecté
+       *
+       * Aucune information d'une autre école n'est conservée.
+       */
+
+      const {
+        data: announcementRows,
+        error: announcementsError,
+      } = await supabase
+        .from("secretary_parent_announcements")
+        .select(`
+          id,
+          school_id,
+          secretary_id,
+          target_type,
+          target_class_id,
+          target_parent_id,
+          title,
+          message,
+          published_at,
+          created_at
+        `)
+        .eq("school_id", resolvedSchoolId)
+        .order("published_at", {
+          ascending: false,
+        });
+
+      if (announcementsError) {
+        throw announcementsError;
+      }
+
+      const childClassIds = new Set(
+        studentRows
+          .map((student) =>
+            student.class_id
+              ? String(student.class_id)
+              : null
+          )
+          .filter(Boolean)
+      );
+
+      const visibleAnnouncements =
+        (announcementRows || []).filter(
+          (announcement) => {
+            const targetType =
+              String(
+                announcement.target_type ||
+                  ""
+              ).toLowerCase();
+
+            if (
+              targetType === "all" ||
+              targetType ===
+                "all_parents" ||
+              targetType ===
+                "parents"
+            ) {
+              return true;
+            }
+
+            if (
+              targetType === "class" ||
+              targetType ===
+                "classe"
+            ) {
+              return (
+                announcement.target_class_id &&
+                childClassIds.has(
+                  String(
+                    announcement.target_class_id
+                  )
+                )
+              );
+            }
+
+            if (
+              targetType === "parent" ||
+              targetType ===
+                "individual"
+            ) {
+              return (
+                announcement.target_parent_id ===
+                parent.id
+              );
+            }
+
+            return false;
+          }
+        );
+
+      setAdminAnnouncements(
+        visibleAnnouncements
       );
 
       if (studentIds.length) {
@@ -472,20 +534,11 @@ export default function ParentDashboard({
             created_at,
             updated_at
           `)
-          .eq(
-            "school_id",
-            resolvedSchoolId
-          )
-          .in(
-            "student_id",
-            studentIds
-          )
-          .order(
-            "created_at",
-            {
-              ascending: false,
-            }
-          );
+          .eq("school_id", resolvedSchoolId)
+          .in("student_id", studentIds)
+          .order("created_at", {
+            ascending: false,
+          });
 
         if (gradesError) {
           throw gradesError;
@@ -521,14 +574,8 @@ export default function ParentDashboard({
               evaluation_date,
               coefficient
             `)
-            .eq(
-              "school_id",
-              resolvedSchoolId
-            )
-            .in(
-              "id",
-              assessmentIds
-            );
+            .eq("school_id", resolvedSchoolId)
+            .in("id", assessmentIds);
 
           if (assessmentsError) {
             throw assessmentsError;
@@ -559,31 +606,22 @@ export default function ParentDashboard({
             .select(
               "id,name,school_id"
             )
-            .eq(
-              "school_id",
-              resolvedSchoolId
-            )
-            .in(
-              "id",
-              subjectIds
-            );
+            .eq("school_id", resolvedSchoolId)
+            .in("id", subjectIds);
 
           if (subjectsError) {
             throw subjectsError;
           }
 
-          subjectRows =
-            data || [];
+          subjectRows = data || [];
         }
 
         const subjectMap =
           new Map(
-            subjectRows.map(
-              (item) => [
-                String(item.id),
-                item,
-              ]
-            )
+            subjectRows.map((item) => [
+              String(item.id),
+              item,
+            ])
           );
 
         const assessmentMap =
@@ -593,7 +631,6 @@ export default function ParentDashboard({
                 String(item.id),
                 {
                   ...item,
-
                   subject_name:
                     subjectMap.get(
                       String(
@@ -629,9 +666,7 @@ export default function ParentDashboard({
 
               const subject =
                 subjectMap.get(
-                  String(
-                    subjectId
-                  )
+                  String(subjectId)
                 );
 
               return {
@@ -668,9 +703,7 @@ export default function ParentDashboard({
             }
           );
 
-        setGrades(
-          normalizedGrades
-        );
+        setGrades(normalizedGrades);
 
         const {
           data: attendanceRows,
@@ -687,16 +720,10 @@ export default function ParentDashboard({
             justified,
             created_at
           `)
-          .in(
-            "student_id",
-            studentIds
-          )
-          .order(
-            "attendance_date",
-            {
-              ascending: false,
-            }
-          );
+          .in("student_id", studentIds)
+          .order("attendance_date", {
+            ascending: false,
+          });
 
         if (attendanceError) {
           throw attendanceError;
@@ -741,27 +768,15 @@ export default function ParentDashboard({
             created_at,
             updated_at
           `)
-          .eq(
-            "school_id",
-            resolvedSchoolId
-          )
-          .in(
-            "student_id",
-            studentIds
-          )
-          .in(
-            "status",
-            [
-              "validated",
-              "sent",
-            ]
-          )
-          .order(
-            "created_at",
-            {
-              ascending: false,
-            }
-          );
+          .eq("school_id", resolvedSchoolId)
+          .in("student_id", studentIds)
+          .in("status", [
+            "validated",
+            "sent",
+          ])
+          .order("created_at", {
+            ascending: false,
+          });
 
         if (bulletinsError) {
           throw bulletinsError;
@@ -810,37 +825,24 @@ export default function ParentDashboard({
           read_at,
           created_at
         `)
-        .eq(
-          "school_id",
-          resolvedSchoolId
-        )
-        .eq(
-          "parent_id",
-          parent.id
-        )
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        );
+        .eq("school_id", resolvedSchoolId)
+        .eq("parent_id", parent.id)
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (messagesError) {
         throw messagesError;
       }
 
-      setAdminMessages(
-        messages || []
-      );
+      setAdminMessages(messages || []);
 
       const {
         data: notificationRows,
         error:
           notificationsError,
       } = await supabase
-        .from(
-          "parent_notifications"
-        )
+        .from("parent_notifications")
         .select(`
           id,
           school_id,
@@ -853,20 +855,11 @@ export default function ParentDashboard({
           created_at,
           bulletin_id
         `)
-        .eq(
-          "school_id",
-          resolvedSchoolId
-        )
-        .eq(
-          "parent_id",
-          parent.id
-        )
-        .order(
-          "created_at",
-          {
-            ascending: false,
-          }
-        );
+        .eq("school_id", resolvedSchoolId)
+        .eq("parent_id", parent.id)
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (notificationsError) {
         throw notificationsError;
@@ -928,14 +921,8 @@ export default function ParentDashboard({
       } = await supabase
         .from("parents")
         .select("id")
-        .eq(
-          "profile_id",
-          connectedUserId
-        )
-        .eq(
-          "school_id",
-          currentSchoolId
-        )
+        .eq("profile_id", connectedUserId)
+        .eq("school_id", currentSchoolId)
         .maybeSingle();
 
       if (
@@ -970,6 +957,20 @@ export default function ParentDashboard({
               event: "*",
               schema: "public",
               table:
+                "secretary_parent_announcements",
+              filter:
+                `school_id=eq.${currentSchoolId}`,
+            },
+            () => {
+              loadParentData();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table:
                 "parent_notifications",
               filter:
                 `parent_id=eq.${parent.id}`,
@@ -987,9 +988,7 @@ export default function ParentDashboard({
       active = false;
 
       if (channel) {
-        supabase.removeChannel(
-          channel
-        );
+        supabase.removeChannel(channel);
       }
     };
   }, [
@@ -1012,20 +1011,12 @@ export default function ParentDashboard({
     const {
       error: updateError,
     } = await supabase
-      .from(
-        "parent_notifications"
-      )
+      .from("parent_notifications")
       .update({
         read_at: now,
       })
-      .eq(
-        "id",
-        notificationId
-      )
-      .eq(
-        "school_id",
-        currentSchoolId
-      );
+      .eq("id", notificationId)
+      .eq("school_id", currentSchoolId);
 
     if (updateError) {
       console.error(
@@ -1038,8 +1029,7 @@ export default function ParentDashboard({
     setNotifications(
       (current) =>
         current.map((item) =>
-          item.id ===
-          notificationId
+          item.id === notificationId
             ? {
                 ...item,
                 read_at: now,
@@ -1062,20 +1052,12 @@ export default function ParentDashboard({
     const {
       error: updateError,
     } = await supabase
-      .from(
-        "secretary_parent_messages"
-      )
+      .from("secretary_parent_messages")
       .update({
         read_at: now,
       })
-      .eq(
-        "id",
-        messageId
-      )
-      .eq(
-        "school_id",
-        currentSchoolId
-      );
+      .eq("id", messageId)
+      .eq("school_id", currentSchoolId);
 
     if (updateError) {
       console.error(
@@ -1111,8 +1093,7 @@ export default function ParentDashboard({
           style={{
             background:
               "linear-gradient(135deg,#eef2ff 0%,#f8fafc 55%,#ffffff 100%)",
-            border:
-              "1px solid #e0e7ff",
+            border: "1px solid #e0e7ff",
             borderRadius: "18px",
             padding: "22px",
             marginBottom: "20px",
@@ -1148,10 +1129,8 @@ export default function ParentDashboard({
                   color: "#4f46e5",
                   fontWeight: 800,
                   fontSize: "12px",
-                  textTransform:
-                    "uppercase",
-                  letterSpacing:
-                    "0.05em",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
                 }}
               >
                 Espace Parent
@@ -1203,8 +1182,7 @@ export default function ParentDashboard({
             style={{
               textAlign: "left",
               background: "#fff",
-              border:
-                "1px solid #e2e8f0",
+              border: "1px solid #e2e8f0",
               borderRadius: "16px",
               padding: "18px",
               cursor: "pointer",
@@ -1253,8 +1231,7 @@ export default function ParentDashboard({
             style={{
               textAlign: "left",
               background: "#fff",
-              border:
-                "1px solid #e2e8f0",
+              border: "1px solid #e2e8f0",
               borderRadius: "16px",
               padding: "18px",
               cursor: "pointer",
@@ -1307,8 +1284,7 @@ export default function ParentDashboard({
             style={{
               textAlign: "left",
               background: "#fff",
-              border:
-                "1px solid #e2e8f0",
+              border: "1px solid #e2e8f0",
               borderRadius: "16px",
               padding: "18px",
               cursor: "pointer",
@@ -1483,11 +1459,9 @@ export default function ParentDashboard({
                         width: "54px",
                         height: "54px",
                         borderRadius: "15px",
-                        background:
-                          "#eef2ff",
+                        background: "#eef2ff",
                         display: "grid",
-                        placeItems:
-                          "center",
+                        placeItems: "center",
                         fontSize: "25px",
                         flexShrink: 0,
                       }}
@@ -1502,10 +1476,8 @@ export default function ParentDashboard({
                     >
                       <strong
                         style={{
-                          color:
-                            "#0f172a",
-                          fontSize:
-                            "17px",
+                          color: "#0f172a",
+                          fontSize: "17px",
                         }}
                       >
                         {child.first_name}{" "}
@@ -1514,12 +1486,9 @@ export default function ParentDashboard({
 
                       <div
                         style={{
-                          color:
-                            "#64748b",
-                          marginTop:
-                            "5px",
-                          fontSize:
-                            "13px",
+                          color: "#64748b",
+                          marginTop: "5px",
+                          fontSize: "13px",
                         }}
                       >
                         🎓{" "}
@@ -1532,12 +1501,9 @@ export default function ParentDashboard({
 
                       <div
                         style={{
-                          color:
-                            "#94a3b8",
-                          fontSize:
-                            "12px",
-                          marginTop:
-                            "4px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          marginTop: "4px",
                         }}
                       >
                         Relation :{" "}
@@ -1551,7 +1517,8 @@ export default function ParentDashboard({
           </div>
         )}
 
-        {unreadMessages > 0 && (
+        {(unreadMessages > 0 ||
+          adminAnnouncements.length > 0) && (
           <button
             type="button"
             onClick={() =>
@@ -1562,8 +1529,7 @@ export default function ParentDashboard({
               marginTop: "16px",
               padding: "14px 16px",
               borderRadius: "14px",
-              border:
-                "1px solid #fde68a",
+              border: "1px solid #fde68a",
               background: "#fffbeb",
               color: "#92400e",
               textAlign: "left",
@@ -1571,15 +1537,27 @@ export default function ParentDashboard({
               fontWeight: 700,
             }}
           >
-            🏢 Vous avez{" "}
-            {unreadMessages} nouveau
-            {unreadMessages > 1
-              ? "x"
-              : ""} message
-            {unreadMessages > 1
-              ? "s"
-              : ""} du service
-            administratif →
+            🏢 Service administratif —{" "}
+            {unreadMessages > 0
+              ? `${unreadMessages} nouveau${
+                  unreadMessages > 1
+                    ? "x"
+                    : ""
+                } message${
+                  unreadMessages > 1
+                    ? "s"
+                    : ""
+                }`
+              : `${adminAnnouncements.length} information${
+                  adminAnnouncements.length > 1
+                    ? "s"
+                    : ""
+                } disponible${
+                  adminAnnouncements.length > 1
+                    ? "s"
+                    : ""
+                }`}{" "}
+            →
           </button>
         )}
       </>
@@ -1593,9 +1571,7 @@ export default function ParentDashboard({
           icon="👦"
           title="Mes enfants"
           description="Les élèves rattachés à votre compte parent."
-          onBack={() =>
-            setPage("home")
-          }
+          onBack={() => setPage("home")}
         />
 
         {!children.length ? (
@@ -1623,13 +1599,10 @@ export default function ParentDashboard({
                       style={{
                         width: "58px",
                         height: "58px",
-                        borderRadius:
-                          "16px",
-                        background:
-                          "#eef2ff",
+                        borderRadius: "16px",
+                        background: "#eef2ff",
                         display: "grid",
-                        placeItems:
-                          "center",
+                        placeItems: "center",
                         fontSize: "25px",
                         flexShrink: 0,
                       }}
@@ -1640,10 +1613,8 @@ export default function ParentDashboard({
                     <div>
                       <strong
                         style={{
-                          color:
-                            "#0f172a",
-                          fontSize:
-                            "17px",
+                          color: "#0f172a",
+                          fontSize: "17px",
                         }}
                       >
                         {child.first_name}{" "}
@@ -1652,10 +1623,8 @@ export default function ParentDashboard({
 
                       <div
                         style={{
-                          color:
-                            "#64748b",
-                          marginTop:
-                            "5px",
+                          color: "#64748b",
+                          marginTop: "5px",
                         }}
                       >
                         🎓{" "}
@@ -1668,12 +1637,9 @@ export default function ParentDashboard({
 
                       <div
                         style={{
-                          color:
-                            "#94a3b8",
-                          fontSize:
-                            "12px",
-                          marginTop:
-                            "5px",
+                          color: "#94a3b8",
+                          fontSize: "12px",
+                          marginTop: "5px",
                         }}
                       >
                         Relation :{" "}
@@ -1697,9 +1663,7 @@ export default function ParentDashboard({
           icon="📊"
           title="Notes"
           description="Les résultats de vos enfants, avec leur matière."
-          onBack={() =>
-            setPage("home")
-          }
+          onBack={() => setPage("home")}
         />
 
         {!grades.length ? (
@@ -1719,21 +1683,17 @@ export default function ParentDashboard({
                   <div
                     style={{
                       display: "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "flex-start",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
                       gap: "12px",
                     }}
                   >
                     <div>
                       <div
                         style={{
-                          color:
-                            "#4f46e5",
+                          color: "#4f46e5",
                           fontWeight: 800,
-                          fontSize:
-                            "13px",
+                          fontSize: "13px",
                         }}
                       >
                         📚{" "}
@@ -1742,25 +1702,18 @@ export default function ParentDashboard({
 
                       <h3
                         style={{
-                          margin:
-                            "7px 0 4px",
-                          color:
-                            "#0f172a",
-                          fontSize:
-                            "17px",
+                          margin: "7px 0 4px",
+                          color: "#0f172a",
+                          fontSize: "17px",
                         }}
                       >
-                        {
-                          grade.assessment_title
-                        }
+                        {grade.assessment_title}
                       </h3>
 
                       <div
                         style={{
-                          color:
-                            "#64748b",
-                          fontSize:
-                            "13px",
+                          color: "#64748b",
+                          fontSize: "13px",
                         }}
                       >
                         {grade.child_name}{" "}
@@ -1773,19 +1726,13 @@ export default function ParentDashboard({
 
                     <div
                       style={{
-                        background:
-                          "#eef2ff",
-                        color:
-                          "#4338ca",
-                        borderRadius:
-                          "12px",
-                        padding:
-                          "9px 12px",
+                        background: "#eef2ff",
+                        color: "#4338ca",
+                        borderRadius: "12px",
+                        padding: "9px 12px",
                         fontWeight: 900,
-                        fontSize:
-                          "16px",
-                        whiteSpace:
-                          "nowrap",
+                        fontSize: "16px",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {formatScore(
@@ -1798,26 +1745,18 @@ export default function ParentDashboard({
                   {grade.appreciation && (
                     <div
                       style={{
-                        marginTop:
-                          "13px",
-                        padding:
-                          "11px 13px",
-                        borderRadius:
-                          "10px",
-                        background:
-                          "#f8fafc",
-                        color:
-                          "#475569",
-                        fontSize:
-                          "13px",
+                        marginTop: "13px",
+                        padding: "11px 13px",
+                        borderRadius: "10px",
+                        background: "#f8fafc",
+                        color: "#475569",
+                        fontSize: "13px",
                       }}
                     >
                       <strong>
                         Appréciation :
                       </strong>{" "}
-                      {
-                        grade.appreciation
-                      }
+                      {grade.appreciation}
                     </div>
                   )}
                 </Card>
@@ -1836,9 +1775,7 @@ export default function ParentDashboard({
           icon="🕐"
           title="Présence"
           description="Suivi des présences, absences et retards."
-          onBack={() =>
-            setPage("home")
-          }
+          onBack={() => setPage("home")}
         />
 
         {!attendance.length ? (
@@ -1858,18 +1795,15 @@ export default function ParentDashboard({
                   <div
                     style={{
                       display: "flex",
-                      justifyContent:
-                        "space-between",
-                      alignItems:
-                        "center",
+                      justifyContent: "space-between",
+                      alignItems: "center",
                       gap: "12px",
                     }}
                   >
                     <div>
                       <strong
                         style={{
-                          color:
-                            "#0f172a",
+                          color: "#0f172a",
                         }}
                       >
                         {item.child_name}
@@ -1877,12 +1811,9 @@ export default function ParentDashboard({
 
                       <div
                         style={{
-                          color:
-                            "#64748b",
-                          marginTop:
-                            "4px",
-                          fontSize:
-                            "13px",
+                          color: "#64748b",
+                          marginTop: "4px",
+                          fontSize: "13px",
                         }}
                       >
                         {formatDate(
@@ -1930,9 +1861,7 @@ export default function ParentDashboard({
           icon="📄"
           title="Bulletins"
           description="Bulletins validés et transmis par l'école."
-          onBack={() =>
-            setPage("home")
-          }
+          onBack={() => setPage("home")}
         />
 
         {!bulletins.length ? (
@@ -1948,14 +1877,11 @@ export default function ParentDashboard({
           >
             {bulletins.map(
               (bulletin) => (
-                <Card
-                  key={bulletin.id}
-                >
+                <Card key={bulletin.id}>
                   <div
                     style={{
                       display: "flex",
-                      alignItems:
-                        "center",
+                      alignItems: "center",
                       gap: "12px",
                     }}
                   >
@@ -1963,13 +1889,10 @@ export default function ParentDashboard({
                       style={{
                         width: "44px",
                         height: "44px",
-                        borderRadius:
-                          "12px",
-                        background:
-                          "#f1f5f9",
+                        borderRadius: "12px",
+                        background: "#f1f5f9",
                         display: "grid",
-                        placeItems:
-                          "center",
+                        placeItems: "center",
                         fontSize: "21px",
                       }}
                     >
@@ -1983,38 +1906,27 @@ export default function ParentDashboard({
                     >
                       <strong
                         style={{
-                          color:
-                            "#0f172a",
+                          color: "#0f172a",
                         }}
                       >
-                        {
-                          bulletin.child_name
-                        }
+                        {bulletin.child_name}
                       </strong>
 
                       <div
                         style={{
-                          marginTop:
-                            "5px",
-                          color:
-                            "#475569",
-                          fontSize:
-                            "13px",
+                          marginTop: "5px",
+                          color: "#475569",
+                          fontSize: "13px",
                         }}
                       >
-                        {
-                          bulletin.trimester
-                        }
+                        {bulletin.trimester}
                       </div>
 
                       <div
                         style={{
-                          color:
-                            "#64748b",
-                          fontSize:
-                            "12px",
-                          marginTop:
-                            "4px",
+                          color: "#64748b",
+                          fontSize: "12px",
+                          marginTop: "4px",
                         }}
                       >
                         Statut :{" "}
@@ -2025,29 +1937,19 @@ export default function ParentDashboard({
 
                   {bulletin.pdf_url && (
                     <a
-                      href={
-                        bulletin.pdf_url
-                      }
+                      href={bulletin.pdf_url}
                       target="_blank"
                       rel="noreferrer"
                       style={{
-                        display:
-                          "inline-flex",
-                        marginTop:
-                          "13px",
-                        padding:
-                          "10px 13px",
-                        borderRadius:
-                          "10px",
-                        background:
-                          "#eef2ff",
-                        color:
-                          "#4338ca",
-                        textDecoration:
-                          "none",
+                        display: "inline-flex",
+                        marginTop: "13px",
+                        padding: "10px 13px",
+                        borderRadius: "10px",
+                        background: "#eef2ff",
+                        color: "#4338ca",
+                        textDecoration: "none",
                         fontWeight: 800,
-                        fontSize:
-                          "13px",
+                        fontSize: "13px",
                       }}
                     >
                       📥 Ouvrir le bulletin
@@ -2068,123 +1970,202 @@ export default function ParentDashboard({
         <PageTitle
           icon="🏢"
           title="Service administratif"
-          description="Messages et échanges avec le secrétariat."
-          onBack={() =>
-            setPage("home")
-          }
+          description="Informations et échanges avec le secrétariat."
+          onBack={() => setPage("home")}
         />
 
-        {!adminMessages.length ? (
-          <Empty
-            text="Aucun message du service administratif."
-          />
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: "12px",
-            }}
-          >
-            {adminMessages.map(
-              (item) => (
-                <Card key={item.id}>
-                  <div
-                    style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      gap: "10px",
-                    }}
-                  >
-                    <strong
+        {adminAnnouncements.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <h3
+              style={{
+                margin: "0 0 12px",
+                color: "#0f172a",
+                fontSize: "17px",
+              }}
+            >
+              📢 Informations de l'administration
+            </h3>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              {adminAnnouncements.map(
+                (item) => (
+                  <Card key={item.id}>
+                    <div
                       style={{
-                        color:
-                          "#0f172a",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        alignItems: "flex-start",
                       }}
                     >
-                      {item.subject}
-                    </strong>
-
-                    {!item.read_at && (
-                      <span
+                      <strong
                         style={{
-                          color:
-                            "#dc2626",
-                          fontWeight:
-                            800,
-                          fontSize:
-                            "12px",
+                          color: "#0f172a",
+                          fontSize: "16px",
                         }}
                       >
-                        Nouveau
+                        {item.title}
+                      </strong>
+
+                      <span
+                        style={{
+                          color: "#4f46e5",
+                          fontWeight: 800,
+                          fontSize: "11px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        📢 Information
                       </span>
-                    )}
-                  </div>
+                    </div>
 
-                  <p
-                    style={{
-                      color:
-                        "#475569",
-                      lineHeight:
-                        1.6,
-                      fontSize:
-                        "14px",
-                    }}
-                  >
-                    {item.message}
-                  </p>
-
-                  <div
-                    style={{
-                      color:
-                        "#94a3b8",
-                      fontSize:
-                        "12px",
-                    }}
-                  >
-                    {formatDate(
-                      item.created_at
-                    )}
-                  </div>
-
-                  {!item.read_at && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        markMessageRead(
-                          item.id
-                        )
-                      }
+                    <p
                       style={{
-                        marginTop:
-                          "11px",
-                        border:
-                          "1px solid #c7d2fe",
-                        background:
-                          "#eef2ff",
-                        color:
-                          "#4338ca",
-                        borderRadius:
-                          "9px",
-                        padding:
-                          "9px 12px",
-                        cursor:
-                          "pointer",
-                        fontWeight:
-                          800,
-                        fontSize:
-                          "12px",
+                        margin:
+                          "12px 0 10px",
+                        color: "#475569",
+                        lineHeight: 1.6,
+                        fontSize: "14px",
+                        whiteSpace:
+                          "pre-wrap",
                       }}
                     >
-                      ✓ Marquer comme lu
-                    </button>
-                  )}
-                </Card>
-              )
-            )}
+                      {item.message}
+                    </p>
+
+                    <div
+                      style={{
+                        color: "#94a3b8",
+                        fontSize: "12px",
+                      }}
+                    >
+                      Publiée le{" "}
+                      {formatDate(
+                        item.published_at ||
+                          item.created_at
+                      )}
+                    </div>
+                  </Card>
+                )
+              )}
+            </div>
           </div>
         )}
+
+        {adminMessages.length > 0 && (
+          <div>
+            <h3
+              style={{
+                margin: "0 0 12px",
+                color: "#0f172a",
+                fontSize: "17px",
+              }}
+            >
+              💬 Messages du secrétariat
+            </h3>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              {adminMessages.map(
+                (item) => (
+                  <Card key={item.id}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          color: "#0f172a",
+                        }}
+                      >
+                        {item.subject}
+                      </strong>
+
+                      {!item.read_at && (
+                        <span
+                          style={{
+                            color: "#dc2626",
+                            fontWeight: 800,
+                            fontSize: "12px",
+                          }}
+                        >
+                          Nouveau
+                        </span>
+                      )}
+                    </div>
+
+                    <p
+                      style={{
+                        color: "#475569",
+                        lineHeight: 1.6,
+                        fontSize: "14px",
+                      }}
+                    >
+                      {item.message}
+                    </p>
+
+                    <div
+                      style={{
+                        color: "#94a3b8",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {formatDate(
+                        item.created_at
+                      )}
+                    </div>
+
+                    {!item.read_at && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          markMessageRead(
+                            item.id
+                          )
+                        }
+                        style={{
+                          marginTop: "11px",
+                          border:
+                            "1px solid #c7d2fe",
+                          background:
+                            "#eef2ff",
+                          color: "#4338ca",
+                          borderRadius: "9px",
+                          padding:
+                            "9px 12px",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                          fontSize: "12px",
+                        }}
+                      >
+                        ✓ Marquer comme lu
+                      </button>
+                    )}
+                  </Card>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {!adminAnnouncements.length &&
+          !adminMessages.length && (
+            <Empty
+              text="Aucune information ou message du service administratif."
+            />
+          )}
       </>
     );
   }
@@ -2196,9 +2177,7 @@ export default function ParentDashboard({
           icon="🔔"
           title="Notifications"
           description="Les informations importantes de l'école."
-          onBack={() =>
-            setPage("home")
-          }
+          onBack={() => setPage("home")}
         />
 
         {!notifications.length ? (
@@ -2217,17 +2196,14 @@ export default function ParentDashboard({
                 <Card key={item.id}>
                   <div
                     style={{
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
+                      display: "flex",
+                      justifyContent: "space-between",
                       gap: "10px",
                     }}
                   >
                     <strong
                       style={{
-                        color:
-                          "#0f172a",
+                        color: "#0f172a",
                       }}
                     >
                       {item.title}
@@ -2236,12 +2212,9 @@ export default function ParentDashboard({
                     {!item.read_at && (
                       <span
                         style={{
-                          color:
-                            "#dc2626",
-                          fontWeight:
-                            800,
-                          fontSize:
-                            "12px",
+                          color: "#dc2626",
+                          fontWeight: 800,
+                          fontSize: "12px",
                         }}
                       >
                         Nouveau
@@ -2251,12 +2224,9 @@ export default function ParentDashboard({
 
                   <p
                     style={{
-                      color:
-                        "#475569",
-                      lineHeight:
-                        1.6,
-                      fontSize:
-                        "14px",
+                      color: "#475569",
+                      lineHeight: 1.6,
+                      fontSize: "14px",
                     }}
                   >
                     {item.message}
@@ -2264,10 +2234,8 @@ export default function ParentDashboard({
 
                   <div
                     style={{
-                      color:
-                        "#94a3b8",
-                      fontSize:
-                        "12px",
+                      color: "#94a3b8",
+                      fontSize: "12px",
                     }}
                   >
                     {formatDate(
@@ -2284,24 +2252,18 @@ export default function ParentDashboard({
                         )
                       }
                       style={{
-                        marginTop:
-                          "11px",
+                        marginTop: "11px",
                         border:
                           "1px solid #c7d2fe",
                         background:
                           "#eef2ff",
-                        color:
-                          "#4338ca",
-                        borderRadius:
-                          "9px",
+                        color: "#4338ca",
+                        borderRadius: "9px",
                         padding:
                           "9px 12px",
-                        cursor:
-                          "pointer",
-                        fontWeight:
-                          800,
-                        fontSize:
-                          "12px",
+                        cursor: "pointer",
+                        fontWeight: 800,
+                        fontSize: "12px",
                       }}
                     >
                       ✓ Marquer comme lu
@@ -2323,9 +2285,7 @@ export default function ParentDashboard({
           icon="💬"
           title="Communication"
           description="Espace de communication lié à la scolarité."
-          onBack={() =>
-            setPage("home")
-          }
+          onBack={() => setPage("home")}
         />
 
         <Empty
@@ -2352,19 +2312,13 @@ export default function ParentDashboard({
       return <BulletinsPage />;
 
     if (page === "communication")
-      return (
-        <CommunicationPage />
-      );
+      return <CommunicationPage />;
 
     if (page === "administrative")
-      return (
-        <AdministrativePage />
-      );
+      return <AdministrativePage />;
 
     if (page === "notifications")
-      return (
-        <NotificationsPage />
-      );
+      return <NotificationsPage />;
 
     return <HomePage />;
   }
@@ -2378,9 +2332,6 @@ export default function ParentDashboard({
         color: "#0f172a",
       }}
     >
-      {/* =====================================================
-          SIDEBAR PARENT
-          ===================================================== */}
       <aside
         style={{
           width: "250px",
@@ -2530,12 +2481,9 @@ export default function ParentDashboard({
               fontSize: "10px",
               fontWeight: 900,
               color: "#94a3b8",
-              textTransform:
-                "uppercase",
-              letterSpacing:
-                "0.08em",
-              padding:
-                "5px 10px 10px",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              padding: "5px 10px 10px",
             }}
           >
             Navigation
@@ -2576,8 +2524,7 @@ export default function ParentDashboard({
                     gap: "11px",
                     border: "none",
                     borderRadius: "10px",
-                    padding:
-                      "11px 12px",
+                    padding: "11px 12px",
                     background: active
                       ? "#eef2ff"
                       : "transparent",
@@ -2654,7 +2601,6 @@ export default function ParentDashboard({
           </div>
         </nav>
 
-        {/* DÉCONNEXION EN BAS */}
         <div
           style={{
             padding: "15px",
@@ -2674,8 +2620,7 @@ export default function ParentDashboard({
               gap: "8px",
               padding: "11px 14px",
               borderRadius: "10px",
-              border:
-                "1px solid #fecaca",
+              border: "1px solid #fecaca",
               background: "#fff1f2",
               color: "#dc2626",
               fontWeight: 800,
@@ -2698,9 +2643,6 @@ export default function ParentDashboard({
         </div>
       </aside>
 
-      {/* =====================================================
-          CONTENU PRINCIPAL
-          ===================================================== */}
       <main
         style={{
           flex: 1,
@@ -2714,12 +2656,10 @@ export default function ParentDashboard({
             background: "#ffffff",
             borderBottom:
               "1px solid #e2e8f0",
-            padding:
-              "18px 26px",
+            padding: "18px 26px",
             display: "flex",
             alignItems: "center",
-            justifyContent:
-              "space-between",
+            justifyContent: "space-between",
             gap: "16px",
           }}
         >
@@ -2729,10 +2669,8 @@ export default function ParentDashboard({
                 color: "#4f46e5",
                 fontSize: "11px",
                 fontWeight: 900,
-                textTransform:
-                  "uppercase",
-                letterSpacing:
-                  "0.08em",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
               }}
             >
               ESPACE PARENT
@@ -2740,8 +2678,7 @@ export default function ParentDashboard({
 
             <h1
               style={{
-                margin:
-                  "4px 0 0",
+                margin: "4px 0 0",
                 fontSize: "22px",
                 fontWeight: 900,
                 color: "#0f172a",
@@ -2773,8 +2710,7 @@ export default function ParentDashboard({
           <div
             className="error-message"
             style={{
-              margin:
-                "18px 26px 0",
+              margin: "18px 26px 0",
             }}
           >
             {error}
@@ -2791,8 +2727,7 @@ export default function ParentDashboard({
               <div
                 style={{
                   textAlign: "center",
-                  padding:
-                    "35px 20px",
+                  padding: "35px 20px",
                   color: "#64748b",
                 }}
               >
@@ -2804,8 +2739,7 @@ export default function ParentDashboard({
         ) : (
           <div
             style={{
-              padding:
-                "24px 26px 35px",
+              padding: "24px 26px 35px",
               maxWidth: "1250px",
             }}
           >
@@ -2816,3 +2750,4 @@ export default function ParentDashboard({
     </div>
   );
 }
+```
