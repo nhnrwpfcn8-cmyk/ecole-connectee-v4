@@ -28,8 +28,10 @@ function SecretaryParentCommunicationPage({
   const filteredParents = useMemo(() => {
     const search = searchParent.trim().toLowerCase();
 
+    // MODIFICATION 2 :
+    // Aucun parent n'est affiché tant qu'il n'y a pas de recherche.
     if (!search) {
-      return parents;
+      return [];
     }
 
     return parents.filter((parent) => {
@@ -469,6 +471,10 @@ function SecretaryParentCommunicationPage({
             <p style={styles.emptyText}>
               Chargement des parents...
             </p>
+          ) : searchParent.trim() === "" ? (
+            <p style={styles.emptyText}>
+              Recherchez un parent avec son nom.
+            </p>
           ) : filteredParents.length === 0 ? (
             <p style={styles.emptyText}>
               Aucun parent trouvé.
@@ -647,6 +653,7 @@ const styles = {
   page: {
     minHeight: "100vh",
     background: "#f5f7fb",
+    color: "#000000",
     padding: "24px",
     boxSizing: "border-box",
   },
@@ -661,6 +668,7 @@ const styles = {
   backButton: {
     border: "none",
     background: "#ffffff",
+    color: "#000000",
     padding: "10px 14px",
     borderRadius: "10px",
     cursor: "pointer",
@@ -670,18 +678,18 @@ const styles = {
 
   title: {
     margin: 0,
-    color: "#111827",
+    color: "#000000",
     fontSize: "26px",
   },
 
   subtitle: {
     margin: "6px 0 0",
-    color: "#6b7280",
+    color: "#000000",
   },
 
   error: {
     background: "#fee2e2",
-    color: "#991b1b",
+    color: "#000000",
     padding: "12px 14px",
     borderRadius: "10px",
     marginBottom: "16px",
@@ -689,7 +697,7 @@ const styles = {
 
   success: {
     background: "#dcfce7",
-    color: "#166534",
+    color: "#000000",
     padding: "12px 14px",
     borderRadius: "10px",
     marginBottom: "16px",
@@ -704,6 +712,7 @@ const styles = {
 
   parentsPanel: {
     background: "#ffffff",
+    color: "#000000",
     borderRadius: "16px",
     padding: "18px",
     boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
@@ -714,7 +723,7 @@ const styles = {
   sectionTitle: {
     marginTop: 0,
     marginBottom: "14px",
-    color: "#111827",
+    color: "#000000",
   },
 
   searchInput: {
@@ -726,6 +735,7 @@ const styles = {
     outline: "none",
     marginBottom: "14px",
     fontSize: "14px",
+    color: "#000000",
   },
 
   parentList: {
@@ -741,6 +751,7 @@ const styles = {
     textAlign: "left",
     border: "1px solid #e5e7eb",
     background: "#ffffff",
+    color: "#000000",
     borderRadius: "10px",
     padding: "12px",
     cursor: "pointer",
@@ -749,27 +760,29 @@ const styles = {
   parentItemActive: {
     border: "2px solid #2563eb",
     background: "#eff6ff",
+    color: "#000000",
   },
 
   parentName: {
     fontWeight: "700",
-    color: "#111827",
+    color: "#000000",
     marginBottom: "5px",
   },
 
   parentInfo: {
     fontSize: "13px",
-    color: "#6b7280",
+    color: "#000000",
     marginTop: "3px",
   },
 
   emptyText: {
-    color: "#6b7280",
+    color: "#000000",
     fontSize: "14px",
   },
 
   conversationPanel: {
     background: "#ffffff",
+    color: "#000000",
     borderRadius: "16px",
     boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
     minHeight: "600px",
@@ -785,12 +798,12 @@ const styles = {
 
   conversationTitle: {
     margin: 0,
-    color: "#111827",
+    color: "#000000",
   },
 
   conversationInfo: {
     marginTop: "5px",
-    color: "#6b7280",
+    color: "#000000",
     fontSize: "13px",
   },
 
@@ -800,6 +813,7 @@ const styles = {
     overflowY: "auto",
     minHeight: "350px",
     maxHeight: "500px",
+    color: "#000000",
   },
 
   messageRow: {
@@ -811,29 +825,32 @@ const styles = {
     maxWidth: "70%",
     padding: "11px 14px",
     borderRadius: "14px",
+    color: "#000000",
   },
 
   secretaryBubble: {
     background: "#2563eb",
-    color: "#ffffff",
+    color: "#000000",
     borderBottomRightRadius: "4px",
   },
 
   parentBubble: {
     background: "#f3f4f6",
-    color: "#111827",
+    color: "#000000",
     borderBottomLeftRadius: "4px",
   },
 
   messageText: {
     whiteSpace: "pre-wrap",
     lineHeight: "1.45",
+    color: "#000000",
   },
 
   messageDate: {
     marginTop: "6px",
     fontSize: "11px",
     opacity: 0.7,
+    color: "#000000",
   },
 
   composer: {
@@ -853,13 +870,14 @@ const styles = {
     resize: "vertical",
     fontFamily: "inherit",
     outline: "none",
+    color: "#000000",
   },
 
   sendButton: {
     alignSelf: "flex-end",
     border: "none",
     background: "#2563eb",
-    color: "#ffffff",
+    color: "#000000",
     padding: "11px 18px",
     borderRadius: "10px",
     cursor: "pointer",
@@ -869,6 +887,7 @@ const styles = {
   sendButtonDisabled: {
     opacity: 0.6,
     cursor: "not-allowed",
+    color: "#000000",
   },
 
   noSelection: {
@@ -879,6 +898,7 @@ const styles = {
     justifyContent: "center",
     textAlign: "center",
     padding: "30px",
+    color: "#000000",
   },
 
   noSelectionIcon: {
@@ -888,11 +908,11 @@ const styles = {
 
   noSelectionTitle: {
     margin: 0,
-    color: "#111827",
+    color: "#000000",
   },
 
   noSelectionText: {
-    color: "#6b7280",
+    color: "#000000",
     maxWidth: "450px",
     lineHeight: "1.5",
   },
@@ -904,7 +924,7 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
-    color: "#6b7280",
+    color: "#000000",
   },
 
   emptyConversationIcon: {
@@ -920,15 +940,17 @@ const styles = {
     borderRadius: "10px",
     outline: "none",
     fontSize: "14px",
+    color: "#000000",
   },
 
   messageSubject: {
     fontWeight: "700",
     marginBottom: "5px",
+    color: "#000000",
   },
 
   blackText: {
-    color: "#111827",
+    color: "#000000",
   },
 };
 
