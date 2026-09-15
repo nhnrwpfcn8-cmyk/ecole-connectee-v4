@@ -3154,7 +3154,23 @@ function renderCommunication() {
             </p>
           </div>
         </div>
-
+<div
+  style={{
+    display: "flex",
+    gap: 10,
+    marginTop: 14,
+    flexWrap: "wrap",
+  }}
+>
+  <Button
+    type="button"
+    onClick={() =>
+      setActiveSection("services")
+    }
+  >
+    👨‍👩‍👧 Communication avec les parents
+  </Button>
+</div>
         {schoolAdmins.length === 0 ? (
           <EmptyState
             icon="👤"
