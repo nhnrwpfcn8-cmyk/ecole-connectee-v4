@@ -825,6 +825,7 @@ export default function ParentDashboard({
           parent_id,
           subject,
           message,
+          sender_type,
           read_at,
           created_at
         `)
