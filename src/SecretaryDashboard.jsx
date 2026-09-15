@@ -3164,9 +3164,11 @@ function renderCommunication() {
 >
   <Button
     type="button"
-    onClick={() =>
-      setActiveSection("services")
-    }
+    onClick={() => {
+  if (typeof onOpenServices === "function") {
+    onOpenServices()
+  }
+}}
   >
     👨‍👩‍👧 Communication avec les parents
   </Button>
