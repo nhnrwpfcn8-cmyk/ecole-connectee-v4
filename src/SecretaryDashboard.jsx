@@ -3163,15 +3163,15 @@ function renderCommunication() {
   }}
 >
   <Button
-    type="button"
-    onClick={() => {
-  if (typeof onOpenServices === "function") {
-    onOpenServices()
-  }
-}}
-  >
-    👨‍👩‍👧 Communication avec les parents
-  </Button>
+  type="button"
+  onClick={() => {
+    if (typeof onOpenParentCommunication === "function") {
+      onOpenParentCommunication()
+    }
+  }}
+>
+  👨‍👩‍👧 Communication avec les parents
+</Button>
 </div>
         {schoolAdmins.length === 0 ? (
           <EmptyState
