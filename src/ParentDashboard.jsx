@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
-
 const MENU = [
   { id: "home", icon: "🏠", label: "Accueil" },
   { id: "children", icon: "👦", label: "Mes enfants" },
@@ -19,7 +18,6 @@ const MENU = [
     label: "Notifications",
   },
 ];
-
 export default function ParentDashboard({
   profile,
   session,
@@ -32,40 +30,32 @@ export default function ParentDashboard({
   const [bulletins, setBulletins] = useState([]);
   const [adminMessages, setAdminMessages] = useState([]);
   const [adminAnnouncements, setAdminAnnouncements] = useState([]);
-  const [adminMeetings, setAdminMeetings] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [activeSchoolId, setActiveSchoolId] = useState(
     profile?.school_id || null
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const schoolId = activeSchoolId || profile?.school_id;
-
   const unreadNotifications = useMemo(
     () =>
       notifications.filter((notification) => !notification.read_at)
         .length,
     [notifications]
   );
-
   const unreadMessages = useMemo(
     () => adminMessages.filter((message) => !message.read_at).length,
     [adminMessages]
   );
-
   const loadParentData = async () => {
     setLoading(true);
     setError("");
-
     try {
       const connectedUserId =
         session?.user?.id || profile?.id || null;
-
       if (!connectedUserId) {
         throw new Error("Utilisateur connecté introuvable.");
       }
-
       /*
        * 1. Récupération du profil connecté
        */
@@ -77,34 +67,27 @@ export default function ParentDashboard({
           )
           .eq("id", connectedUserId)
           .maybeSingle();
-
       if (profileError) {
         throw profileError;
       }
-
       if (!freshProfile) {
         throw new Error("Profil parent introuvable.");
       }
-
       if (freshProfile.role !== "parent") {
         throw new Error(
           "Le compte connecté n'est pas configuré comme parent."
         );
       }
-
       const resolvedSchoolId =
         freshProfile.school_id ||
         profile?.school_id ||
         null;
-
       if (!resolvedSchoolId) {
         throw new Error(
           "École du parent introuvable."
         );
       }
-
       setActiveSchoolId(resolvedSchoolId);
-
       /*
        * 2. Récupération du parent correspondant au profil
        */
@@ -117,17 +100,14 @@ export default function ParentDashboard({
           .eq("profile_id", connectedUserId)
           .eq("school_id", resolvedSchoolId)
           .maybeSingle();
-
       if (parentError) {
         throw parentError;
       }
-
       if (!parent) {
         throw new Error(
           "Fiche parent introuvable."
         );
       }
-
       /*
        * 3. Récupération des enfants liés au parent
        */
@@ -138,11 +118,9 @@ export default function ParentDashboard({
             "id,parent_id,student_id,relationship,is_primary"
           )
           .eq("parent_id", parent.id);
-
       if (linksError) {
         throw linksError;
       }
-
       const studentIds = [
         ...new Set(
           (parentLinks || [])
@@ -150,9 +128,7 @@ export default function ParentDashboard({
             .filter(Boolean)
         ),
       ];
-
       let loadedChildren = [];
-
       if (studentIds.length > 0) {
         /*
          * 4. Récupération des enfants
@@ -165,11 +141,9 @@ export default function ParentDashboard({
             )
             .eq("school_id", resolvedSchoolId)
             .in("id", studentIds);
-
         if (studentsError) {
           throw studentsError;
         }
-
         const classIds = [
           ...new Set(
             (studentRows || [])
@@ -177,9 +151,7 @@ export default function ParentDashboard({
               .filter(Boolean)
           ),
         ];
-
         let classMap = {};
-
         if (classIds.length > 0) {
           const { data: classRows, error: classesError } =
             await supabase
@@ -189,11 +161,9 @@ export default function ParentDashboard({
               )
               .eq("school_id", resolvedSchoolId)
               .in("id", classIds);
-
           if (classesError) {
             throw classesError;
           }
-
           classMap = Object.fromEntries(
             (classRows || []).map((item) => [
               item.id,
@@ -201,19 +171,16 @@ export default function ParentDashboard({
             ])
           );
         }
-
         loadedChildren = (studentRows || []).map(
           (student) => {
             const link = (parentLinks || []).find(
               (item) =>
                 item.student_id === student.id
             );
-
             const studentClass =
               student.class_id
                 ? classMap[student.class_id]
                 : null;
-
             return {
               ...student,
               relationship:
@@ -228,9 +195,7 @@ export default function ParentDashboard({
           }
         );
       }
-
       setChildren(loadedChildren);
-
       /*
        * 5. Notes
        */
@@ -245,64 +210,52 @@ export default function ParentDashboard({
             .select("*")
             .eq("school_id", resolvedSchoolId)
             .in("student_id", studentIds),
-
           supabase
             .from("assessments")
             .select("*")
             .eq("school_id", resolvedSchoolId),
-
           supabase
             .from("subjects")
             .select("*")
             .eq("school_id", resolvedSchoolId),
         ]);
-
         if (gradesResponse.error) {
           throw gradesResponse.error;
         }
-
         if (assessmentsResponse.error) {
           throw assessmentsResponse.error;
         }
-
         if (subjectsResponse.error) {
           throw subjectsResponse.error;
         }
-
         const assessmentsMap = Object.fromEntries(
           (assessmentsResponse.data || []).map(
             (item) => [item.id, item]
           )
         );
-
         const subjectsMap = Object.fromEntries(
           (subjectsResponse.data || []).map(
             (item) => [item.id, item]
           )
         );
-
         const childMap = Object.fromEntries(
           loadedChildren.map((child) => [
             child.id,
             child,
           ])
         );
-
         const normalizedGrades = (
           gradesResponse.data || []
         ).map((grade) => {
           const assessment =
             assessmentsMap[grade.assessment_id];
-
           const subject =
             subjectsMap[
               grade.subject_id ||
                 assessment?.subject_id
             ];
-
           const child =
             childMap[grade.student_id];
-
           return {
             ...grade,
             assessment,
@@ -312,28 +265,23 @@ export default function ParentDashboard({
               : "",
           };
         });
-
         setGrades(normalizedGrades);
-
         /*
          * 6. Présence
          */
         const { data: attendanceRows, error: attendanceError } =
-          await supabase
-            .from("attendance")
-            .select("*")
-            .in("student_id", studentIds);
-
+  await supabase
+    .from("attendance")
+    .select("*")
+    .in("student_id", studentIds);
         if (attendanceError) {
           throw attendanceError;
         }
-
         const normalizedAttendance = (
           attendanceRows || []
         ).map((item) => {
           const child =
             childMap[item.student_id];
-
           return {
             ...item,
             child_name: child
@@ -341,9 +289,7 @@ export default function ParentDashboard({
               : "",
           };
         });
-
         setAttendance(normalizedAttendance);
-
         /*
          * 7. Bulletins
          */
@@ -360,17 +306,14 @@ export default function ParentDashboard({
             .order("created_at", {
               ascending: false,
             });
-
         if (bulletinsError) {
           throw bulletinsError;
         }
-
         const normalizedBulletins = (
           bulletinRows || []
         ).map((bulletin) => {
           const child =
             childMap[bulletin.student_id];
-
           return {
             ...bulletin,
             child_name: child
@@ -378,14 +321,12 @@ export default function ParentDashboard({
               : "",
           };
         });
-
         setBulletins(normalizedBulletins);
       } else {
         setGrades([]);
         setAttendance([]);
         setBulletins([]);
       }
-
       /*
        * 8. Messages du service administratif
        */
@@ -398,37 +339,10 @@ export default function ParentDashboard({
           .order("created_at", {
             ascending: false,
           });
-
       if (messagesError) {
         throw messagesError;
       }
-
       setAdminMessages(messageRows || []);
-
-      /*
-       * CONVOCATIONS DU SERVICE ADMINISTRATIF
-       */
-      const { data: meetingRows, error: meetingsError } =
-        await supabase
-          .from("secretary_parent_meetings")
-          .select(
-            "id,school_id,secretary_id,parent_id,student_id,reason,meeting_date,meeting_time,status,notes,created_at"
-          )
-          .eq("school_id", resolvedSchoolId)
-          .eq("parent_id", parent.id)
-          .order("meeting_date", {
-            ascending: true,
-          })
-          .order("meeting_time", {
-            ascending: true,
-          });
-
-      if (meetingsError) {
-        throw meetingsError;
-      }
-
-      setAdminMeetings(meetingRows || []);
-
       /*
        * 9. INFORMATIONS ADMINISTRATIVES
        *
@@ -450,11 +364,9 @@ export default function ParentDashboard({
           .order("published_at", {
             ascending: false,
           });
-
       if (announcementsError) {
         throw announcementsError;
       }
-
       const childClassIds = [
         ...new Set(
           loadedChildren
@@ -462,7 +374,6 @@ export default function ParentDashboard({
             .filter(Boolean)
         ),
       ];
-
       const visibleAnnouncements = (
         announcementRows || []
       ).filter((announcement) => {
@@ -474,7 +385,6 @@ export default function ParentDashboard({
         ) {
           return true;
         }
-
         /*
          * Parent précis
          */
@@ -486,7 +396,6 @@ export default function ParentDashboard({
             parent.id
           );
         }
-
         /*
          * Classe précise
          */
@@ -497,14 +406,11 @@ export default function ParentDashboard({
             announcement.target_class_id
           );
         }
-
         return false;
       });
-
       setAdminAnnouncements(
         visibleAnnouncements
       );
-
       /*
        * 10. Notifications parent
        */
@@ -517,11 +423,9 @@ export default function ParentDashboard({
           .order("created_at", {
             ascending: false,
           });
-
       if (notificationsError) {
         throw notificationsError;
       }
-
       setNotifications(
         notificationRows || []
       );
@@ -530,7 +434,6 @@ export default function ParentDashboard({
         "Erreur ParentDashboard:",
         err
       );
-
       setError(
         err?.message ||
           "Impossible de charger les données du parent."
@@ -539,7 +442,6 @@ export default function ParentDashboard({
       setLoading(false);
     }
   };
-
   useEffect(() => {
     loadParentData();
   }, [
@@ -547,7 +449,6 @@ export default function ParentDashboard({
     profile?.id,
     profile?.school_id,
   ]);
-
   /*
    * Realtime :
    * - messages administratifs
@@ -557,21 +458,17 @@ export default function ParentDashboard({
   useEffect(() => {
     const connectedUserId =
       session?.user?.id || profile?.id || null;
-
     const currentSchoolId =
       activeSchoolId || profile?.school_id;
-
     if (
       !connectedUserId ||
       !currentSchoolId
     ) {
       return undefined;
     }
-
     let messageChannel = null;
     let announcementChannel = null;
     let notificationChannel = null;
-
     const setupRealtime = async () => {
       /*
        * Retrouver le parent connecté
@@ -583,11 +480,9 @@ export default function ParentDashboard({
           .eq("profile_id", connectedUserId)
           .eq("school_id", currentSchoolId)
           .maybeSingle();
-
       if (!parent) {
         return;
       }
-
       /*
        * Messages
        */
@@ -608,7 +503,6 @@ export default function ParentDashboard({
           }
         )
         .subscribe();
-
       /*
        * Informations administratives
        */
@@ -629,7 +523,6 @@ export default function ParentDashboard({
           }
         )
         .subscribe();
-
       /*
        * Notifications
        */
@@ -651,22 +544,18 @@ export default function ParentDashboard({
         )
         .subscribe();
     };
-
     setupRealtime();
-
     return () => {
       if (messageChannel) {
         supabase.removeChannel(
           messageChannel
         );
       }
-
       if (announcementChannel) {
         supabase.removeChannel(
           announcementChannel
         );
       }
-
       if (notificationChannel) {
         supabase.removeChannel(
           notificationChannel
@@ -679,12 +568,10 @@ export default function ParentDashboard({
     activeSchoolId,
     profile?.school_id,
   ]);
-
   const markNotificationRead = async (
     notificationId
   ) => {
     if (!schoolId) return;
-
     const { error: updateError } =
       await supabase
         .from("parent_notifications")
@@ -693,7 +580,6 @@ export default function ParentDashboard({
         })
         .eq("id", notificationId)
         .eq("school_id", schoolId);
-
     if (updateError) {
       console.error(
         "Erreur lecture notification:",
@@ -701,7 +587,6 @@ export default function ParentDashboard({
       );
       return;
     }
-
     setNotifications((current) =>
       current.map((notification) =>
         notification.id === notificationId
@@ -714,12 +599,10 @@ export default function ParentDashboard({
       )
     );
   };
-
   const markMessageRead = async (
     messageId
   ) => {
     if (!schoolId) return;
-
     const { error: updateError } =
       await supabase
         .from("secretary_parent_messages")
@@ -728,7 +611,6 @@ export default function ParentDashboard({
         })
         .eq("id", messageId)
         .eq("school_id", schoolId);
-
     if (updateError) {
       console.error(
         "Erreur lecture message:",
@@ -736,7 +618,6 @@ export default function ParentDashboard({
       );
       return;
     }
-
     setAdminMessages((current) =>
       current.map((message) =>
         message.id === messageId
@@ -749,13 +630,11 @@ export default function ParentDashboard({
       )
     );
   };
-
   /*
    * =========================
    * PAGES
    * =========================
    */
-
   const HomePage = () => {
     return (
       <div>
@@ -767,7 +646,6 @@ export default function ParentDashboard({
         >
           Bienvenue dans votre espace parent
         </h1>
-
         <p
           style={{
             color: "#4b5563",
@@ -776,7 +654,6 @@ export default function ParentDashboard({
         >
           Suivez la scolarité de vos enfants.
         </p>
-
         <div
           style={{
             display: "grid",
@@ -790,43 +667,35 @@ export default function ParentDashboard({
             <div className="card-title">
               👦 Enfants
             </div>
-
             <div className="card-value">
               {children.length}
             </div>
           </div>
-
           <div className="card">
             <div className="card-title">
               📊 Notes
             </div>
-
             <div className="card-value">
               {grades.length}
             </div>
           </div>
-
           <div className="card">
             <div className="card-title">
               🕐 Présences
             </div>
-
             <div className="card-value">
               {attendance.length}
             </div>
           </div>
-
           <div className="card">
             <div className="card-title">
               🔔 Notifications
             </div>
-
             <div className="card-value">
               {unreadNotifications}
             </div>
           </div>
         </div>
-
         {unreadMessages > 0 && (
           <div
             style={{
@@ -841,7 +710,6 @@ export default function ParentDashboard({
             <strong>
               🏢 Service administratif
             </strong>
-
             <div style={{ marginTop: 6 }}>
               Vous avez{" "}
               <strong>
@@ -856,7 +724,6 @@ export default function ParentDashboard({
                 ? "s"
                 : ""}.
             </div>
-
             <button
               type="button"
               onClick={() =>
@@ -877,7 +744,6 @@ export default function ParentDashboard({
             </button>
           </div>
         )}
-
         <div className="card">
           <h2
             style={{
@@ -887,7 +753,6 @@ export default function ParentDashboard({
           >
             Mes enfants
           </h2>
-
           {children.length === 0 ? (
             <p style={{ color: "#4b5563" }}>
               Aucun enfant associé à ce compte.
@@ -917,7 +782,6 @@ export default function ParentDashboard({
                     {child.first_name}{" "}
                     {child.last_name}
                   </strong>
-
                   <div
                     style={{
                       color: "#4b5563",
@@ -935,14 +799,12 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   const ChildrenPage = () => {
     return (
       <div>
         <h1 style={{ color: "#111827" }}>
           Mes enfants
         </h1>
-
         {children.length === 0 ? (
           <div className="card">
             <p style={{ color: "#4b5563" }}>
@@ -970,7 +832,6 @@ export default function ParentDashboard({
                   {child.first_name}{" "}
                   {child.last_name}
                 </h2>
-
                 <p
                   style={{
                     color: "#4b5563",
@@ -980,7 +841,6 @@ export default function ParentDashboard({
                   {child.class_name ||
                     "Non renseignée"}
                 </p>
-
                 {child.class_level && (
                   <p
                     style={{
@@ -991,7 +851,6 @@ export default function ParentDashboard({
                     {child.class_level}
                   </p>
                 )}
-
                 {child.student_code && (
                   <p
                     style={{
@@ -1009,14 +868,12 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   const GradesPage = () => {
     return (
       <div>
         <h1 style={{ color: "#111827" }}>
           Notes
         </h1>
-
         {grades.length === 0 ? (
           <div className="card">
             <p style={{ color: "#4b5563" }}>
@@ -1043,7 +900,6 @@ export default function ParentDashboard({
                   {grade.child_name ||
                     "Élève"}
                 </strong>
-
                 <div
                   style={{
                     color: "#374151",
@@ -1054,7 +910,6 @@ export default function ParentDashboard({
                   {grade.subject?.name ||
                     "Non renseignée"}
                 </div>
-
                 <div
                   style={{
                     color: "#374151",
@@ -1066,7 +921,6 @@ export default function ParentDashboard({
                     grade.assessment?.name ||
                     "Non renseignée"}
                 </div>
-
                 <div
                   style={{
                     fontSize: 24,
@@ -1086,14 +940,12 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   const AttendancePage = () => {
     return (
       <div>
         <h1 style={{ color: "#111827" }}>
           Présence
         </h1>
-
         {attendance.length === 0 ? (
           <div className="card">
             <p style={{ color: "#4b5563" }}>
@@ -1120,7 +972,6 @@ export default function ParentDashboard({
                   {item.child_name ||
                     "Élève"}
                 </strong>
-
                 <div
                   style={{
                     color: "#4b5563",
@@ -1132,7 +983,6 @@ export default function ParentDashboard({
                     item.attendance_date ||
                     "-"}
                 </div>
-
                 <div
                   style={{
                     color: "#4b5563",
@@ -1150,14 +1000,12 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   const BulletinsPage = () => {
     return (
       <div>
         <h1 style={{ color: "#111827" }}>
           Bulletins
         </h1>
-
         {bulletins.length === 0 ? (
           <div className="card">
             <p style={{ color: "#4b5563" }}>
@@ -1184,7 +1032,6 @@ export default function ParentDashboard({
                   {bulletin.child_name ||
                     "Élève"}
                 </strong>
-
                 <div
                   style={{
                     color: "#4b5563",
@@ -1194,7 +1041,6 @@ export default function ParentDashboard({
                   {bulletin.title ||
                     "Bulletin scolaire"}
                 </div>
-
                 <div
                   style={{
                     color: "#4b5563",
@@ -1212,13 +1058,11 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   /*
    * =========================
    * SERVICE ADMINISTRATIF
    * =========================
    */
-
   const AdministrativePage = () => {
     return (
       <div>
@@ -1230,7 +1074,6 @@ export default function ParentDashboard({
         >
           Service administratif
         </h1>
-
         <p
           style={{
             color: "#4b5563",
@@ -1240,7 +1083,6 @@ export default function ParentDashboard({
           Informations et échanges avec le
           service administratif de votre école.
         </p>
-
         {/* INFORMATIONS PUBLIEES PAR LE SECRETARIAT */}
         <div
           className="card"
@@ -1256,7 +1098,6 @@ export default function ParentDashboard({
           >
             📢 Informations administratives
           </h2>
-
           {adminAnnouncements.length === 0 ? (
             <p style={{ color: "#4b5563" }}>
               Aucune information administrative
@@ -1300,7 +1141,6 @@ export default function ParentDashboard({
                       >
                         {announcement.title}
                       </strong>
-
                       <span
                         style={{
                           fontSize: 12,
@@ -1318,7 +1158,6 @@ export default function ParentDashboard({
                           : ""}
                       </span>
                     </div>
-
                     <p
                       style={{
                         color: "#374151",
@@ -1336,146 +1175,6 @@ export default function ParentDashboard({
             </div>
           )}
         </div>
-
-        {/* CONVOCATIONS DU SERVICE ADMINISTRATIF */}
-        <div
-          className="card"
-          style={{
-            marginBottom: 20,
-          }}
-        >
-          <h2
-            style={{
-              color: "#111827",
-              marginTop: 0,
-            }}
-          >
-            📅 Convocations
-          </h2>
-
-          {adminMeetings.length === 0 ? (
-            <p style={{ color: "#4b5563" }}>
-              Aucune convocation disponible.
-            </p>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: 14,
-              }}
-            >
-              {adminMeetings.map((meeting) => {
-                const child = children.find(
-                  (item) => item.id === meeting.student_id
-                );
-
-                return (
-                  <div
-                    key={meeting.id}
-                    style={{
-                      padding: 16,
-                      border:
-                        "1px solid #e5e7eb",
-                      borderRadius: 12,
-                      background: "#f9fafb",
-                    }}
-                  >
-                    <strong
-                      style={{
-                        color: "#111827",
-                        fontSize: 17,
-                      }}
-                    >
-                      📅 Convocation
-                    </strong>
-
-                    <div
-                      style={{
-                        color: "#374151",
-                        marginTop: 10,
-                      }}
-                    >
-                      Motif :{" "}
-                      <strong>
-                        {meeting.reason || "Non renseigné"}
-                      </strong>
-                    </div>
-
-                    {child && (
-                      <div
-                        style={{
-                          color: "#374151",
-                          marginTop: 6,
-                        }}
-                      >
-                        Élève :{" "}
-                        <strong>
-                          {child.first_name} {child.last_name}
-                        </strong>
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        color: "#374151",
-                        marginTop: 6,
-                      }}
-                    >
-                      Date :{" "}
-                      <strong>
-                        {meeting.meeting_date
-                          ? new Date(
-                              `${meeting.meeting_date}T00:00:00`
-                            ).toLocaleDateString("fr-FR")
-                          : "Non renseignée"}
-                      </strong>
-                    </div>
-
-                    {meeting.meeting_time && (
-                      <div
-                        style={{
-                          color: "#374151",
-                          marginTop: 6,
-                        }}
-                      >
-                        Heure :{" "}
-                        <strong>
-                          {String(meeting.meeting_time).slice(0, 5)}
-                        </strong>
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        color: "#374151",
-                        marginTop: 6,
-                      }}
-                    >
-                      Statut :{" "}
-                      <strong>
-                        {meeting.status || "Non renseigné"}
-                      </strong>
-                    </div>
-
-                    {meeting.notes && (
-                      <div
-                        style={{
-                          color: "#374151",
-                          marginTop: 8,
-                          whiteSpace: "pre-wrap",
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        Notes : {meeting.notes}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
         {/* MESSAGES DU SECRETARIAT */}
         <div className="card">
           <h2
@@ -1486,7 +1185,6 @@ export default function ParentDashboard({
           >
             💬 Messages du service administratif
           </h2>
-
           {adminMessages.length === 0 ? (
             <p style={{ color: "#4b5563" }}>
               Aucun message du service
@@ -1531,7 +1229,6 @@ export default function ParentDashboard({
                       >
                         {message.subject}
                       </strong>
-
                       {!message.read_at && (
                         <span
                           style={{
@@ -1544,7 +1241,6 @@ export default function ParentDashboard({
                         </span>
                       )}
                     </div>
-
                     <p
                       style={{
                         color: "#374151",
@@ -1555,7 +1251,6 @@ export default function ParentDashboard({
                     >
                       {message.message}
                     </p>
-
                     <div
                       style={{
                         display: "flex",
@@ -1581,7 +1276,6 @@ export default function ParentDashboard({
                             )
                           : ""}
                       </span>
-
                       {!message.read_at && (
                         <button
                           type="button"
@@ -1617,14 +1311,12 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   const CommunicationPage = () => {
     return (
       <div>
         <h1 style={{ color: "#111827" }}>
           Communication
         </h1>
-
         <div className="card">
           <p style={{ color: "#4b5563" }}>
             La communication sera disponible
@@ -1634,14 +1326,12 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   const NotificationsPage = () => {
     return (
       <div>
         <h1 style={{ color: "#111827" }}>
           Notifications
         </h1>
-
         {notifications.length === 0 ? (
           <div className="card">
             <p style={{ color: "#4b5563" }}>
@@ -1683,7 +1373,6 @@ export default function ParentDashboard({
                       {notification.title ||
                         "Notification"}
                     </strong>
-
                     {!notification.read_at && (
                       <span
                         style={{
@@ -1696,7 +1385,6 @@ export default function ParentDashboard({
                       </span>
                     )}
                   </div>
-
                   <p
                     style={{
                       color: "#374151",
@@ -1708,7 +1396,6 @@ export default function ParentDashboard({
                       notification.body ||
                       ""}
                   </p>
-
                   {!notification.read_at && (
                     <button
                       type="button"
@@ -1742,38 +1429,28 @@ export default function ParentDashboard({
       </div>
     );
   };
-
   const renderPage = () => {
     switch (page) {
       case "home":
         return <HomePage />;
-
       case "children":
         return <ChildrenPage />;
-
       case "grades":
         return <GradesPage />;
-
       case "attendance":
         return <AttendancePage />;
-
       case "bulletins":
         return <BulletinsPage />;
-
       case "communication":
         return <CommunicationPage />;
-
       case "administrative":
         return <AdministrativePage />;
-
       case "notifications":
         return <NotificationsPage />;
-
       default:
         return <HomePage />;
     }
   };
-
   if (loading) {
     return (
       <div
@@ -1789,7 +1466,6 @@ export default function ParentDashboard({
       </div>
     );
   }
-
   return (
     <div
       style={{
@@ -1820,7 +1496,6 @@ export default function ParentDashboard({
         >
           École Connectée
         </div>
-
         <div
           style={{
             marginBottom: 18,
@@ -1838,7 +1513,6 @@ export default function ParentDashboard({
             {profile?.full_name ||
               "Parent"}
           </div>
-
           <div
             style={{
               fontSize: 13,
@@ -1849,7 +1523,6 @@ export default function ParentDashboard({
             Parent
           </div>
         </div>
-
         <nav
           style={{
             display: "grid",
@@ -1859,7 +1532,6 @@ export default function ParentDashboard({
           {MENU.map((item) => {
             const active =
               page === item.id;
-
             const badge =
               item.id ===
               "notifications"
@@ -1868,7 +1540,6 @@ export default function ParentDashboard({
                   "administrative"
                 ? unreadMessages
                 : 0;
-
             return (
               <button
                 key={item.id}
@@ -1902,7 +1573,6 @@ export default function ParentDashboard({
                   {item.icon}{" "}
                   {item.label}
                 </span>
-
                 {badge > 0 && (
                   <span
                     style={{
@@ -1928,7 +1598,6 @@ export default function ParentDashboard({
             );
           })}
         </nav>
-
         <button
           type="button"
           onClick={onLogout}
@@ -1947,7 +1616,6 @@ export default function ParentDashboard({
           Déconnexion
         </button>
       </aside>
-
       {/* CONTENU */}
       <main
         style={{
@@ -1972,10 +1640,8 @@ export default function ParentDashboard({
             {error}
           </div>
         )}
-
         {renderPage()}
       </main>
-
       <style>{`
         .card {
           background: #ffffff;
@@ -1984,34 +1650,28 @@ export default function ParentDashboard({
           padding: 18px;
           box-sizing: border-box;
         }
-
         .card-title {
           color: #4b5563;
           font-size: 14px;
           margin-bottom: 8px;
         }
-
         .card-value {
           color: #111827;
           font-size: 28px;
           font-weight: 800;
         }
-
         @media (max-width: 800px) {
           aside {
             width: 210px !important;
           }
-
           main {
             padding: 16px !important;
           }
         }
-
         @media (max-width: 650px) {
           body {
             overflow-x: hidden;
           }
-
           aside {
             width: 100% !important;
             position: fixed;
@@ -2023,13 +1683,11 @@ export default function ParentDashboard({
             border-top: 1px solid #e5e7eb;
             padding: 8px !important;
           }
-
           aside > div:first-child,
           aside > div:nth-child(2),
           aside > button:last-child {
             display: none;
           }
-
           aside nav {
             display: grid !important;
             grid-template-columns: repeat(
@@ -2038,14 +1696,12 @@ export default function ParentDashboard({
             );
             gap: 4px !important;
           }
-
           aside nav button {
             justify-content: center !important;
             text-align: center !important;
             padding: 8px 4px !important;
             font-size: 11px !important;
           }
-
           main {
             padding-bottom: 90px !important;
           }
