@@ -4,9 +4,6 @@ import { supabase } from "./lib/supabase";
 const MENU = [
   { id: "home", icon: "🏠", label: "Accueil" },
   { id: "children", icon: "👦", label: "Mes enfants" },
-  { id: "courses", icon: "📚", label: "Cours" },
-  { id: "exercises", icon: "📝", label: "Exercices" },
-  { id: "assessments", icon: "📅", label: "Évaluations" },
   { id: "grades", icon: "📊", label: "Notes" },
   { id: "attendance", icon: "🕐", label: "Présence" },
   { id: "bulletins", icon: "📄", label: "Bulletins" },
@@ -146,10 +143,14 @@ export default function ParentDashboard({
   const [notifications, setNotifications] =
     useState([]);
 
+  const [activeSchoolId, setActiveSchoolId] =
+    useState(profile?.school_id || null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const schoolId = profile?.school_id;
+  const schoolId =
+    activeSchoolId || profile?.school_id;
 
   const unreadNotifications = useMemo(
     () =>
@@ -169,10 +170,13 @@ export default function ParentDashboard({
 
   async function loadParentData() {
     const connectedUserId =
-      profile?.id || session?.user?.id;
+      session?.user?.id || profile?.id;
 
-    if (!connectedUserId || !schoolId) {
+    if (!connectedUserId) {
       setLoading(false);
+      setError(
+        "Impossible d'identifier le compte connecté."
+      );
       return;
     }
 
@@ -180,6 +184,68 @@ export default function ParentDashboard({
     setError("");
 
     try {
+      /*
+       * On récupère le profil directement depuis Supabase.
+       * Cela évite un problème si le profil reçu par App.jsx
+       * n'est pas encore synchronisé avec la session.
+       */
+      const {
+        data: freshProfile,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select(
+          "id,school_id,full_name,role,active"
+        )
+        .eq("id", connectedUserId)
+        .maybeSingle();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const resolvedSchoolId =
+        freshProfile?.school_id ||
+        profile?.school_id ||
+        null;
+
+      setActiveSchoolId(
+        resolvedSchoolId
+      );
+
+      if (!resolvedSchoolId) {
+        setError(
+          "Aucune école n'est associée à ce compte."
+        );
+
+        setChildren([]);
+        setGrades([]);
+        setAttendance([]);
+        setBulletins([]);
+        setAdminMessages([]);
+        setNotifications([]);
+
+        return;
+      }
+
+      /*
+       * Le compte doit être un parent.
+       */
+      if (
+        freshProfile?.role &&
+        freshProfile.role !== "parent"
+      ) {
+        setError(
+          "Ce compte n'est pas configuré comme compte parent."
+        );
+
+        return;
+      }
+
+      /*
+       * Recherche du profil parent par profile_id
+       * et par school_id pour respecter l'isolation.
+       */
       const {
         data: parent,
         error: parentError,
@@ -188,11 +254,19 @@ export default function ParentDashboard({
         .select(
           "id,profile_id,school_id,full_name,phone,email,address,active"
         )
-        .eq("profile_id", connectedUserId)
-        .eq("school_id", schoolId)
+        .eq(
+          "profile_id",
+          connectedUserId
+        )
+        .eq(
+          "school_id",
+          resolvedSchoolId
+        )
         .maybeSingle();
 
-      if (parentError) throw parentError;
+      if (parentError) {
+        throw parentError;
+      }
 
       if (!parent) {
         setChildren([]);
@@ -209,6 +283,9 @@ export default function ParentDashboard({
         return;
       }
 
+      /*
+       * Enfants rattachés au parent.
+       */
       const {
         data: links,
         error: linksError,
@@ -217,12 +294,19 @@ export default function ParentDashboard({
         .select(
           "id,parent_id,student_id,relationship,is_primary,created_at"
         )
-        .eq("parent_id", parent.id);
+        .eq(
+          "parent_id",
+          parent.id
+        );
 
-      if (linksError) throw linksError;
+      if (linksError) {
+        throw linksError;
+      }
 
       const studentIds = (links || [])
-        .map((item) => item.student_id)
+        .map(
+          (item) => item.student_id
+        )
         .filter(Boolean);
 
       let studentRows = [];
@@ -236,15 +320,25 @@ export default function ParentDashboard({
           .select(
             "id,profile_id,school_id,class_id,first_name,last_name,student_code,photo_url,active"
           )
-          .eq("school_id", schoolId)
-          .in("id", studentIds);
+          .eq(
+            "school_id",
+            resolvedSchoolId
+          )
+          .in(
+            "id",
+            studentIds
+          );
 
-        if (studentsError)
+        if (studentsError) {
           throw studentsError;
+        }
 
         studentRows = data || [];
       }
 
+      /*
+       * Classes des enfants.
+       */
       const classIds = [
         ...new Set(
           studentRows
@@ -267,64 +361,98 @@ export default function ParentDashboard({
           .select(
             "id,name,level,school_id"
           )
-          .eq("school_id", schoolId)
-          .in("id", classIds);
+          .eq(
+            "school_id",
+            resolvedSchoolId
+          )
+          .in(
+            "id",
+            classIds
+          );
 
-        if (classesError)
+        if (classesError) {
           throw classesError;
+        }
 
         classRows = data || [];
       }
 
       const classMap = new Map(
-        classRows.map((item) => [
-          String(item.id),
-          item,
-        ])
+        classRows.map(
+          (item) => [
+            String(item.id),
+            item,
+          ]
+        )
       );
 
       const childMap = new Map();
 
-      studentRows.forEach((student) => {
-        const link = (links || []).find(
-          (item) =>
-            item.student_id ===
-            student.id
-        );
+      studentRows.forEach(
+        (student) => {
+          const link =
+            (links || []).find(
+              (item) =>
+                item.student_id ===
+                student.id
+            );
 
-        childMap.set(
-          String(student.id),
-          {
-            ...student,
-            relationship:
-              link?.relationship ||
-              "Parent",
-            is_primary:
-              link?.is_primary || false,
-            class_name:
-              classMap.get(
-                String(student.class_id)
-              )?.name ||
-              "Classe non renseignée",
-            class_level:
-              classMap.get(
-                String(student.class_id)
-              )?.level || "",
-          }
-        );
-      });
+          childMap.set(
+            String(student.id),
+            {
+              ...student,
+
+              relationship:
+                link?.relationship ||
+                "Parent",
+
+              is_primary:
+                link?.is_primary ||
+                false,
+
+              class_name:
+                classMap.get(
+                  String(
+                    student.class_id
+                  )
+                )?.name ||
+                "Classe non renseignée",
+
+              class_level:
+                classMap.get(
+                  String(
+                    student.class_id
+                  )
+                )?.level || "",
+            }
+          );
+        }
+      );
 
       const normalizedChildren =
         studentRows
-          .map((student) =>
-            childMap.get(
-              String(student.id)
-            )
+          .map(
+            (student) =>
+              childMap.get(
+                String(student.id)
+              )
           )
           .filter(Boolean);
 
-      setChildren(normalizedChildren);
+      setChildren(
+        normalizedChildren
+      );
 
+      /*
+       * Notes.
+       *
+       * IMPORTANT :
+       * Les évaluations liées aux notes sont récupérées
+       * même lorsqu'elles ne sont plus publiées.
+       * Cela permet de toujours retrouver la matière
+       * d'une note sans afficher l'évaluation dans
+       * l'espace Parent.
+       */
       if (studentIds.length) {
         const {
           data: gradeRows,
@@ -344,17 +472,24 @@ export default function ParentDashboard({
             created_at,
             updated_at
           `)
-          .eq("school_id", schoolId)
+          .eq(
+            "school_id",
+            resolvedSchoolId
+          )
           .in(
             "student_id",
             studentIds
           )
-          .order("created_at", {
-            ascending: false,
-          });
+          .order(
+            "created_at",
+            {
+              ascending: false,
+            }
+          );
 
-        if (gradesError)
+        if (gradesError) {
           throw gradesError;
+        }
 
         const assessmentIds = [
           ...new Set(
@@ -388,15 +523,16 @@ export default function ParentDashboard({
             `)
             .eq(
               "school_id",
-              schoolId
+              resolvedSchoolId
             )
             .in(
               "id",
               assessmentIds
             );
 
-          if (assessmentsError)
+          if (assessmentsError) {
             throw assessmentsError;
+          }
 
           assessmentRows = data || [];
         }
@@ -425,27 +561,30 @@ export default function ParentDashboard({
             )
             .eq(
               "school_id",
-              schoolId
+              resolvedSchoolId
             )
             .in(
               "id",
               subjectIds
             );
 
-          if (subjectsError)
+          if (subjectsError) {
             throw subjectsError;
+          }
 
-          subjectRows = data || [];
+          subjectRows =
+            data || [];
         }
 
-        const subjectMap = new Map(
-          subjectRows.map(
-            (item) => [
-              String(item.id),
-              item,
-            ]
-          )
-        );
+        const subjectMap =
+          new Map(
+            subjectRows.map(
+              (item) => [
+                String(item.id),
+                item,
+              ]
+            )
+          );
 
         const assessmentMap =
           new Map(
@@ -454,6 +593,7 @@ export default function ParentDashboard({
                 String(item.id),
                 {
                   ...item,
+
                   subject_name:
                     subjectMap.get(
                       String(
@@ -466,7 +606,7 @@ export default function ParentDashboard({
             )
           );
 
-        setGrades(
+        const normalizedGrades =
           (gradeRows || []).map(
             (grade) => {
               const assessment =
@@ -483,6 +623,17 @@ export default function ParentDashboard({
                   )
                 );
 
+              const subjectId =
+                assessment?.subject_id ||
+                null;
+
+              const subject =
+                subjectMap.get(
+                  String(
+                    subjectId
+                  )
+                );
+
               return {
                 ...grade,
 
@@ -490,7 +641,11 @@ export default function ParentDashboard({
                   ? `${child.first_name} ${child.last_name}`
                   : "Élève",
 
+                subject_id:
+                  subjectId,
+
                 subject_name:
+                  subject?.name ||
                   assessment?.subject_name ||
                   "Matière non renseignée",
 
@@ -511,9 +666,15 @@ export default function ParentDashboard({
                   1,
               };
             }
-          )
+          );
+
+        setGrades(
+          normalizedGrades
         );
 
+        /*
+         * Présences.
+         */
         const {
           data: attendanceRows,
           error: attendanceError,
@@ -540,8 +701,9 @@ export default function ParentDashboard({
             }
           );
 
-        if (attendanceError)
+        if (attendanceError) {
           throw attendanceError;
+        }
 
         setAttendance(
           (attendanceRows || []).map(
@@ -555,6 +717,7 @@ export default function ParentDashboard({
 
               return {
                 ...item,
+
                 child_name: child
                   ? `${child.first_name} ${child.last_name}`
                   : "Élève",
@@ -563,6 +726,9 @@ export default function ParentDashboard({
           )
         );
 
+        /*
+         * Bulletins validés ou envoyés.
+         */
         const {
           data: bulletinRows,
           error: bulletinsError,
@@ -583,7 +749,7 @@ export default function ParentDashboard({
           `)
           .eq(
             "school_id",
-            schoolId
+            resolvedSchoolId
           )
           .in(
             "student_id",
@@ -591,14 +757,21 @@ export default function ParentDashboard({
           )
           .in(
             "status",
-            ["validated", "sent"]
+            [
+              "validated",
+              "sent",
+            ]
           )
-          .order("created_at", {
-            ascending: false,
-          });
+          .order(
+            "created_at",
+            {
+              ascending: false,
+            }
+          );
 
-        if (bulletinsError)
+        if (bulletinsError) {
           throw bulletinsError;
+        }
 
         setBulletins(
           (bulletinRows || []).map(
@@ -612,6 +785,7 @@ export default function ParentDashboard({
 
               return {
                 ...item,
+
                 child_name: child
                   ? `${child.first_name} ${child.last_name}`
                   : "Élève",
@@ -625,6 +799,9 @@ export default function ParentDashboard({
         setBulletins([]);
       }
 
+      /*
+       * Messages du secrétariat.
+       */
       const {
         data: messages,
         error: messagesError,
@@ -644,29 +821,38 @@ export default function ParentDashboard({
         `)
         .eq(
           "school_id",
-          schoolId
+          resolvedSchoolId
         )
         .eq(
           "parent_id",
           parent.id
         )
-        .order("created_at", {
-          ascending: false,
-        });
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          }
+        );
 
-      if (messagesError)
+      if (messagesError) {
         throw messagesError;
+      }
 
       setAdminMessages(
         messages || []
       );
 
+      /*
+       * Notifications.
+       */
       const {
         data: notificationRows,
         error:
           notificationsError,
       } = await supabase
-        .from("parent_notifications")
+        .from(
+          "parent_notifications"
+        )
         .select(`
           id,
           school_id,
@@ -681,18 +867,22 @@ export default function ParentDashboard({
         `)
         .eq(
           "school_id",
-          schoolId
+          resolvedSchoolId
         )
         .eq(
           "parent_id",
           parent.id
         )
-        .order("created_at", {
-          ascending: false,
-        });
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          }
+        );
 
-      if (notificationsError)
+      if (notificationsError) {
         throw notificationsError;
+      }
 
       setNotifications(
         notificationRows || []
@@ -719,14 +909,22 @@ export default function ParentDashboard({
     session?.user?.id,
   ]);
 
+  /*
+   * Temps réel :
+   * messages du secrétariat + notifications.
+   */
   useEffect(() => {
     const connectedUserId =
-      profile?.id ||
-      session?.user?.id;
+      session?.user?.id ||
+      profile?.id;
+
+    const currentSchoolId =
+      activeSchoolId ||
+      profile?.school_id;
 
     if (
       !connectedUserId ||
-      !schoolId
+      !currentSchoolId
     ) {
       return;
     }
@@ -746,7 +944,7 @@ export default function ParentDashboard({
         )
         .eq(
           "school_id",
-          schoolId
+          currentSchoolId
         )
         .maybeSingle();
 
@@ -760,7 +958,7 @@ export default function ParentDashboard({
       channel =
         supabase
           .channel(
-            `parent-dashboard-${schoolId}-${parent.id}`
+            `parent-dashboard-${currentSchoolId}-${parent.id}`
           )
           .on(
             "postgres_changes",
@@ -808,18 +1006,25 @@ export default function ParentDashboard({
     profile?.id,
     profile?.school_id,
     session?.user?.id,
+    activeSchoolId,
   ]);
 
   async function markNotificationRead(
     notificationId
   ) {
+    const currentSchoolId =
+      activeSchoolId ||
+      profile?.school_id;
+
     const now =
       new Date().toISOString();
 
     const {
       error: updateError,
     } = await supabase
-      .from("parent_notifications")
+      .from(
+        "parent_notifications"
+      )
       .update({
         read_at: now,
       })
@@ -829,7 +1034,7 @@ export default function ParentDashboard({
       )
       .eq(
         "school_id",
-        schoolId
+        currentSchoolId
       );
 
     if (updateError) {
@@ -857,6 +1062,10 @@ export default function ParentDashboard({
   async function markMessageRead(
     messageId
   ) {
+    const currentSchoolId =
+      activeSchoolId ||
+      profile?.school_id;
+
     const now =
       new Date().toISOString();
 
@@ -875,7 +1084,7 @@ export default function ParentDashboard({
       )
       .eq(
         "school_id",
-        schoolId
+        currentSchoolId
       );
 
     if (updateError) {
@@ -900,6 +1109,12 @@ export default function ParentDashboard({
   }
 
   function HomePage() {
+    const homeItems =
+      MENU.filter(
+        (item) =>
+          item.id !== "home"
+      );
+
     return (
       <>
         <div
@@ -919,6 +1134,7 @@ export default function ParentDashboard({
           <p
             style={{
               color: "#6b7280",
+              marginBottom: 0,
             }}
           >
             Suivez la scolarité de
@@ -935,59 +1151,77 @@ export default function ParentDashboard({
             gap: "12px",
           }}
         >
-          {MENU.filter(
-            (item) =>
-              item.id !== "home"
-          ).map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() =>
-                setPage(item.id)
-              }
-              style={{
-                textAlign: "left",
-                background: "#fff",
-                border:
-                  "1px solid #e5e7eb",
-                borderRadius: "14px",
-                padding: "16px",
-                cursor: "pointer",
-              }}
-            >
-              <div
+          {homeItems.map(
+            (item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() =>
+                  setPage(item.id)
+                }
                 style={{
-                  fontSize: "25px",
-                  marginBottom: "8px",
+                  textAlign: "left",
+                  background: "#fff",
+                  border:
+                    "1px solid #e5e7eb",
+                  borderRadius: "14px",
+                  padding: "16px",
+                  cursor: "pointer",
+                  boxShadow:
+                    "0 2px 8px rgba(15,23,42,0.04)",
                 }}
               >
-                {item.icon}
-              </div>
+                <div
+                  style={{
+                    fontSize: "25px",
+                    marginBottom: "8px",
+                  }}
+                >
+                  {item.icon}
+                </div>
 
-              <strong
-                style={{
-                  color: "#111827",
-                }}
-              >
-                {item.label}
-              </strong>
+                <strong
+                  style={{
+                    color: "#111827",
+                  }}
+                >
+                  {item.label}
+                </strong>
 
-              {item.id ===
-                "notifications" &&
-                unreadNotifications >
-                  0 && (
-                  <span
-                    style={{
-                      marginLeft: "8px",
-                      color: "#dc2626",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {unreadNotifications}
-                  </span>
-                )}
-            </button>
-          ))}
+                {item.id ===
+                  "notifications" &&
+                  unreadNotifications >
+                    0 && (
+                    <span
+                      style={{
+                        marginLeft: "8px",
+                        color: "#dc2626",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {
+                        unreadNotifications
+                      }
+                    </span>
+                  )}
+
+                {item.id ===
+                  "administrative" &&
+                  unreadMessages >
+                    0 && (
+                    <span
+                      style={{
+                        marginLeft: "8px",
+                        color: "#dc2626",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {unreadMessages}
+                    </span>
+                  )}
+              </button>
+            )
+          )}
         </div>
       </>
     );
@@ -1564,45 +1798,21 @@ export default function ParentDashboard({
     );
   }
 
-  function PlaceholderPage({
-    id,
-  }) {
-    const item = MENU.find(
-      (menuItem) =>
-        menuItem.id === id
-    );
-
+  function CommunicationPage() {
     return (
       <>
         <PageTitle
-          icon={
-            item?.icon || "📌"
-          }
-          title={
-            item?.label ||
-            "Espace Parent"
-          }
-          description="Cette section conserve son emplacement dans l'espace Parent."
+          icon="💬"
+          title="Communication"
+          description="Espace de communication lié à la scolarité."
           onBack={() =>
             setPage("home")
           }
         />
 
-        <Card>
-          <p
-            style={{
-              margin: 0,
-              color: "#374151",
-              lineHeight: 1.6,
-            }}
-          >
-            Cette fonctionnalité
-            sera reliée à son module
-            existant sans modifier
-            les fonctionnalités déjà
-            validées.
-          </p>
-        </Card>
+        <Empty
+          text="La communication parent sera reliée à son module dédié."
+        />
       </>
     );
   }
@@ -1623,6 +1833,11 @@ export default function ParentDashboard({
     if (page === "bulletins")
       return <BulletinsPage />;
 
+    if (page === "communication")
+      return (
+        <CommunicationPage />
+      );
+
     if (page === "administrative")
       return (
         <AdministrativePage />
@@ -1633,11 +1848,7 @@ export default function ParentDashboard({
         <NotificationsPage />
       );
 
-    return (
-      <PlaceholderPage
-        id={page}
-      />
-    );
+    return <HomePage />;
   }
 
   return (
@@ -1845,9 +2056,7 @@ export default function ParentDashboard({
                             "center",
                         }}
                       >
-                        {
-                          unreadMessages
-                        }
+                        {unreadMessages}
                       </span>
                     )}
                 </button>
