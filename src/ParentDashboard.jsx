@@ -819,16 +819,17 @@ export default function ParentDashboard({
           "secretary_parent_messages"
         )
         .select(`
-          id,
-          school_id,
-          secretary_id,
-          parent_id,
-          subject,
-          message,
-          sender_type,
-          read_at,
-          created_at
-        `)
+  id,
+  school_id,
+  secretary_id,
+  parent_id,
+  subject,
+  message,
+  sender_type,
+  conversation_id,
+  read_at,
+  created_at
+`)
         .eq("school_id", resolvedSchoolId)
         .eq("parent_id", parent.id)
         .order("created_at", {
