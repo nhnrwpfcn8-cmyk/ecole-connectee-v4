@@ -41,12 +41,8 @@ function SecretaryParentCommunicationPage({
 
     return name.includes(search);
   });
-}, [parents, searchParent]);
-
-    // MODIFICATION 2 :
-    // Aucun parent n'est affiché tant qu'il n'y a pas de recherche.
-    if (!search) {
-      return [];
+}, [parents, searchParent])
+  
     }
 
     return parents.filter((parent) => {
