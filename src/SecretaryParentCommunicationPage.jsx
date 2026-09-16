@@ -42,8 +42,6 @@ function SecretaryParentCommunicationPage({
     return name.includes(search);
   });
 }, [parents, searchParent])
-  
-    }
 
     return parents.filter((parent) => {
       const name = (parent.full_name || "").toLowerCase();
