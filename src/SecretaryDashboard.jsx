@@ -1671,6 +1671,14 @@ const registryParents = useMemo(() => {
     color: "#000",
   }}
 >
+  <style>
+    {`
+      .consultative-registry,
+      .consultative-registry * {
+        color: #000 !important;
+      }
+    `}
+  </style>
       <div style={styles.sectionTop}>
         <div>
           <h2 style={styles.sectionTitle}>
