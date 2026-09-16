@@ -1900,10 +1900,16 @@ const registryParents = useMemo(() => {
                       </td>
 
                       <td style={styles.td}>
-                        <button type="button">
-                          Voir le dossier
-                        </button>
-                      </td>
+  <button
+    type="button"
+    onClick={() => {
+      setSelectedParent(parent);
+      setShowParentModal(true);
+    }}
+  >
+    Voir le dossier
+  </button>
+</td>
                     </tr>
                   );
                 })}
