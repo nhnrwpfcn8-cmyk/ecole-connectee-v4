@@ -1665,7 +1665,12 @@ const registryParents = useMemo(() => {
 
   function renderConsultativeRegistry() {
   return (
-    <section style={styles.card}>
+    <section
+  style={{
+    ...styles.card,
+    color: "#000",
+  }}
+>
       <div style={styles.sectionTop}>
         <div>
           <h2 style={styles.sectionTitle}>
