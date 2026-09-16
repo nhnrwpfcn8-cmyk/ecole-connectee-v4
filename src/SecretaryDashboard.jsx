@@ -1809,10 +1809,11 @@ const registryParents = useMemo(() => {
                       </td>
 
                       <td style={styles.td}>
+  <td style={styles.td}>
   <button
     type="button"
     onClick={() => {
-      setSelectedRegistryStudent(student);
+      setSelectedStudent(student);
       setShowStudentDetail(true);
     }}
   >
