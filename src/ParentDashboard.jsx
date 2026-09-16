@@ -2495,161 +2495,348 @@ async function sendReply(messageItem) {
     );
   }
 
-  function CommunicationPage() {
-  return (
-    <>
-      <PageTitle
-        icon="💬"
-        title="Communication"
-        description="Échangez avec le service administratif de l'école."
-        onBack={() => setPage("home")}
-      />
+    function CommunicationPage() {
+    const orderedMessages = [...adminMessages].reverse();
 
-      {!adminMessages.length ? (
-        <Empty
-          text="Aucun message reçu du service administratif."
+    return (
+      <>
+        <PageTitle
+          icon="💬"
+          title="Communication"
+          description="Échangez avec le service administratif de l'école."
+          onBack={() => setPage("home")}
         />
-      ) : (
-        <div
-          style={{
-            display: "grid",
-            gap: "12px",
-          }}
-        >
-          {adminMessages.map((item) => (
-            <Card key={item.id}>
+
+        {!adminMessages.length ? (
+          <Empty
+            text="Aucun message reçu du service administratif."
+          />
+        ) : (
+          <Card
+            style={{
+              padding: 0,
+              overflow: "hidden",
+              background: "#f8fafc",
+            }}
+          >
+            {/* EN-TÊTE DE LA CONVERSATION */}
+            <div
+              style={{
+                padding: "16px 18px",
+                background: "#ffffff",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  gap: "10px",
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "50%",
+                  background: "#eef2ff",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: "20px",
+                  flexShrink: 0,
                 }}
               >
-                <strong
+                🏢
+              </div>
+
+              <div>
+                <div
                   style={{
                     color: "#0f172a",
-                    fontSize: "16px",
+                    fontWeight: 900,
+                    fontSize: "15px",
                   }}
                 >
-                  {item.subject || "Message"}
-                </strong>
+                  Service administratif
+                </div>
 
-                {!item.read_at && (
-                  <span
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "12px",
+                    marginTop: "2px",
+                  }}
+                >
+                  Communication avec votre école
+                </div>
+              </div>
+            </div>
+
+            {/* MESSAGES */}
+            <div
+              style={{
+                padding: "18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+                maxHeight: "600px",
+                overflowY: "auto",
+              }}
+            >
+              {orderedMessages.map((item) => {
+                const isParent =
+                  item.sender_type === "parent";
+
+                return (
+                  <div
+                    key={item.id}
                     style={{
-                      color: "#dc2626",
-                      fontWeight: 800,
-                      fontSize: "12px",
-                      whiteSpace: "nowrap",
+                      display: "flex",
+                      justifyContent: isParent
+                        ? "flex-end"
+                        : "flex-start",
                     }}
                   >
-                    Nouveau
-                  </span>
-                )}
-              </div>
+                    <div
+                      style={{
+                        maxWidth: "78%",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: isParent
+                          ? "flex-end"
+                          : "flex-start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          color: "#64748b",
+                          marginBottom: "4px",
+                          padding:
+                            "0 6px",
+                        }}
+                      >
+                        {isParent
+                          ? "Vous"
+                          : "Service administratif"}
+                      </div>
 
-              <p
-                style={{
-                  margin: "12px 0 10px",
-                  color: "#475569",
-                  lineHeight: 1.6,
-                  fontSize: "14px",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {item.message}
-              </p>
+                      <div
+                        style={{
+                          background: isParent
+                            ? "#4f46e5"
+                            : "#ffffff",
+                          color: isParent
+                            ? "#ffffff"
+                            : "#0f172a",
+                          border: isParent
+                            ? "none"
+                            : "1px solid #e2e8f0",
+                          borderRadius: isParent
+                            ? "16px 16px 4px 16px"
+                            : "16px 16px 16px 4px",
+                          padding:
+                            "12px 14px",
+                          boxShadow:
+                            "0 2px 6px rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        {item.subject && (
+                          <div
+                            style={{
+                              fontWeight: 900,
+                              fontSize: "13px",
+                              marginBottom:
+                                "6px",
+                              color: isParent
+                                ? "#ffffff"
+                                : "#4338ca",
+                            }}
+                          >
+                            {item.subject}
+                          </div>
+                        )}
 
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            lineHeight: 1.55,
+                            whiteSpace:
+                              "pre-wrap",
+                            wordBreak:
+                              "break-word",
+                          }}
+                        >
+                          {item.message}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: "7px",
+                            fontSize: "10px",
+                            color: isParent
+                              ? "rgba(255,255,255,0.75)"
+                              : "#94a3b8",
+                            textAlign: "right",
+                          }}
+                        >
+                          {formatDate(
+                            item.created_at
+                          )}
+                        </div>
+                      </div>
+
+                      {!isParent &&
+                        !item.read_at && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              markMessageRead(
+                                item.id
+                              )
+                            }
+                            style={{
+                              marginTop: "6px",
+                              border: "none",
+                              background:
+                                "transparent",
+                              color: "#4338ca",
+                              cursor:
+                                "pointer",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              padding:
+                                "2px 6px",
+                            }}
+                          >
+                            ✓ Marquer comme lu
+                          </button>
+                        )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ZONE DE RÉPONSE */}
+            {adminMessages.length > 0 && (
               <div
                 style={{
-                  color: "#94a3b8",
-                  fontSize: "12px",
+                  padding: "14px 16px",
+                  background: "#ffffff",
+                  borderTop:
+                    "1px solid #e2e8f0",
                 }}
               >
-                {formatDate(item.created_at)}
-              </div>
-<div
-  style={{
-    marginTop: "14px",
-  }}
->
-  <textarea
-    value={replyDrafts[item.id] || ""}
-    onChange={(e) =>
-      setReplyDrafts((current) => ({
-        ...current,
-        [item.id]: e.target.value,
-      }))
-    }
-    placeholder="Écrivez votre réponse..."
-    rows={3}
-    style={{
-      width: "100%",
-      boxSizing: "border-box",
-      border: "1px solid #cbd5e1",
-      borderRadius: "10px",
-      padding: "10px 12px",
-      fontSize: "14px",
-      resize: "vertical",
-      outline: "none",
-    }}
-  />
-
-  <button
-    type="button"
-    onClick={() => sendReply(item)}
-    disabled={replyLoadingId === item.id}
-    style={{
-      marginTop: "8px",
-      border: "none",
-      background: "#4f46e5",
-      color: "#ffffff",
-      borderRadius: "9px",
-      padding: "9px 14px",
-      cursor:
-        replyLoadingId === item.id
-          ? "not-allowed"
-          : "pointer",
-      fontWeight: 800,
-      fontSize: "12px",
-      opacity:
-        replyLoadingId === item.id ? 0.6 : 1,
-    }}
-  >
-    {replyLoadingId === item.id
-      ? "Envoi..."
-      : "↩️ Répondre"}
-  </button>
-</div>
-              {!item.read_at && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    markMessageRead(item.id)
-                  }
+                <div
                   style={{
-                    marginTop: "11px",
-                    border: "1px solid #c7d2fe",
-                    background: "#eef2ff",
-                    color: "#4338ca",
-                    borderRadius: "9px",
-                    padding: "9px 12px",
-                    cursor: "pointer",
+                    fontSize: "11px",
                     fontWeight: 800,
-                    fontSize: "12px",
+                    color: "#64748b",
+                    marginBottom: "7px",
                   }}
                 >
-                  ✓ Marquer comme lu
-                </button>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
-    </>
-  );
-}
+                  Répondre au service administratif
+                </div>
+
+                {(() => {
+                  const lastMessage =
+                    adminMessages[
+                      adminMessages.length - 1
+                    ];
+
+                  return (
+                    <>
+                      <textarea
+                        value={
+                          replyDrafts[
+                            lastMessage.id
+                          ] || ""
+                        }
+                        onChange={(e) =>
+                          setReplyDrafts(
+                            (current) => ({
+                              ...current,
+                              [lastMessage.id]:
+                                e.target.value,
+                            })
+                          )
+                        }
+                        placeholder="Écrivez votre message..."
+                        rows={3}
+                        style={{
+                          width: "100%",
+                          boxSizing:
+                            "border-box",
+                          border:
+                            "1px solid #cbd5e1",
+                          borderRadius: "12px",
+                          padding:
+                            "11px 12px",
+                          fontSize: "14px",
+                          color: "#0f172a",
+                          background:
+                            "#f8fafc",
+                          resize: "vertical",
+                          outline: "none",
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent:
+                            "flex-end",
+                          marginTop: "8px",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            sendReply(
+                              lastMessage
+                            )
+                          }
+                          disabled={
+                            replyLoadingId ===
+                            lastMessage.id
+                          }
+                          style={{
+                            border: "none",
+                            background:
+                              "#4f46e5",
+                            color: "#ffffff",
+                            borderRadius:
+                              "10px",
+                            padding:
+                              "10px 16px",
+                            cursor:
+                              replyLoadingId ===
+                              lastMessage.id
+                                ? "not-allowed"
+                                : "pointer",
+                            fontWeight: 800,
+                            fontSize: "13px",
+                            opacity:
+                              replyLoadingId ===
+                              lastMessage.id
+                                ? 0.6
+                                : 1,
+                          }}
+                        >
+                          {replyLoadingId ===
+                          lastMessage.id
+                            ? "Envoi..."
+                            : "➤ Envoyer"}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </Card>
+        )}
+      </>
+    );
+  }
 
   function renderPage() {
     if (page === "home")
