@@ -1914,14 +1914,13 @@ const registryParents = useMemo(() => {
 
                       <td style={styles.td}>
   <button
-    type="button"
-    onClick={() => {
-      setSelectedParent(parent);
-      setShowParentModal(true);
-    }}
-  >
-    Voir le dossier
-  </button>
+  type="button"
+  onClick={() => {
+    openEditParent(parent);
+  }}
+>
+  Voir le dossier
+</button>
 </td>
                     </tr>
                   );
