@@ -26,7 +26,22 @@ function SecretaryParentCommunicationPage({
   );
 
   const filteredParents = useMemo(() => {
-    const search = searchParent.trim().toLowerCase();
+  const search = searchParent.trim().toLowerCase();
+
+  // Ne rien afficher tant qu'aucune recherche n'est saisie
+  if (!search) {
+    return [];
+  }
+
+  // Rechercher uniquement par nom du parent
+  return parents.filter((parent) => {
+    const name = String(
+      parent.full_name || ""
+    ).toLowerCase();
+
+    return name.includes(search);
+  });
+}, [parents, searchParent]);
 
     // MODIFICATION 2 :
     // Aucun parent n'est affiché tant qu'il n'y a pas de recherche.
