@@ -1106,31 +1106,33 @@ setNotifications(notificationRows || []);
     );
   }
 async function sendReply(messageItem) {
-  const text = String(replyDrafts[messageItem.id] || "").trim();
+  const text = String(
+    replyDrafts[messageItem.id] || ""
+  ).trim();
 
   if (!text) return;
 
-  const currentSchoolId =
-    activeSchoolId || profile?.school_id;
-
-  if (!currentSchoolId || !currentParentId) return;
+  if (!currentParentId || !schoolId) {
+    return;
+  }
 
   setReplyLoadingId(messageItem.id);
 
   try {
-    const { error: replyError } = await supabase
+    const { error: insertError } = await supabase
       .from("secretary_parent_messages")
       .insert({
-        school_id: currentSchoolId,
+        school_id: schoolId,
         secretary_id: messageItem.secretary_id,
         parent_id: currentParentId,
-        subject: messageItem.subject || "Réponse",
+        subject: messageItem.subject,
         message: text,
         sender_type: "parent",
+        conversation_id: messageItem.conversation_id || null,
       });
 
-    if (replyError) {
-      throw replyError;
+    if (insertError) {
+      throw insertError;
     }
 
     setReplyDrafts((current) => ({
@@ -1139,13 +1141,10 @@ async function sendReply(messageItem) {
     }));
 
     await loadParentData();
-  } catch (err) {
-    console.error("Erreur réponse parent :", err);
-
-    setError(
-      `Impossible d'envoyer votre réponse : ${
-        err?.message || "Erreur inconnue"
-      }`
+  } catch (error) {
+    console.error(
+      "Erreur lors de l'envoi de la réponse :",
+      error
     );
   } finally {
     setReplyLoadingId(null);
