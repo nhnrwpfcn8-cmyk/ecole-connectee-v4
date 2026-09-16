@@ -4072,108 +4072,121 @@ function renderCommunication() {
       ======================================================== */}
 
       {showParentModal && (
-        <Modal
-          title={
-            editingParent
-              ? "Modifier le parent"
-              : "Nouveau parent"
+  <Modal
+    title={
+      editingParent
+        ? "Modifier le parent"
+        : "Nouveau parent"
+    }
+    onClose={() =>
+      setShowParentModal(false)
+    }
+  >
+    <form
+      onSubmit={saveParent}
+      style={{
+        ...styles.formGrid,
+        color: "#000000",
+      }}
+    >
+      <Field label="Nom complet *">
+        <input
+          required
+          value={
+            parentForm.full_name
           }
-          onClose={() =>
-            setShowParentModal(false)
+          onChange={(event) =>
+            setParentForm({
+              ...parentForm,
+              full_name:
+                event.target.value,
+            })
+          }
+          style={{
+            ...styles.input,
+            color: "#000000",
+          }}
+        />
+      </Field>
+
+      <Field label="Téléphone">
+        <input
+          value={
+            parentForm.phone
+          }
+          onChange={(event) =>
+            setParentForm({
+              ...parentForm,
+              phone:
+                event.target.value,
+            })
+          }
+          style={{
+            ...styles.input,
+            color: "#000000",
+          }}
+        />
+      </Field>
+
+      <Field label="Email">
+        <input
+          type="email"
+          value={
+            parentForm.email
+          }
+          onChange={(event) =>
+            setParentForm({
+              ...parentForm,
+              email:
+                event.target.value,
+            })
+          }
+          style={{
+            ...styles.input,
+            color: "#000000",
+          }}
+        />
+      </Field>
+
+      <Field label="Adresse">
+        <textarea
+          value={
+            parentForm.address
+          }
+          onChange={(event) =>
+            setParentForm({
+              ...parentForm,
+              address:
+                event.target.value,
+            })
+          }
+          style={{
+            ...styles.input,
+            minHeight: 90,
+            color: "#000000",
+          }}
+        />
+      </Field>
+
+      <div style={styles.modalActions}>
+        <Button
+          secondary
+          onClick={() =>
+            setShowParentModal(
+              false
+            )
           }
         >
-          <form
-            onSubmit={saveParent}
-            style={styles.formGrid}
-          >
-            <Field label="Nom complet *">
-              <input
-                required
-                value={
-                  parentForm.full_name
-                }
-                onChange={(event) =>
-                  setParentForm({
-                    ...parentForm,
-                    full_name:
-                      event.target.value,
-                  })
-                }
-                style={styles.input}
-              />
-            </Field>
+          Annuler
+        </Button>
 
-            <Field label="Téléphone">
-              <input
-                value={
-                  parentForm.phone
-                }
-                onChange={(event) =>
-                  setParentForm({
-                    ...parentForm,
-                    phone:
-                      event.target.value,
-                  })
-                }
-                style={styles.input}
-              />
-            </Field>
-
-            <Field label="Email">
-              <input
-                type="email"
-                value={
-                  parentForm.email
-                }
-                onChange={(event) =>
-                  setParentForm({
-                    ...parentForm,
-                    email:
-                      event.target.value,
-                  })
-                }
-                style={styles.input}
-              />
-            </Field>
-
-            <Field label="Adresse">
-              <textarea
-                value={
-                  parentForm.address
-                }
-                onChange={(event) =>
-                  setParentForm({
-                    ...parentForm,
-                    address:
-                      event.target.value,
-                  })
-                }
-                style={{
-                  ...styles.input,
-                  minHeight: 90,
-                }}
-              />
-            </Field>
-
-            <div style={styles.modalActions}>
-              <Button
-                secondary
-                onClick={() =>
-                  setShowParentModal(
-                    false
-                  )
-                }
-              >
-                Annuler
-              </Button>
-
-              <Button type="submit">
-                Enregistrer
-              </Button>
-            </div>
-          </form>
-        </Modal>
-      )}
+        <Button type="submit">
+          Enregistrer
+        </Button>
+      </div>
+    </form>
+  </Modal>
+)}
 
       {/* ========================================================
           MODAL ASSOCIATION PARENT
