@@ -26,33 +26,20 @@ function SecretaryParentCommunicationPage({
   );
 
   const filteredParents = useMemo(() => {
-  const search = searchParent.trim().toLowerCase();
+    const search = searchParent.trim().toLowerCase();
 
-  // Ne rien afficher tant qu'aucune recherche n'est saisie
-  if (!search) {
-    return [];
-  }
+    // Ne rien afficher tant qu'aucune recherche n'est saisie
+    if (!search) {
+      return [];
+    }
 
-  // Rechercher uniquement par nom du parent
-  return parents.filter((parent) => {
-    const name = String(
-      parent.full_name || ""
-    ).toLowerCase();
-
-    return name.includes(search);
-  });
-}, [parents, searchParent])
-
+    // Rechercher uniquement par nom du parent
     return parents.filter((parent) => {
-      const name = (parent.full_name || "").toLowerCase();
-      const phone = (parent.phone || "").toLowerCase();
-      const email = (parent.email || "").toLowerCase();
+      const name = String(
+        parent.full_name || ""
+      ).toLowerCase();
 
-      return (
-        name.includes(search) ||
-        phone.includes(search) ||
-        email.includes(search)
-      );
+      return name.includes(search);
     });
   }, [parents, searchParent]);
 
