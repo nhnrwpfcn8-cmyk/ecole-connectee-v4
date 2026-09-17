@@ -1237,8 +1237,8 @@ export default function AdminEcoleNotesBulletinsPage({
       "Bulletin préparé avec succès."
     );
 
-    // On sélectionne l'élève après la génération
-    // pour afficher le bulletin officiel.
+    // Sélectionne l'élève pour afficher
+    // directement le nouveau bulletin officiel.
     setStudentId(student.id);
 
     await loadAll();
