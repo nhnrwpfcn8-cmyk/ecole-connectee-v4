@@ -16,6 +16,9 @@ export default function SecretaryBilling({
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
 
+  // NOUVEAU : recherche des factures par élève
+  const [invoiceSearch, setInvoiceSearch] = useState("");
+
   const [studentId, setStudentId] = useState("");
   const [parentId, setParentId] = useState("");
   const [classId, setClassId] = useState("");
@@ -75,27 +78,27 @@ export default function SecretaryBilling({
     if (status === "paid") {
       return {
         background: "#dcfce7",
-        color: "#166534"
+        color: "#000000"
       };
     }
 
     if (status === "partial") {
       return {
         background: "#fef3c7",
-        color: "#92400e"
+        color: "#000000"
       };
     }
 
     if (status === "overdue") {
       return {
         background: "#fee2e2",
-        color: "#991b1b"
+        color: "#000000"
       };
     }
 
     return {
       background: "#f3f4f6",
-      color: "#374151"
+      color: "#000000"
     };
   };
 
@@ -115,6 +118,30 @@ export default function SecretaryBilling({
   const selectedClass = classes.find(
     (item) => String(item.id) === String(classId)
   );
+
+  // NOUVEAU : factures filtrées par nom d'élève
+  const filteredInvoices = useMemo(() => {
+    const search = invoiceSearch.trim().toLowerCase();
+
+    if (!search) {
+      return [];
+    }
+
+    return invoices.filter((invoice) => {
+      const student = students.find(
+        (item) =>
+          String(item.id) === String(invoice.student_id)
+      );
+
+      if (!student) {
+        return false;
+      }
+
+      return studentName(student)
+        .toLowerCase()
+        .includes(search);
+    });
+  }, [invoices, students, invoiceSearch]);
 
   const loadClasses = async () => {
     if (!schoolId) return;
@@ -210,7 +237,9 @@ export default function SecretaryBilling({
 
     setStudentParents(linkedParents);
 
-    const primaryParent = linkedParents.find((item) => item.is_primary);
+    const primaryParent = linkedParents.find(
+      (item) => item.is_primary
+    );
 
     if (primaryParent) {
       setParentId(String(primaryParent.parent_id));
@@ -291,7 +320,9 @@ export default function SecretaryBilling({
         return currentItems;
       }
 
-      return currentItems.filter((_, itemIndex) => itemIndex !== index);
+      return currentItems.filter(
+        (_, itemIndex) => itemIndex !== index
+      );
     });
   };
 
@@ -367,7 +398,9 @@ export default function SecretaryBilling({
     }, 0);
 
     if (calculatedTotal <= 0) {
-      setMessage("Le montant total de la facture doit être supérieur à 0.");
+      setMessage(
+        "Le montant total de la facture doit être supérieur à 0."
+      );
       return;
     }
 
@@ -407,26 +440,27 @@ export default function SecretaryBilling({
 
       const invoiceNumber = generateInvoiceNumber();
 
-      const { data: invoice, error: invoiceError } = await supabase
-        .from("student_invoices")
-        .insert({
-          school_id: schoolId,
-          student_id: studentId,
-          parent_id: parentId,
-          class_id: classId,
-          invoice_number: invoiceNumber,
-          title: title || "Facture scolaire",
-          description: description || null,
-          amount: calculatedTotal,
-          due_date: dueDate || null,
-          status: "sent",
-          sent_at: new Date().toISOString(),
-          created_by: user?.id || null,
-          fee_type: feeType,
-          academic_year: academicYear.trim()
-        })
-        .select()
-        .single();
+      const { data: invoice, error: invoiceError } =
+        await supabase
+          .from("student_invoices")
+          .insert({
+            school_id: schoolId,
+            student_id: studentId,
+            parent_id: parentId,
+            class_id: classId,
+            invoice_number: invoiceNumber,
+            title: title || "Facture scolaire",
+            description: description || null,
+            amount: calculatedTotal,
+            due_date: dueDate || null,
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            created_by: user?.id || null,
+            fee_type: feeType,
+            academic_year: academicYear.trim()
+          })
+          .select()
+          .single();
 
       if (invoiceError) {
         throw invoiceError;
@@ -558,7 +592,7 @@ export default function SecretaryBilling({
               overflowY: "auto",
               padding: 24,
               boxSizing: "border-box",
-              color: "#111827"
+              color: "#000000"
             }}
           >
             <div
@@ -570,12 +604,19 @@ export default function SecretaryBilling({
               }}
             >
               <div>
-                <h2 style={{ margin: 0 }}>🧾 Facturation scolaire</h2>
+                <h2
+                  style={{
+                    margin: 0,
+                    color: "#000000"
+                  }}
+                >
+                  🧾 Facturation scolaire
+                </h2>
 
                 <p
                   style={{
                     marginTop: 6,
-                    color: "#6b7280"
+                    color: "#000000"
                   }}
                 >
                   Créer et envoyer une vraie facture scolaire au parent.
@@ -588,6 +629,7 @@ export default function SecretaryBilling({
                 style={{
                   border: "none",
                   background: "#f3f4f6",
+                  color: "#000000",
                   borderRadius: 10,
                   padding: "8px 12px",
                   cursor: "pointer",
@@ -605,7 +647,7 @@ export default function SecretaryBilling({
                   borderRadius: 10,
                   background: "#f3f4f6",
                   marginBottom: 16,
-                  color: "#111827"
+                  color: "#000000"
                 }}
               >
                 {message}
@@ -613,11 +655,12 @@ export default function SecretaryBilling({
             )}
 
             <div style={{ display: "grid", gap: 14 }}>
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Élève
@@ -631,7 +674,8 @@ export default function SecretaryBilling({
                     padding: 11,
                     borderRadius: 9,
                     border: "1px solid #d1d5db",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    color: "#000000"
                   }}
                 >
                   <option value="">Choisir un élève</option>
@@ -647,11 +691,12 @@ export default function SecretaryBilling({
                 </select>
               </label>
 
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Parent responsable
@@ -670,7 +715,8 @@ export default function SecretaryBilling({
                     background:
                       !studentId || loadingParents
                         ? "#f3f4f6"
-                        : "#fff"
+                        : "#fff",
+                    color: "#000000"
                   }}
                 >
                   <option value="">
@@ -698,7 +744,7 @@ export default function SecretaryBilling({
                     <div
                       style={{
                         marginTop: 6,
-                        color: "#b91c1c",
+                        color: "#000000",
                         fontSize: 13
                       }}
                     >
@@ -707,11 +753,12 @@ export default function SecretaryBilling({
                   )}
               </label>
 
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Classe
@@ -727,7 +774,10 @@ export default function SecretaryBilling({
                     borderRadius: 9,
                     border: "1px solid #d1d5db",
                     boxSizing: "border-box",
-                    background: !studentId ? "#f3f4f6" : "#fff"
+                    background: !studentId
+                      ? "#f3f4f6"
+                      : "#fff",
+                    color: "#000000"
                   }}
                 >
                   <option value="">Choisir une classe</option>
@@ -741,11 +791,12 @@ export default function SecretaryBilling({
                 </select>
               </label>
 
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Année scolaire
@@ -760,16 +811,18 @@ export default function SecretaryBilling({
                     padding: 11,
                     borderRadius: 9,
                     border: "1px solid #d1d5db",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    color: "#000000"
                   }}
                 />
               </label>
 
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Type de frais
@@ -783,7 +836,8 @@ export default function SecretaryBilling({
                     padding: 11,
                     borderRadius: 9,
                     border: "1px solid #d1d5db",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    color: "#000000"
                   }}
                 >
                   <option value="registration">Inscription</option>
@@ -795,11 +849,12 @@ export default function SecretaryBilling({
                 </select>
               </label>
 
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Objet de la facture
@@ -814,16 +869,18 @@ export default function SecretaryBilling({
                     padding: 11,
                     borderRadius: 9,
                     border: "1px solid #d1d5db",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    color: "#000000"
                   }}
                 />
               </label>
 
-              <div>
+              <div style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 700,
-                    marginBottom: 10
+                    marginBottom: 10,
+                    color: "#000000"
                   }}
                 >
                   📋 Détail des frais
@@ -847,7 +904,8 @@ export default function SecretaryBilling({
                           border: "1px solid #e5e7eb",
                           borderRadius: 12,
                           padding: 12,
-                          background: "#f9fafb"
+                          background: "#f9fafb",
+                          color: "#000000"
                         }}
                       >
                         <div
@@ -871,7 +929,8 @@ export default function SecretaryBilling({
                               padding: 10,
                               borderRadius: 8,
                               border: "1px solid #d1d5db",
-                              boxSizing: "border-box"
+                              boxSizing: "border-box",
+                              color: "#000000"
                             }}
                           />
 
@@ -903,7 +962,8 @@ export default function SecretaryBilling({
                                 borderRadius: 8,
                                 border:
                                   "1px solid #d1d5db",
-                                boxSizing: "border-box"
+                                boxSizing: "border-box",
+                                color: "#000000"
                               }}
                             />
 
@@ -926,7 +986,8 @@ export default function SecretaryBilling({
                                 borderRadius: 8,
                                 border:
                                   "1px solid #d1d5db",
-                                boxSizing: "border-box"
+                                boxSizing: "border-box",
+                                color: "#000000"
                               }}
                             />
 
@@ -946,8 +1007,8 @@ export default function SecretaryBilling({
                                     : "#fee2e2",
                                 color:
                                   items.length === 1
-                                    ? "#9ca3af"
-                                    : "#991b1b",
+                                    ? "#000000"
+                                    : "#000000",
                                 cursor:
                                   items.length === 1
                                     ? "not-allowed"
@@ -961,7 +1022,8 @@ export default function SecretaryBilling({
                           <div
                             style={{
                               textAlign: "right",
-                              fontWeight: 700
+                              fontWeight: 700,
+                              color: "#000000"
                             }}
                           >
                             Total ligne :{" "}
@@ -982,7 +1044,7 @@ export default function SecretaryBilling({
                     borderRadius: 9,
                     padding: "10px 14px",
                     background: "#fff",
-                    color: "#111827",
+                    color: "#000000",
                     fontWeight: 600,
                     cursor: "pointer"
                   }}
@@ -1010,11 +1072,12 @@ export default function SecretaryBilling({
                 </div>
               </div>
 
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Date d'échéance
@@ -1029,16 +1092,18 @@ export default function SecretaryBilling({
                     padding: 11,
                     borderRadius: 9,
                     border: "1px solid #d1d5db",
-                    boxSizing: "border-box"
+                    boxSizing: "border-box",
+                    color: "#000000"
                   }}
                 />
               </label>
 
-              <label>
+              <label style={{ color: "#000000" }}>
                 <div
                   style={{
                     fontWeight: 600,
-                    marginBottom: 6
+                    marginBottom: 6,
+                    color: "#000000"
                   }}
                 >
                   Description
@@ -1055,7 +1120,8 @@ export default function SecretaryBilling({
                     borderRadius: 9,
                     border: "1px solid #d1d5db",
                     boxSizing: "border-box",
-                    resize: "vertical"
+                    resize: "vertical",
+                    color: "#000000"
                   }}
                 />
               </label>
@@ -1066,7 +1132,8 @@ export default function SecretaryBilling({
                     padding: 12,
                     borderRadius: 10,
                     background: "#f3f4f6",
-                    fontSize: 14
+                    fontSize: 14,
+                    color: "#000000"
                   }}
                 >
                   <strong>Classe :</strong>{" "}
@@ -1085,7 +1152,9 @@ export default function SecretaryBilling({
                   border: "none",
                   borderRadius: 10,
                   padding: 14,
-                  background: sending ? "#9ca3af" : "#111827",
+                  background: sending
+                    ? "#9ca3af"
+                    : "#111827",
                   color: "#fff",
                   fontWeight: 700,
                   cursor: sending
@@ -1099,14 +1168,63 @@ export default function SecretaryBilling({
               </button>
             </div>
 
-            <div style={{ marginTop: 30 }}>
-              <h3>Factures récentes</h3>
+            <div
+              style={{
+                marginTop: 30,
+                color: "#000000"
+              }}
+            >
+              <h3
+                style={{
+                  color: "#000000"
+                }}
+              >
+                Factures délivrées
+              </h3>
+
+              {/* NOUVEAU : barre de recherche */}
+              <div
+                style={{
+                  marginBottom: 16
+                }}
+              >
+                <input
+                  type="text"
+                  value={invoiceSearch}
+                  onChange={(e) =>
+                    setInvoiceSearch(e.target.value)
+                  }
+                  placeholder="🔎 Rechercher un élève par nom..."
+                  style={{
+                    width: "100%",
+                    padding: 12,
+                    borderRadius: 10,
+                    border: "1px solid #d1d5db",
+                    boxSizing: "border-box",
+                    color: "#000000"
+                  }}
+                />
+              </div>
 
               {loading ? (
-                <p>Chargement...</p>
-              ) : invoices.length === 0 ? (
-                <p style={{ color: "#6b7280" }}>
-                  Aucune facture pour le moment.
+                <p style={{ color: "#000000" }}>
+                  Chargement...
+                </p>
+              ) : !invoiceSearch.trim() ? (
+                <p
+                  style={{
+                    color: "#000000"
+                  }}
+                >
+                  Recherchez un élève pour afficher ses factures.
+                </p>
+              ) : filteredInvoices.length === 0 ? (
+                <p
+                  style={{
+                    color: "#000000"
+                  }}
+                >
+                  Aucune facture trouvée pour cet élève.
                 </p>
               ) : (
                 <div
@@ -1115,10 +1233,17 @@ export default function SecretaryBilling({
                     gap: 12
                   }}
                 >
-                  {invoices.map((invoice) => {
+                  {filteredInvoices.map((invoice) => {
                     const statusStyle =
                       getFinancialStatusStyle(
                         invoice.financial_status
+                      );
+
+                    const invoiceStudent =
+                      students.find(
+                        (student) =>
+                          String(student.id) ===
+                          String(invoice.student_id)
                       );
 
                     return (
@@ -1127,7 +1252,8 @@ export default function SecretaryBilling({
                         style={{
                           border: "1px solid #e5e7eb",
                           borderRadius: 12,
-                          padding: 14
+                          padding: 14,
+                          color: "#000000"
                         }}
                       >
                         <div
@@ -1140,13 +1266,29 @@ export default function SecretaryBilling({
                           }}
                         >
                           <div>
-                            <strong>
-                              {invoice.invoice_number}
+                            <strong
+                              style={{
+                                color: "#000000"
+                              }}
+                            >
+                              {invoiceStudent
+                                ? studentName(invoiceStudent)
+                                : "Élève"}
                             </strong>
 
                             <div
                               style={{
-                                marginTop: 6
+                                marginTop: 4,
+                                color: "#000000"
+                              }}
+                            >
+                              {invoice.invoice_number}
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: 6,
+                                color: "#000000"
                               }}
                             >
                               {invoice.title}
@@ -1155,7 +1297,7 @@ export default function SecretaryBilling({
                             <div
                               style={{
                                 marginTop: 5,
-                                color: "#6b7280",
+                                color: "#000000",
                                 fontSize: 14
                               }}
                             >
@@ -1170,13 +1312,11 @@ export default function SecretaryBilling({
                           <span
                             style={{
                               ...statusStyle,
-                              padding:
-                                "5px 9px",
+                              padding: "5px 9px",
                               borderRadius: 999,
                               fontSize: 12,
                               fontWeight: 700,
-                              whiteSpace:
-                                "nowrap"
+                              whiteSpace: "nowrap"
                             }}
                           >
                             {getFinancialStatusLabel(
@@ -1190,12 +1330,17 @@ export default function SecretaryBilling({
                             marginTop: 12,
                             display: "grid",
                             gap: 5,
-                            fontSize: 14
+                            fontSize: 14,
+                            color: "#000000"
                           }}
                         >
                           <div>
                             Total :{" "}
-                            <strong>
+                            <strong
+                              style={{
+                                color: "#000000"
+                              }}
+                            >
                               {formatAmount(
                                 invoice.total_billed
                               )}{" "}
@@ -1205,7 +1350,11 @@ export default function SecretaryBilling({
 
                           <div>
                             Payé :{" "}
-                            <strong>
+                            <strong
+                              style={{
+                                color: "#000000"
+                              }}
+                            >
                               {formatAmount(
                                 invoice.total_paid
                               )}{" "}
@@ -1215,7 +1364,11 @@ export default function SecretaryBilling({
 
                           <div>
                             Reste :{" "}
-                            <strong>
+                            <strong
+                              style={{
+                                color: "#000000"
+                              }}
+                            >
                               {formatAmount(
                                 invoice.remaining_amount
                               )}{" "}
@@ -1228,7 +1381,7 @@ export default function SecretaryBilling({
                           <div
                             style={{
                               marginTop: 8,
-                              color: "#6b7280",
+                              color: "#000000",
                               fontSize: 13
                             }}
                           >
