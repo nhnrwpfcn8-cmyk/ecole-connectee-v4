@@ -1167,85 +1167,89 @@ export default function AdminEcoleNotesBulletinsPage({
      BULLETIN
   ========================================================= */
   async function createBulletin(
-    student
-  ) {
-    if (!student?.id) return;
+  student
+) {
+  if (!student?.id) return;
 
-    setSaving(true);
-    setError("");
-    setMessage("");
+  setSaving(true);
+  setError("");
+  setMessage("");
 
-    const existing =
-      bulletins.find(
-        (bulletin) =>
-          bulletin.student_id ===
-            student.id &&
-          bulletin.trimester ===
-            trimester
-      );
+  const existing =
+    bulletins.find(
+      (bulletin) =>
+        bulletin.student_id ===
+          student.id &&
+        bulletin.trimester ===
+          trimester
+    );
 
-    let result;
+  let result;
 
-    if (existing) {
-      result = await supabase
-        .from("bulletins")
-        .update({
-          generated_at:
-            new Date().toISOString(),
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq(
-          "id",
-          existing.id
-        )
-        .eq(
-          "school_id",
-          schoolId
-        )
-        .select()
-        .single();
-    } else {
-      result = await supabase
-        .from("bulletins")
-        .insert({
-          school_id: schoolId,
-          student_id: student.id,
-          trimester,
-          status: "draft",
-          created_by:
-            profile?.id || null,
-          generated_at:
-            new Date().toISOString(),
-        })
-        .select()
-        .single();
-    }
-
-    if (result.error) {
-      console.error(
-        "Erreur création bulletin :",
-        result.error
-      );
-
-      setError(
-        result.error.message ||
-          "Impossible de créer le bulletin."
-      );
-    } else {
-      setMessage(
-        "Bulletin préparé avec succès."
-      );
-
-      await loadAll();
-
-      setSelectedBulletin(
-        result.data
-      );
-    }
-
-    setSaving(false);
+  if (existing) {
+    result = await supabase
+      .from("bulletins")
+      .update({
+        generated_at:
+          new Date().toISOString(),
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        existing.id
+      )
+      .eq(
+        "school_id",
+        schoolId
+      )
+      .select()
+      .single();
+  } else {
+    result = await supabase
+      .from("bulletins")
+      .insert({
+        school_id: schoolId,
+        student_id: student.id,
+        trimester,
+        status: "draft",
+        created_by:
+          profile?.id || null,
+        generated_at:
+          new Date().toISOString(),
+      })
+      .select()
+      .single();
   }
+
+  if (result.error) {
+    console.error(
+      "Erreur création bulletin :",
+      result.error
+    );
+
+    setError(
+      result.error.message ||
+        "Impossible de créer le bulletin."
+    );
+  } else {
+    setMessage(
+      "Bulletin préparé avec succès."
+    );
+
+    // On sélectionne l'élève après la génération
+    // pour afficher le bulletin officiel.
+    setStudentId(student.id);
+
+    await loadAll();
+
+    setSelectedBulletin(
+      result.data
+    );
+  }
+
+  setSaving(false);
+}
 
   async function validateBulletin(
     bulletin
