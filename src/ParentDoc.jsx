@@ -216,6 +216,63 @@ export default function ParentDoc({
     return "📄";
   }
 
+  function openAdministrativeDocument(document) {
+    if (!document?.file_url) {
+      return;
+    }
+
+    const printWindow = window.open(
+      "",
+      "_blank",
+      "width=900,height=1200"
+    );
+
+    if (!printWindow) {
+      return;
+    }
+
+    try {
+      if (
+        document.file_url.startsWith(
+          "data:text/html"
+        )
+      ) {
+        const separatorIndex =
+          document.file_url.indexOf(",");
+
+        if (separatorIndex !== -1) {
+          const html = decodeURIComponent(
+            document.file_url.substring(
+              separatorIndex + 1
+            )
+          );
+
+          printWindow.document.open();
+          printWindow.document.write(html);
+          printWindow.document.close();
+          printWindow.focus();
+          return;
+        }
+      }
+
+      printWindow.location.href =
+        document.file_url;
+    } catch (error) {
+      console.error(
+        "Erreur lors de l'ouverture du document administratif :",
+        error
+      );
+
+      printWindow.close();
+
+      window.open(
+        document.file_url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }
+  }
+
   function printInvoice(invoice) {
     const printWindow = window.open(
       "",
@@ -455,14 +512,17 @@ export default function ParentDoc({
                     </p>
 
                     {document.file_url && (
-                      <a
-                        href={document.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
                         className="parent-doc-button"
+                        onClick={() =>
+                          openAdministrativeDocument(
+                            document
+                          )
+                        }
                       >
                         📄 Ouvrir le PDF
-                      </a>
+                      </button>
                     )}
                   </div>
                 </article>
