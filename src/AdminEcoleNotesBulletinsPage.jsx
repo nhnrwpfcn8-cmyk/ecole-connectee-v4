@@ -635,221 +635,6 @@ export default function AdminEcoleNotesBulletinsPage({
     setTimeout(() => window.print(), 250);
   }
 
-  function escapeHtml(value) {
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function buildSharedBulletinHtml(row) {
-    if (!row?.student?.id) return "";
-
-    const student = row.student;
-    const rank = classRankMap[student.id] || "—";
-    const generalAverage = formatAverage(row.generalAverage);
-    const totalCoefficient = formatCoefficient(
-      row.subjects.reduce(
-        (sum, subject) => sum + (Number(subject.coefficient) || 0),
-        0
-      )
-    );
-    const totalWeighted = formatAverage(
-      row.subjects.reduce(
-        (sum, subject) => sum + (Number(subject.weighted) || 0),
-        0
-      )
-    );
-
-    const subjectsHtml = row.subjects
-      .map(
-        (subject) => `
-          <tr>
-            <td class="discipline">${escapeHtml(subject.subjectName)}</td>
-            <td>${escapeHtml(formatAverage(subject.devoir))}</td>
-            <td>${escapeHtml(formatAverage(subject.comp))}</td>
-            <td><strong>${escapeHtml(formatAverage(subject.average))}</strong></td>
-            <td>${escapeHtml(formatCoefficient(subject.coefficient))}</td>
-            <td>${escapeHtml(formatAverage(subject.weighted))}</td>
-            <td>—</td>
-            <td>—</td>
-            <td>${escapeHtml(subject.appreciation || "—")}</td>
-          </tr>`
-      )
-      .join("");
-
-    const appreciation =
-      row.generalAverage === null
-        ? "—"
-        : row.generalAverage >= 16
-        ? "Excellent ensemble."
-        : row.generalAverage >= 14
-        ? "Très bon ensemble."
-        : row.generalAverage >= 10
-        ? "Ensemble satisfaisant."
-        : "Des efforts supplémentaires sont nécessaires.";
-
-    const decisionAppreciation =
-      row.generalAverage === null
-        ? "—"
-        : row.generalAverage >= 16
-        ? "Très bon travail"
-        : row.generalAverage >= 14
-        ? "Bon travail"
-        : row.generalAverage >= 10
-        ? "Travail satisfaisant"
-        : "Doit poursuivre ses efforts";
-
-    return `<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bulletin - ${escapeHtml(fullStudentName(student))}</title>
-<style>
-@page { size: A4 portrait; margin: 8mm; }
-* { box-sizing: border-box; }
-body { margin: 0; color: #111827; font-family: Arial, Helvetica, sans-serif; background: #fff; }
-.paper { width: 190mm; min-height: 277mm; margin: 0 auto; border: 1px solid #111827; padding: 8mm; }
-.header { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 12px; align-items: center; border-bottom: 2px solid #111827; padding-bottom: 8px; }
-.school-name { font-size: 16px; font-weight: 800; text-transform: uppercase; }
-.school-meta { margin-top: 4px; font-size: 9px; line-height: 1.35; }
-.title { text-align: center; font-weight: 800; }
-.title h1 { margin: 0; font-size: 20px; }
-.title h2 { margin: 5px 0 0; font-size: 14px; }
-.year { text-align: right; font-size: 10px; line-height: 1.4; }
-.info { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid #111827; margin-top: 8px; }
-.info-cell { padding: 5px 6px; min-height: 28px; border-right: 1px solid #111827; border-bottom: 1px solid #111827; font-size: 9px; }
-.info-cell:nth-child(3n) { border-right: 0; }
-.info-cell:nth-last-child(-n+3) { border-bottom: 0; }
-.label { font-weight: 800; }
-table { width: 100%; border-collapse: collapse; margin-top: 9px; font-size: 8px; }
-th, td { border: 1px solid #111827; padding: 4px 3px; text-align: center; vertical-align: middle; }
-th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
-.discipline { text-align: left; font-weight: 700; min-width: 125px; }
-.total { font-weight: 800; background: #f8fafc; }
-.summary { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #111827; border-top: 0; }
-.summary-cell { padding: 5px; border-right: 1px solid #111827; font-size: 9px; }
-.summary-cell:last-child { border-right: 0; }
-.decision { border: 1px solid #111827; padding: 6px; margin-top: 8px; font-size: 9px; }
-.box-title { font-weight: 800; text-transform: uppercase; margin-bottom: 5px; }
-.distinctions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 5px; }
-.distinctions span { border: 1px solid #111827; padding: 4px 2px; text-align: center; font-size: 7px; }
-.bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-.box { border: 1px solid #111827; min-height: 62px; padding: 6px; font-size: 9px; }
-.signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 10px; }
-.signature { min-height: 85px; text-align: center; font-size: 9px; }
-.signature img { display: block; margin: 6px auto 0; object-fit: contain; }
-@media print { body { margin: 0; } }
-</style>
-</head>
-<body>
-<div class="paper">
-  <div class="header">
-    <div>
-      <div class="school-name">${escapeHtml(school?.name || "Établissement")}</div>
-      <div class="school-meta">${escapeHtml(school?.address || "")}${school?.city ? `<br>${escapeHtml(school.city)}` : ""}${school?.phone ? `<br>Tél. : ${escapeHtml(school.phone)}` : ""}</div>
-    </div>
-    <div class="title"><h1>BULLETIN DE NOTES</h1><h2>${escapeHtml(trimesterLabel)}</h2></div>
-    <div class="year"><strong>ANNÉE SCOLAIRE</strong><br>${escapeHtml(school?.academic_year || school?.school_year || "2026 - 2027")}<br><span>Document scolaire officiel</span></div>
-  </div>
-
-  <div class="info">
-    <div class="info-cell"><span class="label">Prénoms :</span> ${escapeHtml(student.first_name || "—")}</div>
-    <div class="info-cell"><span class="label">Nom :</span> ${escapeHtml(student.last_name || "—")}</div>
-    <div class="info-cell"><span class="label">Date de naissance :</span> —</div>
-    <div class="info-cell"><span class="label">Classe :</span> ${escapeHtml(row.className || "—")}</div>
-    <div class="info-cell"><span class="label">Matricule :</span> ${escapeHtml(student.student_code || "—")}</div>
-    <div class="info-cell"><span class="label">Nbre d'élèves :</span> ${escapeHtml(String(activeStudents.filter((item) => item.class_id === student.class_id).length || "—"))}</div>
-  </div>
-
-  <table>
-    <thead><tr><th>Disciplines</th><th>Devoir</th><th>Comp</th><th>Moy /20</th><th>Coef</th><th>Moy × Coef</th><th>T.H</th><th>Rang</th><th>Appréciations</th></tr></thead>
-    <tbody>
-      ${subjectsHtml}
-      <tr class="total">
-        <td class="discipline">TOTAL / MOYENNE GÉNÉRALE</td><td colspan="2">—</td><td>${escapeHtml(generalAverage)}</td><td>${escapeHtml(totalCoefficient)}</td><td>${escapeHtml(totalWeighted)}</td><td>—</td><td>${escapeHtml(rank)}</td><td>${escapeHtml(decisionAppreciation)}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="summary">
-    <div class="summary-cell"><strong>Moyenne :</strong><br>${escapeHtml(generalAverage)} / 20</div>
-    <div class="summary-cell"><strong>Rang :</strong><br>${escapeHtml(rank)}</div>
-    <div class="summary-cell"><strong>Retards :</strong><br>—</div>
-    <div class="summary-cell"><strong>Absences :</strong><br>—</div>
-  </div>
-
-  <div class="decision"><div class="box-title">Décision du conseil</div><div>— Décision à renseigner par l'établissement.</div><div class="distinctions"><span>□ Félicitations</span><span>□ Encouragement</span><span>□ Tableau d'honneur</span><span>□ Avertissement</span><span>□ Blâme</span></div></div>
-
-  <div class="bottom">
-    <div class="box"><div class="box-title">Observations du conseil des professeurs</div><div>—</div></div>
-    <div class="box"><div class="box-title">Appréciation générale</div><div>${escapeHtml(appreciation)}</div></div>
-  </div>
-
-  <div class="signatures">
-    <div class="signature"><strong>LE CACHET DE L'ÉTABLISSEMENT</strong>${stampUrl ? `<img src="${escapeHtml(stampUrl)}" alt="Cachet" style="width:90px;height:70px;" />` : `<div style="margin-top:35px">—</div>`}</div>
-    <div class="signature"><strong>LE CHEF D'ÉTABLISSEMENT</strong>${signatureUrl ? `<img src="${escapeHtml(signatureUrl)}" alt="Signature" style="width:150px;height:65px;" />` : `<div style="margin-top:35px">Signature : __________________</div>`}</div>
-  </div>
-</div>
-</body>
-</html>`;
-  }
-
-  async function sendBulletinToParent(row) {
-    if (!row?.student?.id) return;
-
-    const existing = bulletins.find(
-      (bulletin) =>
-        bulletin.student_id === row.student.id &&
-        bulletin.trimester === trimester
-    );
-
-    if (!existing?.id) {
-      setError("Générez d'abord le bulletin avant de l'envoyer au parent.");
-      return;
-    }
-
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const html = buildSharedBulletinHtml(row);
-      const pdfUrl =
-        `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-
-      const { data, error: updateError } = await supabase
-        .from("bulletins")
-        .update({
-          pdf_url: pdfUrl,
-          status: "sent",
-          sent_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id)
-        .eq("school_id", schoolId)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      setSelectedBulletin(data);
-      setMessage("Bulletin envoyé au parent avec succès.");
-      await loadAll();
-    } catch (sendError) {
-      console.error("Erreur envoi bulletin :", sendError);
-      setError(
-        sendError.message ||
-          "Impossible d'envoyer le bulletin au parent."
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const selectedBulletinRow = useMemo(() => {
     if (!selectedStudent) return null;
     return (
@@ -1129,24 +914,15 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
               position: absolute;
               left: 0;
               top: 0;
-              width: 190mm;
-              height: 277mm;
-              max-width: 190mm;
+              width: 100%;
+              max-width: none;
               margin: 0;
               padding: 0;
-              overflow: hidden !important;
             }
 
             .ec-bulletin-paper {
-              width: 138.89%;
-              height: 138.89%;
-              min-height: 138.89%;
-              max-height: 138.89%;
               border: 1px solid #111827;
-              padding: 10px;
-              transform: scale(0.72);
-              transform-origin: top left;
-              overflow: hidden;
+              padding: 14px;
             }
 
             .no-print {
@@ -1297,7 +1073,11 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
             />
           </div>
 
-          {gradeRows.length === 0 ? (
+          {!search.trim() ? (
+            <p>
+              Recherchez un élève pour afficher ses notes.
+            </p>
+          ) : gradeRows.length === 0 ? (
             <p>Aucune note enregistrée pour les filtres sélectionnés.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
@@ -1312,17 +1092,25 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
                       "Coefficient",
                       "Date",
                     ].map((header) => (
-                      <th key={header} style={{ textAlign: "left", padding: 10 }}>
+                      <th
+                        key={header}
+                        style={{
+                          textAlign: "left",
+                          padding: 10,
+                        }}
+                      >
                         {header}
                       </th>
                     ))}
                   </tr>
                 </thead>
+
                 <tbody>
                   {gradeRows.map((grade) => {
                     const student = activeStudents.find(
                       (item) => item.id === grade.student_id
                     );
+
                     const assessment = assessments.find(
                       (item) => item.id === grade.assessment_id
                     );
@@ -1332,18 +1120,29 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
                         <td style={{ padding: 10 }}>
                           {fullStudentName(student)}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {assessment?.title || "-"}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {subjectMap[grade.subject_id]?.name || "-"}
                         </td>
-                        <td style={{ padding: 10, fontWeight: 700 }}>
-                          {grade.score ?? "-"} / {assessment?.max_score || 20}
+
+                        <td
+                          style={{
+                            padding: 10,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {grade.score ?? "-"} /{" "}
+                          {assessment?.max_score || 20}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {formatCoefficient(grade.coefficient)}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {formatDate(assessment?.evaluation_date)}
                         </td>
@@ -1383,6 +1182,7 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
               }}
             >
               <option value="">Toutes les classes</option>
+
               {classes.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
@@ -1390,197 +1190,235 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
               ))}
             </select>
 
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Rechercher un élève..."
+            <select
+              value={studentId}
+              onChange={(event) => setStudentId(event.target.value)}
               style={{
                 padding: 10,
                 borderRadius: 8,
                 border: "1px solid #cbd5e1",
               }}
-            />
+            >
+              <option value="">Tous les élèves</option>
+
+              {filteredStudents.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {fullStudentName(student)}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <h3>Préparation des bulletins — {trimesterLabel}</h3>
+          <h3>
+            Préparation des bulletins — {trimesterLabel}
+          </h3>
 
-          {!classId ? (
-            <p>Sélectionnez une classe pour afficher les élèves.</p>
-          ) : !studentId ? (
-            <div style={{ display: "grid", gap: 10 }}>
-              {filteredStudents.length === 0 ? (
-                <p>Aucun élève trouvé dans cette classe.</p>
-              ) : (
-                filteredStudents.map((student) => (
-                  <div
-                    key={student.id}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 12,
-                      flexWrap: "wrap",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: 10,
-                      padding: 12,
-                    }}
-                  >
-                    <div>
-                      <strong>{fullStudentName(student)}</strong>
-                      <div style={{ color: "#64748b", marginTop: 3 }}>
-                        {classMap[student.class_id]?.name || "-"}
-                      </div>
-                    </div>
-                    <button
-                      className="ec-btn"
-                      onClick={() => setStudentId(student.id)}
-                    >
-                      Ouvrir le bulletin
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
+          {bulletinRows.length === 0 ? (
+            <p>Aucun élève disponible.</p>
           ) : (
             <div style={{ display: "grid", gap: 14 }}>
-              {bulletinRows
-                .filter((row) => row.student.id === studentId)
-                .map((row) => {
-                  const existing = bulletins.find(
-                    (bulletin) =>
-                      bulletin.student_id === row.student.id &&
-                      bulletin.trimester === trimester
-                  );
+              {bulletinRows.map((row) => {
+                const existing = bulletins.find(
+                  (bulletin) =>
+                    bulletin.student_id === row.student.id &&
+                    bulletin.trimester === trimester
+                );
 
-                  return (
+                return (
+                  <div
+                    key={row.student.id}
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 12,
+                      padding: 16,
+                    }}
+                  >
                     <div
-                      key={row.student.id}
                       style={{
-                        border: "1px solid #e2e8f0",
-                        borderRadius: 12,
-                        padding: 16,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 12,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <div>
-                          <strong>{fullStudentName(row.student)}</strong>
-                          <div style={{ color: "#64748b", marginTop: 4 }}>
-                            {row.className} · Moyenne :{" "}
-                            <strong>
-                              {formatAverage(row.generalAverage)} / 20
-                            </strong>
-                          </div>
-                        </div>
+                      <div>
+                        <strong>
+                          {fullStudentName(row.student)}
+                        </strong>
 
                         <div
                           style={{
-                            display: "flex",
-                            gap: 8,
-                            flexWrap: "wrap",
+                            color: "#64748b",
+                            marginTop: 4,
                           }}
                         >
+                          {row.className} · Moyenne :{" "}
+                          <strong>
+                            {formatAverage(row.generalAverage)} / 20
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <button
+                          className="ec-btn"
+                          disabled={saving}
+                          onClick={() =>
+                            createBulletin(row.student)
+                          }
+                        >
+                          Générer
+                        </button>
+
+                        {existing && (
                           <button
                             className="ec-btn"
                             disabled={saving}
-                            onClick={() => createBulletin(row.student)}
+                            onClick={() =>
+                              validateBulletin(existing)
+                            }
                           >
-                            Générer
+                            Valider
                           </button>
+                        )}
 
-                          {existing && (
-                            <button
-                              className="ec-btn"
-                              disabled={saving}
-                              onClick={() => validateBulletin(existing)}
-                            >
-                              Valider
-                            </button>
-                          )}
-
-                          {existing && (
-                            <button
-                              className="ec-btn"
-                              disabled={saving}
-                              onClick={() => sendBulletinToParent(row)}
-                            >
-                              Envoyer au parent
-                            </button>
-                          )}
-
-                          <button
-                            className="ec-btn"
-                            onClick={() => printBulletin(row)}
-                          >
-                            Imprimer
-                          </button>
-
-                          <button
-                            className="ec-btn"
-                            onClick={() => setStudentId("")}
-                          >
-                            Retour aux élèves
-                          </button>
-                        </div>
+                        <button
+                          className="ec-btn"
+                          onClick={() => printBulletin(row)}
+                        >
+                          Imprimer
+                        </button>
                       </div>
-
-                      <div style={{ marginTop: 12, overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                          <thead>
-                            <tr>
-                              <th style={{ textAlign: "left", padding: 8 }}>
-                                Discipline
-                              </th>
-                              <th style={{ padding: 8 }}>Devoir</th>
-                              <th style={{ padding: 8 }}>Comp</th>
-                              <th style={{ padding: 8 }}>Moy /20</th>
-                              <th style={{ padding: 8 }}>Coef</th>
-                              <th style={{ padding: 8 }}>Moy × Coef</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {row.subjects.map((subject) => (
-                              <tr
-                                key={`${row.student.id}-${subject.subjectId || subject.subjectName}`}
-                              >
-                                <td style={{ padding: 8 }}>
-                                  {subject.subjectName}
-                                </td>
-                                <td style={{ padding: 8, textAlign: "center" }}>
-                                  {formatAverage(subject.devoir)}
-                                </td>
-                                <td style={{ padding: 8, textAlign: "center" }}>
-                                  {formatAverage(subject.comp)}
-                                </td>
-                                <td style={{ padding: 8, textAlign: "center", fontWeight: 700 }}>
-                                  {formatAverage(subject.average)}
-                                </td>
-                                <td style={{ padding: 8, textAlign: "center" }}>
-                                  {formatCoefficient(subject.coefficient)}
-                                </td>
-                                <td style={{ padding: 8, textAlign: "center" }}>
-                                  {formatAverage(subject.weighted)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {existing && (
-                        <div style={{ marginTop: 10, fontSize: 13, color: "#475569" }}>
-                          Statut : <strong>{existing.status}</strong>
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
+
+                    <div
+                      style={{
+                        marginTop: 12,
+                        overflowX: "auto",
+                      }}
+                    >
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                        }}
+                      >
+                        <thead>
+                          <tr>
+                            <th
+                              style={{
+                                textAlign: "left",
+                                padding: 8,
+                              }}
+                            >
+                              Discipline
+                            </th>
+
+                            <th style={{ padding: 8 }}>
+                              Devoir
+                            </th>
+
+                            <th style={{ padding: 8 }}>
+                              Comp
+                            </th>
+
+                            <th style={{ padding: 8 }}>
+                              Moy /20
+                            </th>
+
+                            <th style={{ padding: 8 }}>
+                              Coef
+                            </th>
+
+                            <th style={{ padding: 8 }}>
+                              Moy × Coef
+                            </th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {row.subjects.map((subject) => (
+                            <tr
+                              key={`${row.student.id}-${subject.subjectId || subject.subjectName}`}
+                            >
+                              <td style={{ padding: 8 }}>
+                                {subject.subjectName}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
+                                {formatAverage(subject.devoir)}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
+                                {formatAverage(subject.comp)}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {formatAverage(subject.average)}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
+                                {formatCoefficient(
+                                  subject.coefficient
+                                )}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
+                                {formatAverage(subject.weighted)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {existing && (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          fontSize: 13,
+                          color: "#475569",
+                        }}
+                      >
+                        Statut :{" "}
+                        <strong>{existing.status}</strong>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1597,10 +1435,23 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
                 <div className="ec-bulletin-school-name">
                   {school?.name || "Établissement"}
                 </div>
+
                 <div className="ec-bulletin-school-meta">
                   {school?.address || ""}
-                  {school?.city ? <><br />{school.city}</> : null}
-                  {school?.phone ? <><br />Tél. : {school.phone}</> : null}
+
+                  {school?.city ? (
+                    <>
+                      <br />
+                      {school.city}
+                    </>
+                  ) : null}
+
+                  {school?.phone ? (
+                    <>
+                      <br />
+                      Tél. : {school.phone}
+                    </>
+                  ) : null}
                 </div>
               </div>
 
@@ -1612,39 +1463,72 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
               <div className="ec-bulletin-year">
                 <strong>ANNÉE SCOLAIRE</strong>
                 <br />
-                {school?.academic_year || school?.school_year || "2026 - 2027"}
+
+                {school?.academic_year ||
+                  school?.school_year ||
+                  "2026 - 2027"}
+
                 <br />
+
                 <span>Document scolaire officiel</span>
               </div>
             </div>
 
             <div className="ec-bulletin-student-info">
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Prénoms :</span>
+                <span className="ec-bulletin-info-label">
+                  Prénoms :
+                </span>
+
                 {selectedStudent.first_name || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Nom :</span>
+                <span className="ec-bulletin-info-label">
+                  Nom :
+                </span>
+
                 {selectedStudent.last_name || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Date de naissance :</span>
+                <span className="ec-bulletin-info-label">
+                  Date de naissance :
+                </span>
+
                 —
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Classe :</span>
+                <span className="ec-bulletin-info-label">
+                  Classe :
+                </span>
+
                 {selectedBulletinRow.className || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Matricule :</span>
+                <span className="ec-bulletin-info-label">
+                  Matricule :
+                </span>
+
                 {selectedStudent.student_code || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Nbre d'élèves :</span>
+                <span className="ec-bulletin-info-label">
+                  Nbre d'élèves :
+                </span>
+
                 {classId
-                  ? activeStudents.filter((student) => student.class_id === classId).length || "—"
+                  ? activeStudents.filter(
+                      (student) =>
+                        student.class_id === classId
+                    ).length || "—"
                   : activeStudents.filter(
-                      (student) => student.class_id === selectedStudent.class_id
+                      (student) =>
+                        student.class_id ===
+                        selectedStudent.class_id
                     ).length || "—"}
               </div>
             </div>
@@ -1663,17 +1547,47 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
                   <th>Appréciations</th>
                 </tr>
               </thead>
+
               <tbody>
                 {selectedBulletinRow.subjects.map((subject) => (
-                  <tr key={subject.subjectId || subject.subjectName}>
-                    <td className="discipline">{subject.subjectName}</td>
-                    <td>{formatAverage(subject.devoir)}</td>
-                    <td>{formatAverage(subject.comp)}</td>
-                    <td><strong>{formatAverage(subject.average)}</strong></td>
-                    <td>{formatCoefficient(subject.coefficient)}</td>
-                    <td>{formatAverage(subject.weighted)}</td>
+                  <tr
+                    key={
+                      subject.subjectId ||
+                      subject.subjectName
+                    }
+                  >
+                    <td className="discipline">
+                      {subject.subjectName}
+                    </td>
+
+                    <td>
+                      {formatAverage(subject.devoir)}
+                    </td>
+
+                    <td>
+                      {formatAverage(subject.comp)}
+                    </td>
+
+                    <td>
+                      <strong>
+                        {formatAverage(subject.average)}
+                      </strong>
+                    </td>
+
+                    <td>
+                      {formatCoefficient(
+                        subject.coefficient
+                      )}
+                    </td>
+
+                    <td>
+                      {formatAverage(subject.weighted)}
+                    </td>
+
                     <td>—</td>
+
                     <td>—</td>
+
                     <td className="appreciation">
                       {subject.appreciation || "—"}
                     </td>
@@ -1681,35 +1595,59 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
                 ))}
 
                 <tr className="ec-bulletin-total">
-                  <td className="discipline">TOTAL / MOYENNE GÉNÉRALE</td>
+                  <td className="discipline">
+                    TOTAL / MOYENNE GÉNÉRALE
+                  </td>
+
                   <td colSpan={2}>—</td>
-                  <td>{formatAverage(selectedBulletinRow.generalAverage)}</td>
+
+                  <td>
+                    {formatAverage(
+                      selectedBulletinRow.generalAverage
+                    )}
+                  </td>
+
                   <td>
                     {formatCoefficient(
                       selectedBulletinRow.subjects.reduce(
-                        (sum, subject) => sum + (Number(subject.coefficient) || 0),
+                        (sum, subject) =>
+                          sum +
+                          (Number(subject.coefficient) || 0),
                         0
                       )
                     )}
                   </td>
+
                   <td>
                     {formatAverage(
                       selectedBulletinRow.subjects.reduce(
-                        (sum, subject) => sum + (Number(subject.weighted) || 0),
+                        (sum, subject) =>
+                          sum +
+                          (Number(subject.weighted) || 0),
                         0
                       )
                     )}
                   </td>
+
                   <td>—</td>
-                  <td>{classRankMap[selectedStudent.id] || "—"}</td>
+
+                  <td>
+                    {classRankMap[selectedStudent.id] ||
+                      "—"}
+                  </td>
+
                   <td className="appreciation">
-                    {selectedBulletinRow.generalAverage === null
+                    {selectedBulletinRow.generalAverage ===
+                    null
                       ? "—"
-                      : selectedBulletinRow.generalAverage >= 16
+                      : selectedBulletinRow.generalAverage >=
+                        16
                       ? "Très bon travail"
-                      : selectedBulletinRow.generalAverage >= 14
+                      : selectedBulletinRow.generalAverage >=
+                        14
                       ? "Bon travail"
-                      : selectedBulletinRow.generalAverage >= 10
+                      : selectedBulletinRow.generalAverage >=
+                        10
                       ? "Travail satisfaisant"
                       : "Doit poursuivre ses efforts"}
                   </td>
@@ -1719,26 +1657,43 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
 
             <div className="ec-bulletin-summary">
               <div className="ec-bulletin-summary-cell">
-                <strong>Moyenne :</strong><br />
-                {formatAverage(selectedBulletinRow.generalAverage)} / 20
+                <strong>Moyenne :</strong>
+                <br />
+
+                {formatAverage(
+                  selectedBulletinRow.generalAverage
+                )}{" "}
+                / 20
               </div>
+
               <div className="ec-bulletin-summary-cell">
-                <strong>Rang :</strong><br />
+                <strong>Rang :</strong>
+                <br />
+
                 {classRankMap[selectedStudent.id] || "—"}
               </div>
+
               <div className="ec-bulletin-summary-cell">
-                <strong>Retards :</strong><br />
+                <strong>Retards :</strong>
+                <br />
                 —
               </div>
+
               <div className="ec-bulletin-summary-cell">
-                <strong>Absences :</strong><br />
+                <strong>Absences :</strong>
+                <br />
                 —
               </div>
             </div>
 
             <div className="ec-bulletin-decision">
-              <div className="ec-bulletin-box-title">Décision du conseil</div>
-              <span>— Décision à renseigner par l'établissement.</span>
+              <div className="ec-bulletin-box-title">
+                Décision du conseil
+              </div>
+
+              <span>
+                — Décision à renseigner par l'établissement.
+              </span>
 
               <div className="ec-bulletin-distinction">
                 <span>□ Félicitations</span>
@@ -1754,19 +1709,27 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
                 <div className="ec-bulletin-box-title">
                   Observations du conseil des professeurs
                 </div>
+
                 <div>—</div>
               </div>
 
               <div className="ec-bulletin-box">
-                <div className="ec-bulletin-box-title">Appréciation générale</div>
+                <div className="ec-bulletin-box-title">
+                  Appréciation générale
+                </div>
+
                 <div>
-                  {selectedBulletinRow.generalAverage === null
+                  {selectedBulletinRow.generalAverage ===
+                  null
                     ? "—"
-                    : selectedBulletinRow.generalAverage >= 16
+                    : selectedBulletinRow.generalAverage >=
+                      16
                     ? "Excellent ensemble."
-                    : selectedBulletinRow.generalAverage >= 14
+                    : selectedBulletinRow.generalAverage >=
+                      14
                     ? "Très bon ensemble."
-                    : selectedBulletinRow.generalAverage >= 10
+                    : selectedBulletinRow.generalAverage >=
+                      10
                     ? "Ensemble satisfaisant."
                     : "Des efforts supplémentaires sont nécessaires."}
                 </div>
@@ -1775,28 +1738,44 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
 
             <div className="ec-bulletin-signatures">
               <div className="ec-bulletin-signature-box">
-                <strong>LE CACHET DE L'ÉTABLISSEMENT</strong>
+                <strong>
+                  LE CACHET DE L'ÉTABLISSEMENT
+                </strong>
+
                 {stampUrl ? (
                   <img
                     src={stampUrl}
                     alt="Cachet de l'école"
-                    style={{ width: 120, height: 100 }}
+                    style={{
+                      width: 120,
+                      height: 100,
+                    }}
                   />
                 ) : (
-                  <div style={{ marginTop: 55 }}>—</div>
+                  <div style={{ marginTop: 55 }}>
+                    —
+                  </div>
                 )}
               </div>
 
               <div className="ec-bulletin-signature-box">
-                <strong>LE CHEF D'ÉTABLISSEMENT</strong>
+                <strong>
+                  LE CHEF D'ÉTABLISSEMENT
+                </strong>
+
                 {signatureUrl ? (
                   <img
                     src={signatureUrl}
                     alt="Signature du chef d'établissement"
-                    style={{ width: 200, height: 90 }}
+                    style={{
+                      width: 200,
+                      height: 90,
+                    }}
                   />
                 ) : (
-                  <div style={{ marginTop: 55 }}>Signature : __________________</div>
+                  <div style={{ marginTop: 55 }}>
+                    Signature : __________________
+                  </div>
                 )}
               </div>
             </div>
