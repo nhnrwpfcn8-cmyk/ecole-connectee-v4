@@ -975,6 +975,17 @@ teachers={teachers}
 />
 );
 
+ case "certificats":
+return (
+<AdminEcoleCertificats
+  schoolId={schoolId}
+  profile={currentProfile}
+  school={school}
+  students={students}
+  classes={classes}
+/>
+);   
+
 case "settings":
 return (
 <SettingsPage
