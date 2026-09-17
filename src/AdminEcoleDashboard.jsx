@@ -7342,6 +7342,15 @@ useState(school?.email || "");
 const [saving, setSaving] =
 useState(false);
 
+const [brandingSaving, setBrandingSaving] =
+useState(false);
+
+const [stampPreview, setStampPreview] =
+useState("");
+
+const [signaturePreview, setSignaturePreview] =
+useState("");
+
 const [message, setMessage] =
 useState("");
 
@@ -7388,112 +7397,182 @@ await onRefresh();
 
 setSaving(false);
 }
-async function uploadBrandingFile(file, type) {
-  if (!file || !school?.id) return;
 
-  if (!file.type.startsWith("image/")) {
-    setMessage("Veuillez sélectionner une image.");
-    return;
-  }
+async function uploadBrandingFile(
+file,
+type
+) {
+if (!file || !school?.id) return;
 
-  setBrandingSaving(true);
-  setMessage("");
-
-  const extension =
-    file.name.split(".").pop()?.toLowerCase() || "png";
-
-  const filePath =
-    `${school.id}/${type}-${Date.now()}.${extension}`;
-
-  const { error: uploadError } = await supabase.storage
-    .from("school-branding")
-    .upload(filePath, file, {
-      upsert: false,
-      contentType: file.type,
-    });
-
-  if (uploadError) {
-    console.error("Erreur upload branding :", uploadError);
-    setMessage(
-      "Impossible d'envoyer l'image. Vérifiez les droits du stockage."
-    );
-    setBrandingSaving(false);
-    return;
-  }
-
-  const updateData =
-    type === "stamp"
-      ? { stamp_url: filePath }
-      : { signature_url: filePath };
-
-  const { error: updateError } = await supabase
-    .from("schools")
-    .update(updateData)
-    .eq("id", school.id);
-
-  if (updateError) {
-    console.error("Erreur mise à jour branding :", updateError);
-    setMessage(
-      "L'image a été envoyée mais n'a pas pu être enregistrée."
-    );
-    setBrandingSaving(false);
-    return;
-  }
-
-  const { data: signedData, error: signedError } =
-    await supabase.storage
-      .from("school-branding")
-      .createSignedUrl(filePath, 3600);
-
-  if (!signedError && signedData?.signedUrl) {
-    if (type === "stamp") {
-      setStampPreview(signedData.signedUrl);
-    } else {
-      setSignaturePreview(signedData.signedUrl);
-    }
-  }
-
-  setMessage(
-    type === "stamp"
-      ? "Cachet numérique enregistré."
-      : "Signature enregistrée."
-  );
-
-  await onRefresh();
-
-  setBrandingSaving(false);
+if (!file.type.startsWith("image/")) {
+setMessage(
+"Veuillez sélectionner une image."
+);
+return;
 }
+
+setBrandingSaving(true);
+setMessage("");
+
+const extension =
+file.name
+.split(".")
+.pop()
+?.toLowerCase() || "png";
+
+const filePath =
+`${school.id}/${type}-${Date.now()}.${extension}`;
+
+const {
+error: uploadError,
+} = await supabase.storage
+.from("school-branding")
+.upload(
+filePath,
+file,
+{
+upsert: false,
+contentType: file.type,
+}
+);
+
+if (uploadError) {
+console.error(
+"Erreur upload branding :",
+uploadError
+);
+
+setMessage(
+"Impossible d'envoyer l'image. Vérifiez les droits du stockage."
+);
+
+setBrandingSaving(false);
+return;
+}
+
+const updateData =
+type === "stamp"
+? {
+stamp_url:
+filePath,
+}
+: {
+signature_url:
+filePath,
+};
+
+const {
+error: updateError,
+} = await supabase
+.from("schools")
+.update(updateData)
+.eq("id", school.id);
+
+if (updateError) {
+console.error(
+"Erreur mise à jour branding :",
+updateError
+);
+
+setMessage(
+"L'image a été envoyée mais n'a pas pu être enregistrée."
+);
+
+setBrandingSaving(false);
+return;
+}
+
+const {
+data: signedData,
+error: signedError,
+} =
+await supabase.storage
+.from("school-branding")
+.createSignedUrl(
+filePath,
+3600
+);
+
+if (
+!signedError &&
+signedData?.signedUrl
+) {
+if (type === "stamp") {
+setStampPreview(
+signedData.signedUrl
+);
+} else {
+setSignaturePreview(
+signedData.signedUrl
+);
+}
+}
+
+setMessage(
+type === "stamp"
+? "Cachet numérique enregistré."
+: "Signature enregistrée."
+);
+
+await onRefresh();
+
+setBrandingSaving(false);
+}
+
 useEffect(() => {
-  async function loadBranding() {
-    if (!school?.id) return;
+async function loadBranding() {
+if (!school?.id) return;
 
-    if (school.stamp_url) {
-      const { data } = await supabase.storage
-        .from("school-branding")
-        .createSignedUrl(school.stamp_url, 3600);
+if (school.stamp_url) {
+const {
+data,
+error,
+} = await supabase.storage
+.from("school-branding")
+.createSignedUrl(
+school.stamp_url,
+3600
+);
 
-      if (data?.signedUrl) {
-        setStampPreview(data.signedUrl);
-      }
-    }
+if (
+!error &&
+data?.signedUrl
+) {
+setStampPreview(
+data.signedUrl
+);
+}
+}
 
-    if (school.signature_url) {
-      const { data } = await supabase.storage
-        .from("school-branding")
-        .createSignedUrl(school.signature_url, 3600);
+if (school.signature_url) {
+const {
+data,
+error,
+} = await supabase.storage
+.from("school-branding")
+.createSignedUrl(
+school.signature_url,
+3600
+);
 
-      if (data?.signedUrl) {
-        setSignaturePreview(data.signedUrl);
-      }
-    }
-  }
+if (
+!error &&
+data?.signedUrl
+) {
+setSignaturePreview(
+data.signedUrl
+);
+}
+}
+}
 
-  loadBranding();
+loadBranding();
 }, [
-  school?.id,
-  school?.stamp_url,
-  school?.signature_url,
+school?.id,
+school?.stamp_url,
+school?.signature_url,
 ]);
+
 return (
 <div className="ec-page">
 
@@ -7587,6 +7666,288 @@ disabled={saving}
 ? "Enregistrement..."
 : "💾 Enregistrer les modifications"}
 </button>
+
+</div>
+
+</div>
+
+{/* =====================================================
+CACHEt ET SIGNATURE
+===================================================== */}
+
+<div
+className="ec-panel"
+style={{
+marginTop: "24px",
+}}
+>
+
+<div className="ec-panel-header">
+
+<div>
+<h3>
+Cachet et signature de l'école
+</h3>
+
+<p>
+Ajoutez le cachet et la signature qui seront utilisés
+sur les certificats et attestations.
+</p>
+</div>
+
+</div>
+
+<div
+style={{
+display: "grid",
+gridTemplateColumns:
+"repeat(auto-fit, minmax(260px, 1fr))",
+gap: "24px",
+padding: "24px",
+}}
+>
+
+{/* CACHEt */}
+
+<div
+style={{
+border: "1px solid #e5e7eb",
+borderRadius: "14px",
+padding: "20px",
+background: "#ffffff",
+}}
+>
+
+<h4
+style={{
+marginTop: 0,
+color: "#000000",
+}}
+>
+🖋️ Cachet de l'école
+</h4>
+
+<p
+style={{
+color: "#000000",
+fontSize: "14px",
+lineHeight: 1.5,
+}}
+>
+Importez l'image du cachet officiel de
+votre établissement.
+</p>
+
+{stampPreview ? (
+<div
+style={{
+marginBottom: "16px",
+textAlign: "center",
+}}
+>
+
+<img
+src={stampPreview}
+alt="Cachet de l'école"
+style={{
+maxWidth: "180px",
+maxHeight: "180px",
+objectFit: "contain",
+border:
+"1px solid #e5e7eb",
+borderRadius: "10px",
+padding: "10px",
+background: "#fff",
+}}
+/>
+
+<p
+style={{
+fontSize: "13px",
+color: "#000000",
+marginTop: "10px",
+}}
+>
+Cachet enregistré
+</p>
+
+</div>
+) : (
+<div
+style={{
+padding: "24px",
+border:
+"1px dashed #9ca3af",
+borderRadius: "10px",
+textAlign: "center",
+marginBottom: "16px",
+color: "#000000",
+}}
+>
+Aucun cachet enregistré
+</div>
+)}
+
+<label
+className="ec-btn ec-btn-secondary"
+style={{
+display: "inline-block",
+cursor:
+brandingSaving
+? "not-allowed"
+: "pointer",
+}}
+>
+{brandingSaving
+? "Envoi..."
+: "📤 Importer le cachet"}
+
+<input
+type="file"
+accept="image/*"
+disabled={brandingSaving}
+style={{
+display: "none",
+}}
+onChange={(event) => {
+const file =
+event.target.files?.[0];
+
+if (file) {
+uploadBrandingFile(
+file,
+"stamp"
+);
+}
+
+event.target.value = "";
+}}
+/>
+
+</label>
+
+</div>
+
+{/* SIGNATURE */}
+
+<div
+style={{
+border: "1px solid #e5e7eb",
+borderRadius: "14px",
+padding: "20px",
+background: "#ffffff",
+}}
+>
+
+<h4
+style={{
+marginTop: 0,
+color: "#000000",
+}}
+>
+✍️ Signature du responsable
+</h4>
+
+<p
+style={{
+color: "#000000",
+fontSize: "14px",
+lineHeight: 1.5,
+}}
+>
+Importez l'image de la signature qui sera
+apposée sur les documents officiels.
+</p>
+
+{signaturePreview ? (
+<div
+style={{
+marginBottom: "16px",
+textAlign: "center",
+}}
+>
+
+<img
+src={signaturePreview}
+alt="Signature du responsable"
+style={{
+maxWidth: "240px",
+maxHeight: "140px",
+objectFit: "contain",
+border:
+"1px solid #e5e7eb",
+borderRadius: "10px",
+padding: "10px",
+background: "#fff",
+}}
+/>
+
+<p
+style={{
+fontSize: "13px",
+color: "#000000",
+marginTop: "10px",
+}}
+>
+Signature enregistrée
+</p>
+
+</div>
+) : (
+<div
+style={{
+padding: "24px",
+border:
+"1px dashed #9ca3af",
+borderRadius: "10px",
+textAlign: "center",
+marginBottom: "16px",
+color: "#000000",
+}}
+>
+Aucune signature enregistrée
+</div>
+)}
+
+<label
+className="ec-btn ec-btn-secondary"
+style={{
+display: "inline-block",
+cursor:
+brandingSaving
+? "not-allowed"
+: "pointer",
+}}
+>
+{brandingSaving
+? "Envoi..."
+: "📤 Importer la signature"}
+
+<input
+type="file"
+accept="image/*"
+disabled={brandingSaving}
+style={{
+display: "none",
+}}
+onChange={(event) => {
+const file =
+event.target.files?.[0];
+
+if (file) {
+uploadBrandingFile(
+file,
+"signature"
+);
+}
+
+event.target.value = "";
+}}
+/>
+
+</label>
+
+</div>
 
 </div>
 
