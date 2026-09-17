@@ -9,6 +9,9 @@ export default function AdminEcoleCertificats({
   const [students, setStudents] = useState([]);
   const [classes, setClasses] = useState([]);
 
+  const [stampUrl, setStampUrl] = useState("");
+  const [signatureUrl, setSignatureUrl] = useState("");
+
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [documentType, setDocumentType] = useState(
     "Certificat de scolarité"
@@ -32,6 +35,29 @@ export default function AdminEcoleCertificats({
 
     loadData();
   }, [schoolId]);
+
+  async function createSignedBrandingUrl(path) {
+    if (!path) return "";
+
+    if (/^https?:\/\//i.test(path)) {
+      return path;
+    }
+
+    const { data, error: storageError } =
+      await supabase.storage
+        .from("school-branding")
+        .createSignedUrl(path, 60 * 60);
+
+    if (storageError) {
+      console.error(
+        "Erreur URL cachet/signature :",
+        storageError
+      );
+      return "";
+    }
+
+    return data?.signedUrl || "";
+  }
 
   async function loadData() {
     setLoading(true);
@@ -110,6 +136,19 @@ export default function AdminEcoleCertificats({
       if (schoolResult.data?.city) {
         setPlace(schoolResult.data.city);
       }
+
+      const [signedStamp, signedSignature] =
+        await Promise.all([
+          createSignedBrandingUrl(
+            schoolResult.data?.stamp_url
+          ),
+          createSignedBrandingUrl(
+            schoolResult.data?.signature_url
+          ),
+        ]);
+
+      setStampUrl(signedStamp);
+      setSignatureUrl(signedSignature);
     } catch (err) {
       console.error(
         "Erreur chargement certificats :",
@@ -243,15 +282,15 @@ export default function AdminEcoleCertificats({
         )}" class="school-logo" alt="Logo de l'école" />`
       : "";
 
-    const stamp = school?.stamp_url
+    const stamp = stampUrl
       ? `<img src="${escapeHtml(
-          school.stamp_url
+          stampUrl
         )}" class="stamp-image" alt="Cachet de l'école" />`
       : `<div class="empty-stamp"></div>`;
 
-    const signature = school?.signature_url
+    const signature = signatureUrl
       ? `<img src="${escapeHtml(
-          school.signature_url
+          signatureUrl
         )}" class="signature-image" alt="Signature de l'école" />`
       : `<div class="empty-signature"></div>`;
 
@@ -651,10 +690,6 @@ export default function AdminEcoleCertificats({
     setSuccessMessage("");
 
     try {
-      /*
-       * On retrouve d'abord le parent lié
-       * à l'élève sélectionné.
-       */
       const {
         data: parentLinks,
         error: parentLinksError,
@@ -684,10 +719,6 @@ export default function AdminEcoleCertificats({
         );
       }
 
-      /*
-       * On vérifie que le parent appartient bien
-       * à la même école.
-       */
       const {
         data: parents,
         error: parentsError,
@@ -711,10 +742,6 @@ export default function AdminEcoleCertificats({
         );
       }
 
-      /*
-       * Un certificat est créé pour chaque parent
-       * actif lié à l'élève.
-       */
       const certificateHtml =
         buildCertificateHtml();
 
@@ -1586,9 +1613,9 @@ export default function AdminEcoleCertificats({
                       Cachet de l'établissement
                     </div>
 
-                    {school?.stamp_url ? (
+                    {stampUrl ? (
                       <img
-                        src={school.stamp_url}
+                        src={stampUrl}
                         alt="Cachet de l'école"
                         className="stamp-image"
                       />
@@ -1621,9 +1648,9 @@ export default function AdminEcoleCertificats({
                       Signature de l'établissement
                     </div>
 
-                    {school?.signature_url ? (
+                    {signatureUrl ? (
                       <img
-                        src={school.signature_url}
+                        src={signatureUrl}
                         alt="Signature de l'école"
                         className="signature-image"
                       />
