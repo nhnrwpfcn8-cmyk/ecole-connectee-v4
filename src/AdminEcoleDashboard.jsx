@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import AdminEcoleNotesBulletinsPage from "./AdminEcoleNotesBulletinsPage";
 import AdminEcoleInscriptionsPage from "./AdminEcoleInscriptionsPage";
+import AdminEcoleCertificats from "./AdminEcoleCertificats";
 
 /* =========================================================
 CONFIGURATION
@@ -21,6 +22,7 @@ const MENU = [
 { id: "bulletins", label: "Bulletins", icon: "📄" },
 { id: "communication", label: "Communication", icon: "📢" },
 { id: "documents", label: "Documents administratifs", icon: "📁" },
+  { id: "certificats", label: "Certificats & attestations", icon: "📜" },
 { id: "settings", label: "Paramètres", icon: "⚙️" },
 ];
 
