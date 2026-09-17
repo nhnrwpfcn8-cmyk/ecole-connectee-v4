@@ -819,7 +819,9 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
     try {
       const html = buildSharedBulletinHtml(row);
       const pdfUrl =
-        `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+        `data:text/html;base64,${btoa(
+          unescape(encodeURIComponent(html))
+        )}`;
 
       const { data, error: updateError } = await supabase
         .from("bulletins")
@@ -1297,8 +1299,20 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
             />
           </div>
 
-          {gradeRows.length === 0 ? (
-            <p>Aucune note enregistrée pour les filtres sélectionnés.</p>
+          {!normalize(search) ? (
+            <p>Recherchez un élève pour afficher ses notes.</p>
+          ) : gradeRows.filter((grade) => {
+              const student = activeStudents.find(
+                (item) => item.id === grade.student_id
+              );
+
+              const haystack = normalize(
+                `${fullStudentName(student)} ${student?.student_code || ""}`
+              );
+
+              return haystack.includes(normalize(search));
+            }).length === 0 ? (
+            <p>Aucune note enregistrée pour l'élève recherché.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -1319,7 +1333,19 @@ th { background: #f1f5f9; font-weight: 800; text-transform: uppercase; }
                   </tr>
                 </thead>
                 <tbody>
-                  {gradeRows.map((grade) => {
+                  {gradeRows
+                    .filter((grade) => {
+                      const student = activeStudents.find(
+                        (item) => item.id === grade.student_id
+                      );
+
+                      const haystack = normalize(
+                        `${fullStudentName(student)} ${student?.student_code || ""}`
+                      );
+
+                      return haystack.includes(normalize(search));
+                    })
+                    .map((grade) => {
                     const student = activeStudents.find(
                       (item) => item.id === grade.student_id
                     );
