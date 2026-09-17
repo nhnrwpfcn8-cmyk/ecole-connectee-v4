@@ -2812,7 +2812,7 @@ async function sendReply(messageItem) {
       return <BulletinsPage />;
 
     if (page === "communication")
-      return <CommunicationPage />;
+  return CommunicationPage();
 
     if (page === "administrative")
       return <AdministrativePage />;
