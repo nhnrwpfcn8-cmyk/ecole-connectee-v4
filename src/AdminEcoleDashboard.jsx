@@ -6067,21 +6067,6 @@ return <PageShell title="Notes" description="Créez les évaluations et rattache
 </PageShell>
 }
 
-function ReportCardsPage({ school, students, teachers, grades }) {
-const [studentId, setStudentId] = useState("");
-const safeStudents = Array.isArray(students) ? students : [];
-const safeTeachers = Array.isArray(teachers) ? teachers : [];
-const safeGrades = Array.isArray(grades) ? grades : [];
-const student = safeStudents.find(s=>s.id===studentId);
-const rows = safeGrades.filter(g=>g.student_id===studentId);
-const bySubject = Object.values(rows.reduce((acc,g)=>{ const key=g.subject_id||`x-${g.assessment_id}`; if(!acc[key]) acc[key]={subject:g.subject_name||"Matière", scores:[], teachers:new Set()}; acc[key].scores.push(Number(g.score)/Number(g.max_score)*20); if(g.teacher_id) acc[key].teachers.add(g.teacher_id); return acc; },{}));
-const average = rows.length ? rows.reduce((a,g)=>a+(Number(g.score)/Number(g.max_score)*20)*Number(g.coefficient||1),0)/rows.reduce((a,g)=>a+Number(g.coefficient||1),0) : 0;
-function printBulletin(){ window.print(); }
-return <PageShell title="Bulletins" description="Bulletin scolaire calculé à partir des notes réellement saisies par les enseignants." action={<button className="ec-btn ec-btn-primary" onClick={printBulletin} disabled={!student}>🖨 Imprimer / PDF</button>}>
-<div className="ec-card"><SelectInput label="Élève" value={studentId} onChange={setStudentId} options={safeStudents.map(s=>({value:s.id,label:`${s.first_name} ${s.last_name}${s.student_code?` — ${s.student_code}`:""}`}))} placeholder="Choisir un élève" /></div>
-{student && <section className="ec-card bulletin-print"><div className="bulletin-header"><div><h2>{school?.name || "Établissement scolaire"}</h2><p>{school?.address || ""} {school?.city ? `— ${school.city}` : ""}</p></div><div><strong>BULLETIN SCOLAIRE</strong><p>{student.first_name} {student.last_name}</p><p>Code : {student.student_code || "-"}</p></div></div><div className="ec-stat-grid"><div className="ec-stat-card"><span>Moyenne générale</span><strong>{average.toFixed(2)}/20</strong></div><div className="ec-stat-card"><span>Évaluations</span><strong>{rows.length}</strong></div></div><div className="ec-table-wrap"><table className="ec-table"><thead><tr><th>Matière</th><th>Professeur</th><th>Moyenne</th></tr></thead><tbody>{bySubject.map((r,i)=><tr key={i}><td>{r.subject}</td><td>{[...r.teachers].map(id=>safeTeachers.find(t=>t.id===id)?.display_name).filter(Boolean).join(", ") || "-"}</td><td><strong>{(r.scores.reduce((a,b)=>a+b,0)/r.scores.length).toFixed(2)}/20</strong></td></tr>)}{!bySubject.length&&<tr><td colSpan="3">Aucune note disponible.</td></tr>}</tbody></table></div><div className="bulletin-footer"><p>Signature / cachet de l'établissement</p><p>Signature du responsable</p></div></section>}
-</PageShell>
-}
 function CommunicationPage({
   schoolId,
   secretaries,
