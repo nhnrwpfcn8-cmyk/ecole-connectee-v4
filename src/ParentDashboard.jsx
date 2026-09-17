@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
+import ParentDoc from "./ParentDoc";
 
 const MENU = [
   { id: "home", icon: "🏠", label: "Accueil" },
@@ -7,6 +8,7 @@ const MENU = [
   { id: "grades", icon: "📊", label: "Notes" },
   { id: "attendance", icon: "🕐", label: "Présence" },
   { id: "bulletins", icon: "📄", label: "Bulletins" },
+  { id: "documents", icon: "📁", label: "Mes documents" },
   { id: "communication", icon: "💬", label: "Communication" },
   {
     id: "administrative",
@@ -2810,6 +2812,15 @@ async function sendReply(messageItem) {
 
     if (page === "bulletins")
       return <BulletinsPage />;
+
+    if (page === "documents")
+  return (
+    <ParentDoc
+      schoolId={schoolId}
+      parentId={currentParentId}
+      onBack={() => setPage("home")}
+    />
+  );
 
     if (page === "communication")
   return CommunicationPage();
