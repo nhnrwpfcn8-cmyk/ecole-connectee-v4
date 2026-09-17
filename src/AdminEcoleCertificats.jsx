@@ -508,6 +508,10 @@ export default function AdminEcoleCertificats({
     }
 
     .certificate {
+      width: 210mm;
+      height: 297mm;
+      min-height: 297mm;
+      max-height: 297mm;
       page-break-after: avoid;
       page-break-before: avoid;
       page-break-inside: avoid;
@@ -797,13 +801,43 @@ export default function AdminEcoleCertificats({
     }
   }
 
+  // MODIFICATION 1 :
+  // Impression dans une fenêtre dédiée pour éviter la page blanche.
+  // MODIFICATION 2 :
+  // Le HTML imprimé utilise déjà le format A4 210mm x 297mm.
   function handlePrint() {
     if (!selectedStudent) {
       alert("Veuillez sélectionner un élève.");
       return;
     }
 
-    window.print();
+    const certificateHtml =
+      buildCertificateHtml();
+
+    const printWindow = window.open(
+      "",
+      "_blank",
+      "width=900,height=1200"
+    );
+
+    if (!printWindow) {
+      alert(
+        "La fenêtre d'impression a été bloquée par le navigateur."
+      );
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(
+      certificateHtml
+    );
+    printWindow.document.close();
+
+    printWindow.focus();
+
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
   }
 
   if (loading) {
@@ -1011,11 +1045,15 @@ export default function AdminEcoleCertificats({
           overflow-x: auto;
         }
 
+        /*
+         * MODIFICATION 2 :
+         * Aperçu certificat au format A4 réel.
+         */
         .certificate {
-          width: 794px;
-          height: 1123px;
-          min-height: 1123px;
-          max-height: 1123px;
+          width: 210mm;
+          height: 297mm;
+          min-height: 297mm;
+          max-height: 297mm;
           margin: 0 auto;
           background: #ffffff;
           color: #000000;
