@@ -41,7 +41,11 @@ function formatDate(value) {
 }
 
 function formatAverage(value) {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(Number(value))
+  ) {
     return "-";
   }
 
@@ -49,12 +53,18 @@ function formatAverage(value) {
 }
 
 function formatCoefficient(value) {
-  if (value === null || value === undefined || !Number.isFinite(Number(value))) {
+  if (
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(Number(value))
+  ) {
     return "-";
   }
 
   const number = Number(value);
-  return Number.isInteger(number) ? String(number) : number.toFixed(2).replace(".", ",");
+  return Number.isInteger(number)
+    ? String(number)
+    : number.toFixed(2).replace(".", ",");
 }
 
 export default function AdminEcoleNotesBulletinsPage({
@@ -138,9 +148,15 @@ export default function AdminEcoleNotesBulletinsPage({
 
   /* =========================================================
      CALCUL DES BULLETINS
-     Devoir = moyenne des Devoir 1 et Devoir 2 normalisés sur 20.
-     Composition = note de composition normalisée sur 20.
-     Moy /20 = moyenne pondérée de toutes les notes du sujet.
+
+     Règle du bulletin :
+     - Devoir 1 et Devoir 2 sont deux notes distinctes.
+     - La note de devoir = moyenne de D1 et D2 disponibles.
+     - La moyenne de matière = moyenne(note de devoir, composition).
+     - Le coefficient de la matière est pris sur la composition lorsqu'elle
+       existe, sinon sur le premier devoir disponible.
+     - Moy × Coef = moyenne de matière × coefficient.
+     - Moyenne générale = somme(Moy × Coef) / somme(Coefficients).
   ========================================================= */
   const bulletinRows = useMemo(() => {
     const sourceStudents = studentId
@@ -164,94 +180,117 @@ export default function AdminEcoleNotesBulletinsPage({
 
       const subjectsRows = Object.entries(bySubject).map(
         ([subjectKey, rows]) => {
-          const devoirRows = rows.filter((row) => {
-            const assessment = assessments.find(
-              (item) => item.id === row.assessment_id
-            );
+          const getAssessment = (row) =>
+            assessments.find((item) => item.id === row.assessment_id) || null;
 
-            return (
-              assessment?.assessment_slot === "devoir_1" ||
-              assessment?.assessment_slot === "devoir_2"
-            );
-          });
-
-          const compositionRow = rows.find((row) => {
-            const assessment = assessments.find(
-              (item) => item.id === row.assessment_id
-            );
-
-            return assessment?.assessment_slot === "composition";
-          });
-
-          const devoirScores = devoirRows
-            .map((row) => {
-              const score = Number(row.score);
-              const max = Number(row.max_score) || 20;
-
-              if (!Number.isFinite(score) || max <= 0) return null;
-              return (score / max) * 20;
-            })
-            .filter((value) => value !== null);
-
-          const devoir = devoirScores.length
-            ? devoirScores.reduce((sum, value) => sum + value, 0) /
-              devoirScores.length
-            : null;
-
-          const comp =
-            compositionRow && Number.isFinite(Number(compositionRow.score))
-              ? (Number(compositionRow.score) /
-                  (Number(compositionRow.max_score) || 20)) *
-                20
-              : null;
-
-          const weighted = rows.reduce((sum, row) => {
-            const score = Number(row.score);
-            const max = Number(row.max_score) || 20;
-            const coefficient = Number(row.coefficient) || 1;
-
-            if (!Number.isFinite(score) || max <= 0) return sum;
-
-            return sum + (score / max) * 20 * coefficient;
-          }, 0);
-
-          const coefficients = rows.reduce(
-            (sum, row) => sum + (Number(row.coefficient) || 1),
-            0
+          const devoir1Row = rows.find(
+            (row) => getAssessment(row)?.assessment_slot === "devoir_1"
           );
 
-          const subjectAverage =
-            coefficients > 0 ? weighted / coefficients : null;
+          const devoir2Row = rows.find(
+            (row) => getAssessment(row)?.assessment_slot === "devoir_2"
+          );
+
+          const compositionRow = rows.find(
+            (row) => getAssessment(row)?.assessment_slot === "composition"
+          );
+
+          const normalizeScore = (row) => {
+            if (!row) return null;
+
+            const score = Number(row.score);
+            const max = Number(row.max_score) || 20;
+
+            if (!Number.isFinite(score) || max <= 0) return null;
+
+            return (score / max) * 20;
+          };
+
+          const devoir1 = normalizeScore(devoir1Row);
+          const devoir2 = normalizeScore(devoir2Row);
+          const comp = normalizeScore(compositionRow);
+
+          const devoirScores = [devoir1, devoir2].filter(
+            (value) => value !== null
+          );
+
+          const devoir =
+            devoirScores.length > 0
+              ? devoirScores.reduce((sum, value) => sum + value, 0) /
+                devoirScores.length
+              : null;
+
+          let subjectAverage = null;
+
+          if (devoir !== null && comp !== null) {
+            subjectAverage = (devoir + comp) / 2;
+          } else if (devoir !== null) {
+            subjectAverage = devoir;
+          } else if (comp !== null) {
+            subjectAverage = comp;
+          }
+
+          const coefficientRow =
+            compositionRow || devoir2Row || devoir1Row || rows[0] || null;
+
+          const coefficient =
+            Number(coefficientRow?.coefficient) > 0
+              ? Number(coefficientRow.coefficient)
+              : 1;
+
+          const weighted =
+            subjectAverage !== null
+              ? subjectAverage * coefficient
+              : null;
+
+          const appreciation = rows
+            .slice()
+            .sort(
+              (a, b) =>
+                new Date(b.updated_at || b.created_at || 0) -
+                new Date(a.updated_at || a.created_at || 0)
+            )
+            .find((row) => row.appreciation)?.appreciation || "";
 
           return {
             subjectId: subjectKey === "unknown" ? null : subjectKey,
             subjectName: subjectMap[subjectKey]?.name || "Matière",
+            devoir1,
+            devoir2,
             devoir,
             comp,
             average: subjectAverage,
-            coefficient: coefficients || 1,
+            coefficient,
             weighted,
-            appreciation: rows
-              .slice()
-              .sort(
-                (a, b) =>
-                  new Date(b.updated_at || b.created_at || 0) -
-                  new Date(a.updated_at || a.created_at || 0)
-              )
-              .find((row) => row.appreciation)?.appreciation || "",
+            appreciation,
           };
         }
       );
 
-      const allScores = subjectsRows
-        .filter((row) => row.average !== null)
-        .map((row) => row.average);
+      const validSubjects = subjectsRows.filter(
+        (row) => row.average !== null && row.weighted !== null
+      );
+
+      const totalWeighted = validSubjects.reduce(
+        (sum, row) => sum + Number(row.weighted || 0),
+        0
+      );
+
+      const totalCoefficient = validSubjects.reduce(
+        (sum, row) => sum + Number(row.coefficient || 0),
+        0
+      );
+
+      const generalAverage =
+        totalCoefficient > 0 ? totalWeighted / totalCoefficient : null;
 
       return {
         student,
         className: classMap[student.class_id]?.name || "-",
         subjects: subjectsRows,
-        generalAverage: average(allScores),
+        totalWeighted,
+        totalCoefficient,
+        generalAverage,
       };
     });
   }, [
@@ -267,7 +306,6 @@ export default function AdminEcoleNotesBulletinsPage({
 
   /* =========================================================
      CLASSEMENT
-     Le rang est calculé sur tous les élèves actifs de la même classe.
   ========================================================= */
   const classRankMap = useMemo(() => {
     const byClass = {};
@@ -280,32 +318,83 @@ export default function AdminEcoleNotesBulletinsPage({
       );
 
       const bySubject = {};
+
       studentGrades.forEach((grade) => {
         const key = String(grade.subject_id || "unknown");
         if (!bySubject[key]) bySubject[key] = [];
         bySubject[key].push(grade);
       });
 
-      const averages = Object.values(bySubject)
-        .map((rows) => {
-          const weighted = rows.reduce((sum, row) => {
-            const score = Number(row.score);
-            const max = Number(row.max_score) || 20;
-            const coefficient = Number(row.coefficient) || 1;
-            if (!Number.isFinite(score) || max <= 0) return sum;
-            return sum + (score / max) * 20 * coefficient;
-          }, 0);
+      let totalWeighted = 0;
+      let totalCoefficient = 0;
 
-          const coefficients = rows.reduce(
-            (sum, row) => sum + (Number(row.coefficient) || 1),
-            0
-          );
+      Object.values(bySubject).forEach((rows) => {
+        const getAssessment = (row) =>
+          assessments.find((item) => item.id === row.assessment_id) || null;
 
-          return coefficients > 0 ? weighted / coefficients : null;
-        })
-        .filter((value) => value !== null);
+        const devoirRows = [
+          rows.find(
+            (row) => getAssessment(row)?.assessment_slot === "devoir_1"
+          ),
+          rows.find(
+            (row) => getAssessment(row)?.assessment_slot === "devoir_2"
+          ),
+        ].filter(Boolean);
 
-      const generalAverage = average(averages);
+        const compositionRow =
+          rows.find(
+            (row) => getAssessment(row)?.assessment_slot === "composition"
+          ) || null;
+
+        const normalizeScore = (row) => {
+          if (!row) return null;
+
+          const score = Number(row.score);
+          const max = Number(row.max_score) || 20;
+
+          if (!Number.isFinite(score) || max <= 0) return null;
+          return (score / max) * 20;
+        };
+
+        const devoirScores = devoirRows
+          .map(normalizeScore)
+          .filter((value) => value !== null);
+
+        const devoir =
+          devoirScores.length > 0
+            ? devoirScores.reduce((sum, value) => sum + value, 0) /
+              devoirScores.length
+            : null;
+
+        const comp = normalizeScore(compositionRow);
+
+        let subjectAverage = null;
+
+        if (devoir !== null && comp !== null) {
+          subjectAverage = (devoir + comp) / 2;
+        } else if (devoir !== null) {
+          subjectAverage = devoir;
+        } else if (comp !== null) {
+          subjectAverage = comp;
+        }
+
+        if (subjectAverage === null) return;
+
+        const coefficientRow =
+          compositionRow || devoirRows[1] || devoirRows[0] || rows[0] || null;
+
+        const coefficient =
+          Number(coefficientRow?.coefficient) > 0
+            ? Number(coefficientRow.coefficient)
+            : 1;
+
+        totalWeighted += subjectAverage * coefficient;
+        totalCoefficient += coefficient;
+      });
+
+      const generalAverage =
+        totalCoefficient > 0 ? totalWeighted / totalCoefficient : null;
+
       const classKey = student.class_id || "unknown";
       if (!byClass[classKey]) byClass[classKey] = [];
       byClass[classKey].push({ id: student.id, generalAverage });
@@ -313,18 +402,20 @@ export default function AdminEcoleNotesBulletinsPage({
 
     const result = {};
 
-    Object.entries(byClass).forEach(([classKey, rows]) => {
+    Object.values(byClass).forEach((rows) => {
       const ranked = rows
         .filter((row) => row.generalAverage !== null)
         .sort((a, b) => b.generalAverage - a.generalAverage);
 
+      const totalStudents = rows.length;
+
       ranked.forEach((row, index) => {
-        result[row.id] = `${index + 1}/${rows.length}`;
+        result[row.id] = `${index + 1}/${totalStudents}`;
       });
     });
 
     return result;
-  }, [activeStudents, grades, trimester]);
+  }, [activeStudents, grades, trimester, assessments]);
 
   /* =========================================================
      STORAGE : CACHET / SIGNATURE
@@ -617,10 +708,480 @@ export default function AdminEcoleNotesBulletinsPage({
     setSaving(false);
   }
 
+  /*
+   * Prépare le contenu du bulletin actuellement affiché.
+   * Le contenu reprend exactement les données déjà calculées
+   * par bulletinRows, sans modifier les calculs.
+   */
+  function buildBulletinHtml(row) {
+    if (!row?.student?.id) return "";
+
+    const student = row.student;
+
+    const subjectRowsHtml = row.subjects
+      .map(
+        (subject) => `
+          <tr>
+            <td class="discipline">${subject.subjectName || "Matière"}</td>
+            <td>${formatAverage(subject.devoir1)}</td>
+            <td>${formatAverage(subject.devoir2)}</td>
+            <td>${formatAverage(subject.comp)}</td>
+            <td><strong>${formatAverage(subject.average)}</strong></td>
+            <td>${formatCoefficient(subject.coefficient)}</td>
+            <td>${formatAverage(subject.weighted)}</td>
+            <td>—</td>
+            <td>—</td>
+            <td class="appreciation">${subject.appreciation || "—"}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const totalCoefficient = row.subjects.reduce(
+      (sum, subject) => sum + (Number(subject.coefficient) || 0),
+      0
+    );
+
+    const weightedTotal = row.subjects.reduce(
+      (sum, subject) => sum + (Number(subject.weighted) || 0),
+      0
+    );
+
+    const generalAppreciation =
+      row.generalAverage === null
+        ? "—"
+        : row.generalAverage >= 16
+        ? "Très bon travail"
+        : row.generalAverage >= 14
+        ? "Bon travail"
+        : row.generalAverage >= 10
+        ? "Travail satisfaisant"
+        : "Doit poursuivre ses efforts";
+
+    const globalAppreciation =
+      row.generalAverage === null
+        ? "—"
+        : row.generalAverage >= 16
+        ? "Excellent ensemble."
+        : row.generalAverage >= 14
+        ? "Très bon ensemble."
+        : row.generalAverage >= 10
+        ? "Ensemble satisfaisant."
+        : "Des efforts supplémentaires sont nécessaires.";
+
+    const studentCount = activeStudents.filter(
+      (item) => item.class_id === student.class_id
+    ).length;
+
+    return `
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Bulletin - ${fullStudentName(student)}</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 5mm;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #111827;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  body {
+    width: 100%;
+  }
+
+  .paper {
+    width: 100%;
+    height: 287mm;
+    overflow: hidden;
+    border: 1px solid #111827;
+    padding: 8px;
+    font-size: 8px;
+  }
+
+  .header {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 8px;
+    align-items: center;
+    border-bottom: 1px solid #111827;
+    padding-bottom: 6px;
+  }
+
+  .school-name {
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .school-meta {
+    margin-top: 2px;
+    font-size: 7px;
+    line-height: 1.25;
+  }
+
+  .title {
+    text-align: center;
+    font-weight: 800;
+  }
+
+  .title h1 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .title h2 {
+    margin: 3px 0 0;
+    font-size: 11px;
+  }
+
+  .year {
+    text-align: right;
+    font-size: 7px;
+    line-height: 1.35;
+  }
+
+  .student-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border: 1px solid #111827;
+    margin-top: 6px;
+  }
+
+  .info-cell {
+    padding: 4px;
+    min-height: 24px;
+    border-right: 1px solid #111827;
+    border-bottom: 1px solid #111827;
+    font-size: 7px;
+  }
+
+  .info-cell:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .info-cell:nth-last-child(-n+3) {
+    border-bottom: 0;
+  }
+
+  .info-label {
+    font-weight: 800;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .bulletin-table {
+    margin-top: 7px;
+    font-size: 6.5px;
+  }
+
+  .bulletin-table th,
+  .bulletin-table td {
+    border: 1px solid #111827;
+    padding: 3px 2px;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .bulletin-table th {
+    background: #f1f5f9;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .discipline {
+    text-align: left !important;
+    font-weight: 700;
+    min-width: 105px;
+  }
+
+  .appreciation {
+    text-align: left !important;
+    min-width: 110px;
+  }
+
+  .total {
+    font-weight: 800;
+    background: #f8fafc;
+  }
+
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid #111827;
+    border-top: 0;
+  }
+
+  .summary-cell {
+    padding: 5px;
+    border-right: 1px solid #111827;
+    font-size: 7px;
+  }
+
+  .summary-cell:last-child {
+    border-right: 0;
+  }
+
+  .decision {
+    border: 1px solid #111827;
+    padding: 5px;
+    margin-top: 6px;
+    font-size: 7px;
+  }
+
+  .box-title {
+    font-weight: 800;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .distinction {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+    margin-top: 5px;
+  }
+
+  .distinction span {
+    border: 1px solid #111827;
+    padding: 3px 2px;
+    text-align: center;
+    font-size: 6px;
+  }
+
+  .bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .box {
+    border: 1px solid #111827;
+    min-height: 45px;
+    padding: 5px;
+    font-size: 7px;
+  }
+
+  .signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .signature {
+    min-height: 55px;
+    text-align: center;
+    font-size: 7px;
+  }
+
+  .signature img {
+    display: block;
+    margin: 4px auto 0;
+    object-fit: contain;
+  }
+
+  @media print {
+    html,
+    body {
+      width: 210mm;
+      height: 297mm;
+      overflow: hidden;
+    }
+
+    .paper {
+      width: 200mm;
+      height: 287mm;
+      overflow: hidden;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="paper">
+    <div class="header">
+      <div>
+        <div class="school-name">${school?.name || "Établissement"}</div>
+        <div class="school-meta">
+          ${school?.address || ""}
+          ${school?.city ? `<br />${school.city}` : ""}
+          ${school?.phone ? `<br />Tél. : ${school.phone}` : ""}
+        </div>
+      </div>
+
+      <div class="title">
+        <h1>BULLETIN DE NOTES</h1>
+        <h2>${trimesterLabel}</h2>
+      </div>
+
+      <div class="year">
+        <strong>ANNÉE SCOLAIRE</strong><br />
+        ${school?.academic_year || school?.school_year || "2026 - 2027"}<br />
+        Document scolaire officiel
+      </div>
+    </div>
+
+    <div class="student-info">
+      <div class="info-cell">
+        <span class="info-label">Prénoms :</span>
+        ${student.first_name || "—"}
+      </div>
+
+      <div class="info-cell">
+        <span class="info-label">Nom :</span>
+        ${student.last_name || "—"}
+      </div>
+
+      <div class="info-cell">
+        <span class="info-label">Date de naissance :</span>
+        —
+      </div>
+
+      <div class="info-cell">
+        <span class="info-label">Classe :</span>
+        ${row.className || "—"}
+      </div>
+
+      <div class="info-cell">
+        <span class="info-label">Matricule :</span>
+        ${student.student_code || "—"}
+      </div>
+
+      <div class="info-cell">
+        <span class="info-label">Nbre d'élèves :</span>
+        ${studentCount || "—"}
+      </div>
+    </div>
+
+    <table class="bulletin-table">
+      <thead>
+        <tr>
+          <th>Disciplines</th>
+          <th>Devoir 1</th>
+          <th>Devoir 2</th>
+          <th>Composition</th>
+          <th>Moy /20</th>
+          <th>Coef</th>
+          <th>Moy × Coef</th>
+          <th>T.H</th>
+          <th>Rang</th>
+          <th>Appréciations</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        ${subjectRowsHtml}
+
+        <tr class="total">
+          <td class="discipline">TOTAL / MOYENNE GÉNÉRALE</td>
+          <td colspan="3">—</td>
+          <td>${formatAverage(row.generalAverage)}</td>
+          <td>${formatCoefficient(totalCoefficient)}</td>
+          <td>${formatAverage(weightedTotal)}</td>
+          <td>—</td>
+          <td>${classRankMap[student.id] || "—"}</td>
+          <td class="appreciation">${generalAppreciation}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <div class="summary-cell">
+        <strong>Moyenne :</strong><br />
+        ${formatAverage(row.generalAverage)} / 20
+      </div>
+
+      <div class="summary-cell">
+        <strong>Rang :</strong><br />
+        ${classRankMap[student.id] || "—"}
+      </div>
+
+      <div class="summary-cell">
+        <strong>Retards :</strong><br />
+        —
+      </div>
+
+      <div class="summary-cell">
+        <strong>Absences :</strong><br />
+        —
+      </div>
+    </div>
+
+    <div class="decision">
+      <div class="box-title">Décision du conseil</div>
+      <span>— Décision à renseigner par l'établissement.</span>
+
+      <div class="distinction">
+        <span>□ Félicitations</span>
+        <span>□ Encouragement</span>
+        <span>□ Tableau d'honneur</span>
+        <span>□ Avertissement</span>
+        <span>□ Blâme</span>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="box">
+        <div class="box-title">
+          Observations du conseil des professeurs
+        </div>
+        <div>—</div>
+      </div>
+
+      <div class="box">
+        <div class="box-title">Appréciation générale</div>
+        <div>${globalAppreciation}</div>
+      </div>
+    </div>
+
+    <div class="signatures">
+      <div class="signature">
+        <strong>LE CACHET DE L'ÉTABLISSEMENT</strong>
+
+        ${
+          stampUrl
+            ? `<img src="${stampUrl}" alt="Cachet de l'école" style="width:70px;height:55px;" />`
+            : `<div style="margin-top:25px;">—</div>`
+        }
+      </div>
+
+      <div class="signature">
+        <strong>LE CHEF D'ÉTABLISSEMENT</strong>
+
+        ${
+          signatureUrl
+            ? `<img src="${signatureUrl}" alt="Signature du chef d'établissement" style="width:110px;height:50px;" />`
+            : `<div style="margin-top:25px;">Signature : __________________</div>`
+        }
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+`;
+  }
+
   function printBulletin(row) {
     if (!row?.student?.id) return;
 
     setStudentId(row.student.id);
+
     setSelectedBulletin(
       bulletins.find(
         (bulletin) =>
@@ -635,11 +1196,153 @@ export default function AdminEcoleNotesBulletinsPage({
     setTimeout(() => window.print(), 250);
   }
 
+  /*
+   * Envoi du bulletin au(x) parent(s) lié(s) à l'élève.
+   *
+   * On conserve le même bulletin et les mêmes calculs.
+   * Le contenu A4 est enregistré dans pdf_url sous forme de data URL
+   * afin que le parent puisse retrouver exactement le bulletin envoyé.
+   */
+  async function sendBulletinToParents(row) {
+    if (!row?.student?.id) return;
+
+    const bulletin = bulletins.find(
+      (item) =>
+        item.student_id === row.student.id &&
+        item.trimester === trimester
+    );
+
+    if (!bulletin?.id) {
+      setError("Générez d'abord le bulletin avant de l'envoyer.");
+      return;
+    }
+
+    if (bulletin.status !== "validated" && bulletin.status !== "sent") {
+      setError("Le bulletin doit être validé avant son envoi.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const { data: parentLinks, error: parentsError } = await supabase
+        .from("parent_students")
+        .select(
+          `
+          parent_id,
+          parents!inner(
+            id,
+            school_id,
+            full_name,
+            profile_id,
+            active
+          )
+        `
+        )
+        .eq("student_id", row.student.id);
+
+      if (parentsError) {
+        throw parentsError;
+      }
+
+      const parents = (parentLinks || [])
+        .map((item) => item.parents)
+        .filter(
+          (parent) =>
+            parent &&
+            parent.active !== false &&
+            parent.school_id === schoolId
+        );
+
+      if (!parents.length) {
+        throw new Error(
+          "Aucun parent n'est associé à cet élève."
+        );
+      }
+
+      const html = buildBulletinHtml(row);
+
+      if (!html) {
+        throw new Error(
+          "Impossible de préparer le bulletin à envoyer."
+        );
+      }
+
+      const pdfUrl =
+        `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+
+      const now = new Date().toISOString();
+
+      const { error: bulletinError } = await supabase
+        .from("bulletins")
+        .update({
+          pdf_url: pdfUrl,
+          status: "sent",
+          sent_at: now,
+          updated_at: now,
+        })
+        .eq("id", bulletin.id)
+        .eq("school_id", schoolId);
+
+      if (bulletinError) {
+        throw bulletinError;
+      }
+
+      const notifications = parents.map((parent) => ({
+        school_id: schoolId,
+        parent_id: parent.id,
+        title: "Nouveau bulletin disponible",
+        message: `Le bulletin de ${fullStudentName(
+          row.student
+        )} pour ${trimesterLabel} a été transmis par l'établissement.`,
+        type: "bulletin",
+        reference_id: bulletin.id,
+        bulletin_id: bulletin.id,
+      }));
+
+      const { error: notificationError } = await supabase
+        .from("parent_notifications")
+        .insert(notifications);
+
+      if (notificationError) {
+        throw notificationError;
+      }
+
+      setMessage(
+        `Bulletin envoyé à ${parents.length} parent${
+          parents.length > 1 ? "s" : ""
+        } avec succès.`
+      );
+
+      await loadAll();
+
+      setSelectedBulletin({
+        ...bulletin,
+        pdf_url: pdfUrl,
+        status: "sent",
+        sent_at: now,
+      });
+    } catch (sendError) {
+      console.error("Erreur envoi bulletin :", sendError);
+
+      setError(
+        sendError?.message ||
+          "Impossible d'envoyer le bulletin aux parents."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const selectedBulletinRow = useMemo(() => {
     if (!selectedStudent) return null;
+
     return (
-      bulletinRows.find((row) => row.student.id === selectedStudent.id) ||
-      null
+      bulletinRows.find(
+        (row) => row.student.id === selectedStudent.id
+      ) || null
     );
   }, [bulletinRows, selectedStudent]);
 
@@ -898,7 +1601,14 @@ export default function AdminEcoleNotesBulletinsPage({
           @media print {
             @page {
               size: A4 portrait;
-              margin: 8mm;
+              margin: 5mm;
+            }
+
+            html,
+            body {
+              width: 210mm !important;
+              height: 297mm !important;
+              overflow: hidden !important;
             }
 
             body * {
@@ -914,15 +1624,128 @@ export default function AdminEcoleNotesBulletinsPage({
               position: absolute;
               left: 0;
               top: 0;
-              width: 100%;
+              width: 200mm;
+              height: 287mm;
               max-width: none;
               margin: 0;
               padding: 0;
+              overflow: hidden;
             }
 
             .ec-bulletin-paper {
+              width: 200mm;
+              height: 287mm;
               border: 1px solid #111827;
-              padding: 14px;
+              padding: 8mm;
+              overflow: hidden;
+              font-size: 8px;
+              zoom: 0.78;
+            }
+
+            .ec-bulletin-header {
+              gap: 8px;
+              padding-bottom: 7px;
+              border-bottom-width: 1px;
+            }
+
+            .ec-bulletin-title h1 {
+              font-size: 16px;
+            }
+
+            .ec-bulletin-title h2 {
+              margin-top: 4px;
+              font-size: 12px;
+            }
+
+            .ec-bulletin-school-name {
+              font-size: 12px;
+            }
+
+            .ec-bulletin-school-meta,
+            .ec-bulletin-year {
+              font-size: 8px;
+            }
+
+            .ec-bulletin-student-info {
+              margin-top: 7px;
+            }
+
+            .ec-bulletin-info-cell {
+              padding: 4px 5px;
+              min-height: 25px;
+              font-size: 8px;
+            }
+
+            .ec-bulletin-info-label {
+              min-width: 75px;
+            }
+
+            .ec-bulletin-table {
+              margin-top: 8px;
+              font-size: 7px;
+            }
+
+            .ec-bulletin-table th,
+            .ec-bulletin-table td {
+              padding: 3px 2px;
+            }
+
+            .ec-bulletin-table .discipline {
+              min-width: 105px;
+            }
+
+            .ec-bulletin-table .appreciation {
+              min-width: 110px;
+            }
+
+            .ec-bulletin-summary-cell {
+              padding: 5px;
+              font-size: 8px;
+            }
+
+            .ec-bulletin-decision {
+              margin-top: 7px;
+              padding: 6px;
+              font-size: 8px;
+            }
+
+            .ec-bulletin-box-title {
+              font-size: 8px;
+              margin-bottom: 5px;
+            }
+
+            .ec-bulletin-distinction {
+              gap: 3px;
+              margin-top: 5px;
+            }
+
+            .ec-bulletin-distinction span {
+              padding: 4px 2px;
+              font-size: 7px;
+            }
+
+            .ec-bulletin-bottom {
+              gap: 7px;
+              margin-top: 7px;
+            }
+
+            .ec-bulletin-box {
+              min-height: 55px;
+              padding: 6px;
+            }
+
+            .ec-bulletin-signatures {
+              gap: 20px;
+              margin-top: 10px;
+            }
+
+            .ec-bulletin-signature-box {
+              min-height: 75px;
+              font-size: 8px;
+            }
+
+            .ec-bulletin-signature-box img {
+              margin-top: 5px;
             }
 
             .no-print {
@@ -1009,9 +1832,7 @@ export default function AdminEcoleNotesBulletinsPage({
         </button>
       </div>
 
-      {/* =====================================================
-          NOTES
-      ===================================================== */}
+      {/* NOTES */}
       {activeTab === "notes" && (
         <div className="ec-card no-print">
           <h3>Notes des élèves</h3>
@@ -1073,9 +1894,7 @@ export default function AdminEcoleNotesBulletinsPage({
             />
           </div>
 
-          {!search.trim() ? (
-            <p>Recherchez un élève pour afficher ses notes.</p>
-          ) : gradeRows.length === 0 ? (
+          {gradeRows.length === 0 ? (
             <p>Aucune note enregistrée pour les filtres sélectionnés.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
@@ -1090,17 +1909,22 @@ export default function AdminEcoleNotesBulletinsPage({
                       "Coefficient",
                       "Date",
                     ].map((header) => (
-                      <th key={header} style={{ textAlign: "left", padding: 10 }}>
+                      <th
+                        key={header}
+                        style={{ textAlign: "left", padding: 10 }}
+                      >
                         {header}
                       </th>
                     ))}
                   </tr>
                 </thead>
+
                 <tbody>
                   {gradeRows.map((grade) => {
                     const student = activeStudents.find(
                       (item) => item.id === grade.student_id
                     );
+
                     const assessment = assessments.find(
                       (item) => item.id === grade.assessment_id
                     );
@@ -1110,18 +1934,24 @@ export default function AdminEcoleNotesBulletinsPage({
                         <td style={{ padding: 10 }}>
                           {fullStudentName(student)}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {assessment?.title || "-"}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {subjectMap[grade.subject_id]?.name || "-"}
                         </td>
+
                         <td style={{ padding: 10, fontWeight: 700 }}>
-                          {grade.score ?? "-"} / {assessment?.max_score || 20}
+                          {grade.score ?? "-"} /{" "}
+                          {assessment?.max_score || 20}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {formatCoefficient(grade.coefficient)}
                         </td>
+
                         <td style={{ padding: 10 }}>
                           {formatDate(assessment?.evaluation_date)}
                         </td>
@@ -1135,9 +1965,7 @@ export default function AdminEcoleNotesBulletinsPage({
         </div>
       )}
 
-      {/* =====================================================
-          BULLETINS
-      ===================================================== */}
+      {/* BULLETINS */}
       {activeTab === "bulletins" && (
         <div className="ec-card no-print">
           <div
@@ -1161,6 +1989,7 @@ export default function AdminEcoleNotesBulletinsPage({
               }}
             >
               <option value="">Toutes les classes</option>
+
               {classes.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
@@ -1178,6 +2007,7 @@ export default function AdminEcoleNotesBulletinsPage({
               }}
             >
               <option value="">Tous les élèves</option>
+
               {filteredStudents.map((student) => (
                 <option key={student.id} value={student.id}>
                   {fullStudentName(student)}
@@ -1218,6 +2048,7 @@ export default function AdminEcoleNotesBulletinsPage({
                     >
                       <div>
                         <strong>{fullStudentName(row.student)}</strong>
+
                         <div style={{ color: "#64748b", marginTop: 4 }}>
                           {row.className} · Moyenne :{" "}
                           <strong>
@@ -1251,6 +2082,20 @@ export default function AdminEcoleNotesBulletinsPage({
                           </button>
                         )}
 
+                        {existing &&
+                          (existing.status === "validated" ||
+                            existing.status === "sent") && (
+                            <button
+                              className="ec-btn"
+                              disabled={saving}
+                              onClick={() =>
+                                sendBulletinToParents(row)
+                              }
+                            >
+                              📤 Envoyer aux parents
+                            </button>
+                          )}
+
                         <button
                           className="ec-btn"
                           onClick={() => printBulletin(row)}
@@ -1261,40 +2106,101 @@ export default function AdminEcoleNotesBulletinsPage({
                     </div>
 
                     <div style={{ marginTop: 12, overflowX: "auto" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                        }}
+                      >
                         <thead>
                           <tr>
-                            <th style={{ textAlign: "left", padding: 8 }}>
+                            <th
+                              style={{
+                                textAlign: "left",
+                                padding: 8,
+                              }}
+                            >
                               Discipline
                             </th>
-                            <th style={{ padding: 8 }}>Devoir</th>
-                            <th style={{ padding: 8 }}>Comp</th>
+                            <th style={{ padding: 8 }}>Devoir 1</th>
+                            <th style={{ padding: 8 }}>Devoir 2</th>
+                            <th style={{ padding: 8 }}>
+                              Composition
+                            </th>
                             <th style={{ padding: 8 }}>Moy /20</th>
                             <th style={{ padding: 8 }}>Coef</th>
-                            <th style={{ padding: 8 }}>Moy × Coef</th>
+                            <th style={{ padding: 8 }}>
+                              Moy × Coef
+                            </th>
                           </tr>
                         </thead>
+
                         <tbody>
                           {row.subjects.map((subject) => (
                             <tr
-                              key={`${row.student.id}-${subject.subjectId || subject.subjectName}`}
+                              key={`${row.student.id}-${
+                                subject.subjectId ||
+                                subject.subjectName
+                              }`}
                             >
                               <td style={{ padding: 8 }}>
                                 {subject.subjectName}
                               </td>
-                              <td style={{ padding: 8, textAlign: "center" }}>
-                                {formatAverage(subject.devoir)}
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
+                                {formatAverage(subject.devoir1)}
                               </td>
-                              <td style={{ padding: 8, textAlign: "center" }}>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
+                                {formatAverage(subject.devoir2)}
+                              </td>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
                                 {formatAverage(subject.comp)}
                               </td>
-                              <td style={{ padding: 8, textAlign: "center", fontWeight: 700 }}>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                  fontWeight: 700,
+                                }}
+                              >
                                 {formatAverage(subject.average)}
                               </td>
-                              <td style={{ padding: 8, textAlign: "center" }}>
-                                {formatCoefficient(subject.coefficient)}
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
+                                {formatCoefficient(
+                                  subject.coefficient
+                                )}
                               </td>
-                              <td style={{ padding: 8, textAlign: "center" }}>
+
+                              <td
+                                style={{
+                                  padding: 8,
+                                  textAlign: "center",
+                                }}
+                              >
                                 {formatAverage(subject.weighted)}
                               </td>
                             </tr>
@@ -1304,8 +2210,15 @@ export default function AdminEcoleNotesBulletinsPage({
                     </div>
 
                     {existing && (
-                      <div style={{ marginTop: 10, fontSize: 13, color: "#475569" }}>
-                        Statut : <strong>{existing.status}</strong>
+                      <div
+                        style={{
+                          marginTop: 10,
+                          fontSize: 13,
+                          color: "#475569",
+                        }}
+                      >
+                        Statut :{" "}
+                        <strong>{existing.status}</strong>
                       </div>
                     )}
                   </div>
@@ -1316,9 +2229,7 @@ export default function AdminEcoleNotesBulletinsPage({
         </div>
       )}
 
-      {/* =====================================================
-          BULLETIN IMPRIMABLE — STYLE OFFICIEL
-      ===================================================== */}
+      {/* BULLETIN IMPRIMABLE — STYLE OFFICIEL */}
       {selectedStudent && selectedBulletinRow && (
         <div className="ec-bulletin-print">
           <div className="ec-bulletin-paper">
@@ -1327,10 +2238,22 @@ export default function AdminEcoleNotesBulletinsPage({
                 <div className="ec-bulletin-school-name">
                   {school?.name || "Établissement"}
                 </div>
+
                 <div className="ec-bulletin-school-meta">
                   {school?.address || ""}
-                  {school?.city ? <><br />{school.city}</> : null}
-                  {school?.phone ? <><br />Tél. : {school.phone}</> : null}
+                  {school?.city ? (
+                    <>
+                      <br />
+                      {school.city}
+                    </>
+                  ) : null}
+
+                  {school?.phone ? (
+                    <>
+                      <br />
+                      Tél. : {school.phone}
+                    </>
+                  ) : null}
                 </div>
               </div>
 
@@ -1342,7 +2265,9 @@ export default function AdminEcoleNotesBulletinsPage({
               <div className="ec-bulletin-year">
                 <strong>ANNÉE SCOLAIRE</strong>
                 <br />
-                {school?.academic_year || school?.school_year || "2026 - 2027"}
+                {school?.academic_year ||
+                  school?.school_year ||
+                  "2026 - 2027"}
                 <br />
                 <span>Document scolaire officiel</span>
               </div>
@@ -1350,31 +2275,53 @@ export default function AdminEcoleNotesBulletinsPage({
 
             <div className="ec-bulletin-student-info">
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Prénoms :</span>
+                <span className="ec-bulletin-info-label">
+                  Prénoms :
+                </span>
                 {selectedStudent.first_name || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Nom :</span>
+                <span className="ec-bulletin-info-label">
+                  Nom :
+                </span>
                 {selectedStudent.last_name || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Date de naissance :</span>
+                <span className="ec-bulletin-info-label">
+                  Date de naissance :
+                </span>
                 —
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Classe :</span>
+                <span className="ec-bulletin-info-label">
+                  Classe :
+                </span>
                 {selectedBulletinRow.className || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Matricule :</span>
+                <span className="ec-bulletin-info-label">
+                  Matricule :
+                </span>
                 {selectedStudent.student_code || "—"}
               </div>
+
               <div className="ec-bulletin-info-cell">
-                <span className="ec-bulletin-info-label">Nbre d'élèves :</span>
+                <span className="ec-bulletin-info-label">
+                  Nbre d'élèves :
+                </span>
+
                 {classId
-                  ? activeStudents.filter((student) => student.class_id === classId).length || "—"
+                  ? activeStudents.filter(
+                      (student) => student.class_id === classId
+                    ).length || "—"
                   : activeStudents.filter(
-                      (student) => student.class_id === selectedStudent.class_id
+                      (student) =>
+                        student.class_id ===
+                        selectedStudent.class_id
                     ).length || "—"}
               </div>
             </div>
@@ -1383,8 +2330,9 @@ export default function AdminEcoleNotesBulletinsPage({
               <thead>
                 <tr>
                   <th>Disciplines</th>
-                  <th>Devoir</th>
-                  <th>Comp</th>
+                  <th>Devoir 1</th>
+                  <th>Devoir 2</th>
+                  <th>Composition</th>
                   <th>Moy /20</th>
                   <th>Coef</th>
                   <th>Moy × Coef</th>
@@ -1393,17 +2341,48 @@ export default function AdminEcoleNotesBulletinsPage({
                   <th>Appréciations</th>
                 </tr>
               </thead>
+
               <tbody>
                 {selectedBulletinRow.subjects.map((subject) => (
-                  <tr key={subject.subjectId || subject.subjectName}>
-                    <td className="discipline">{subject.subjectName}</td>
-                    <td>{formatAverage(subject.devoir)}</td>
-                    <td>{formatAverage(subject.comp)}</td>
-                    <td><strong>{formatAverage(subject.average)}</strong></td>
-                    <td>{formatCoefficient(subject.coefficient)}</td>
-                    <td>{formatAverage(subject.weighted)}</td>
+                  <tr
+                    key={
+                      subject.subjectId ||
+                      subject.subjectName
+                    }
+                  >
+                    <td className="discipline">
+                      {subject.subjectName}
+                    </td>
+
+                    <td>
+                      {formatAverage(subject.devoir1)}
+                    </td>
+
+                    <td>
+                      {formatAverage(subject.devoir2)}
+                    </td>
+
+                    <td>
+                      {formatAverage(subject.comp)}
+                    </td>
+
+                    <td>
+                      <strong>
+                        {formatAverage(subject.average)}
+                      </strong>
+                    </td>
+
+                    <td>
+                      {formatCoefficient(subject.coefficient)}
+                    </td>
+
+                    <td>
+                      {formatAverage(subject.weighted)}
+                    </td>
+
                     <td>—</td>
                     <td>—</td>
+
                     <td className="appreciation">
                       {subject.appreciation || "—"}
                     </td>
@@ -1411,29 +2390,49 @@ export default function AdminEcoleNotesBulletinsPage({
                 ))}
 
                 <tr className="ec-bulletin-total">
-                  <td className="discipline">TOTAL / MOYENNE GÉNÉRALE</td>
-                  <td colSpan={2}>—</td>
-                  <td>{formatAverage(selectedBulletinRow.generalAverage)}</td>
+                  <td className="discipline">
+                    TOTAL / MOYENNE GÉNÉRALE
+                  </td>
+
+                  <td colSpan={3}>—</td>
+
+                  <td>
+                    {formatAverage(
+                      selectedBulletinRow.generalAverage
+                    )}
+                  </td>
+
                   <td>
                     {formatCoefficient(
                       selectedBulletinRow.subjects.reduce(
-                        (sum, subject) => sum + (Number(subject.coefficient) || 0),
+                        (sum, subject) =>
+                          sum +
+                          (Number(subject.coefficient) || 0),
                         0
                       )
                     )}
                   </td>
+
                   <td>
                     {formatAverage(
                       selectedBulletinRow.subjects.reduce(
-                        (sum, subject) => sum + (Number(subject.weighted) || 0),
+                        (sum, subject) =>
+                          sum +
+                          (Number(subject.weighted) || 0),
                         0
                       )
                     )}
                   </td>
+
                   <td>—</td>
-                  <td>{classRankMap[selectedStudent.id] || "—"}</td>
+
+                  <td>
+                    {classRankMap[selectedStudent.id] || "—"}
+                  </td>
+
                   <td className="appreciation">
-                    {selectedBulletinRow.generalAverage === null
+                    {selectedBulletinRow.generalAverage ===
+                    null
                       ? "—"
                       : selectedBulletinRow.generalAverage >= 16
                       ? "Très bon travail"
@@ -1449,26 +2448,41 @@ export default function AdminEcoleNotesBulletinsPage({
 
             <div className="ec-bulletin-summary">
               <div className="ec-bulletin-summary-cell">
-                <strong>Moyenne :</strong><br />
-                {formatAverage(selectedBulletinRow.generalAverage)} / 20
+                <strong>Moyenne :</strong>
+                <br />
+                {formatAverage(
+                  selectedBulletinRow.generalAverage
+                )}{" "}
+                / 20
               </div>
+
               <div className="ec-bulletin-summary-cell">
-                <strong>Rang :</strong><br />
+                <strong>Rang :</strong>
+                <br />
                 {classRankMap[selectedStudent.id] || "—"}
               </div>
+
               <div className="ec-bulletin-summary-cell">
-                <strong>Retards :</strong><br />
+                <strong>Retards :</strong>
+                <br />
                 —
               </div>
+
               <div className="ec-bulletin-summary-cell">
-                <strong>Absences :</strong><br />
+                <strong>Absences :</strong>
+                <br />
                 —
               </div>
             </div>
 
             <div className="ec-bulletin-decision">
-              <div className="ec-bulletin-box-title">Décision du conseil</div>
-              <span>— Décision à renseigner par l'établissement.</span>
+              <div className="ec-bulletin-box-title">
+                Décision du conseil
+              </div>
+
+              <span>
+                — Décision à renseigner par l'établissement.
+              </span>
 
               <div className="ec-bulletin-distinction">
                 <span>□ Félicitations</span>
@@ -1488,9 +2502,13 @@ export default function AdminEcoleNotesBulletinsPage({
               </div>
 
               <div className="ec-bulletin-box">
-                <div className="ec-bulletin-box-title">Appréciation générale</div>
+                <div className="ec-bulletin-box-title">
+                  Appréciation générale
+                </div>
+
                 <div>
-                  {selectedBulletinRow.generalAverage === null
+                  {selectedBulletinRow.generalAverage ===
+                  null
                     ? "—"
                     : selectedBulletinRow.generalAverage >= 16
                     ? "Excellent ensemble."
@@ -1505,12 +2523,18 @@ export default function AdminEcoleNotesBulletinsPage({
 
             <div className="ec-bulletin-signatures">
               <div className="ec-bulletin-signature-box">
-                <strong>LE CACHET DE L'ÉTABLISSEMENT</strong>
+                <strong>
+                  LE CACHET DE L'ÉTABLISSEMENT
+                </strong>
+
                 {stampUrl ? (
                   <img
                     src={stampUrl}
                     alt="Cachet de l'école"
-                    style={{ width: 120, height: 100 }}
+                    style={{
+                      width: 120,
+                      height: 100,
+                    }}
                   />
                 ) : (
                   <div style={{ marginTop: 55 }}>—</div>
@@ -1518,15 +2542,23 @@ export default function AdminEcoleNotesBulletinsPage({
               </div>
 
               <div className="ec-bulletin-signature-box">
-                <strong>LE CHEF D'ÉTABLISSEMENT</strong>
+                <strong>
+                  LE CHEF D'ÉTABLISSEMENT
+                </strong>
+
                 {signatureUrl ? (
                   <img
                     src={signatureUrl}
                     alt="Signature du chef d'établissement"
-                    style={{ width: 200, height: 90 }}
+                    style={{
+                      width: 200,
+                      height: 90,
+                    }}
                   />
                 ) : (
-                  <div style={{ marginTop: 55 }}>Signature : __________________</div>
+                  <div style={{ marginTop: 55 }}>
+                    Signature : __________________
+                  </div>
                 )}
               </div>
             </div>
