@@ -137,6 +137,7 @@ class DashboardPageErrorBoundary extends React.Component {
 
 export default function AdminEcoleDashboard({ profile }) {
 const [activePage, setActivePage] = useState("overview");
+const [apeSection, setApeSection] = useState("activities");
 
 const [currentProfile, setCurrentProfile] = useState(
 profile || null
@@ -991,10 +992,54 @@ return (
 
 case "ape":
 return (
-<AdminEcoleAPEActivitiesPage
-  schoolId={schoolId}
-  onBack={() => setActivePage("overview")}
-/>
+<div>
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "12px",
+      marginBottom: "20px",
+    }}
+  >
+    <button
+      type="button"
+      className={
+        apeSection === "activities"
+          ? "ec-btn ec-btn-primary"
+          : "ec-btn ec-btn-secondary"
+      }
+      onClick={() => setApeSection("activities")}
+      style={{ color: "#000" }}
+    >
+      📅 Activités / Projets
+    </button>
+
+    <button
+      type="button"
+      className={
+        apeSection === "members"
+          ? "ec-btn ec-btn-primary"
+          : "ec-btn ec-btn-secondary"
+      }
+      onClick={() => setApeSection("members")}
+      style={{ color: "#000" }}
+    >
+      👥 Membres APE
+    </button>
+  </div>
+
+  {apeSection === "members" ? (
+    <AdminEcoleAPEMembersPage
+      schoolId={schoolId}
+      onBack={() => setApeSection("activities")}
+    />
+  ) : (
+    <AdminEcoleAPEActivitiesPage
+      schoolId={schoolId}
+      onBack={() => setActivePage("overview")}
+    />
+  )}
+</div>
 );
     
 case "settings":
