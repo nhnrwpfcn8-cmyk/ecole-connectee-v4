@@ -1312,12 +1312,48 @@ export default function AdminEcoleNotesBulletinsPage({
         bulletin_id: bulletin.id,
       }));
 
-      const { error: notificationError } = await supabase
-        .from("parent_notifications")
-        .insert(notifications);
+      /*
+       * IMPORTANT :
+       * On ne supprime pas la contrainte unique de la base.
+       * On vérifie d'abord quelles notifications existent déjà.
+       * Ainsi, un deuxième envoi du même bulletin ne provoque pas
+       * l'erreur "parent_notification_bulletin_unique".
+       */
+      const parentIds = parents.map((parent) => parent.id);
 
-      if (notificationError) {
-        throw notificationError;
+      const { data: existingNotifications, error: existingError } =
+        await supabase
+          .from("parent_notifications")
+          .select("parent_id, bulletin_id")
+          .eq("bulletin_id", bulletin.id)
+          .in("parent_id", parentIds);
+
+      if (existingError) {
+        throw existingError;
+      }
+
+      const existingKeys = new Set(
+        (existingNotifications || []).map(
+          (notification) =>
+            `${notification.parent_id}:${notification.bulletin_id}`
+        )
+      );
+
+      const notificationsToInsert = notifications.filter(
+        (notification) =>
+          !existingKeys.has(
+            `${notification.parent_id}:${notification.bulletin_id}`
+          )
+      );
+
+      if (notificationsToInsert.length > 0) {
+        const { error: notificationError } = await supabase
+          .from("parent_notifications")
+          .insert(notificationsToInsert);
+
+        if (notificationError) {
+          throw notificationError;
+        }
       }
 
       setMessage(
