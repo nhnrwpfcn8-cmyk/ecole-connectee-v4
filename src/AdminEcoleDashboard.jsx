@@ -3,6 +3,7 @@ import { supabase } from "./lib/supabase";
 import AdminEcoleNotesBulletinsPage from "./AdminEcoleNotesBulletinsPage";
 import AdminEcoleInscriptionsPage from "./AdminEcoleInscriptionsPage";
 import AdminEcoleCertificats from "./AdminEcoleCertificats";
+import AdminEcoleAPEActivitiesPage from "./AdminEcoleAPEActivitiesPage";
 
 /* =========================================================
 CONFIGURATION
@@ -23,6 +24,7 @@ const MENU = [
 { id: "communication", label: "Communication", icon: "📢" },
 { id: "documents", label: "Documents administratifs", icon: "📁" },
   { id: "certificats", label: "Certificats & attestations", icon: "📜" },
+  { id: "ape", label: "APE", icon: "🤝" },
 { id: "settings", label: "Paramètres", icon: "⚙️" },
 ];
 
@@ -986,6 +988,14 @@ return (
 />
 );   
 
+case "ape":
+return (
+<AdminEcoleAPEActivitiesPage
+  schoolId={schoolId}
+  onBack={() => setActivePage("overview")}
+/>
+);
+    
 case "settings":
 return (
 <SettingsPage
