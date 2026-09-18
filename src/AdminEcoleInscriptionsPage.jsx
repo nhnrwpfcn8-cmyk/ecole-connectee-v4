@@ -20,6 +20,7 @@ export default function AdminEcoleInscriptionsPage({
     student_code: "",
     family_identifier: "",
     parent_full_name: "",
+    parent_relationship: "",
     parent_phone: "",
     parent_email: "",
     parent_address: "",
@@ -105,6 +106,7 @@ export default function AdminEcoleInscriptionsPage({
       !form.class_id ||
       !form.family_identifier.trim() ||
       !form.parent_full_name.trim() ||
+      !form.parent_relationship ||
       !form.parent_phone.trim()
     ) {
       setError(
@@ -143,6 +145,8 @@ export default function AdminEcoleInscriptionsPage({
                 form.family_identifier.trim(),
               parentFullName:
                 form.parent_full_name.trim(),
+              parentRelationship:
+                form.parent_relationship,
               parentPhone:
                 form.parent_phone.trim(),
               parentEmail:
@@ -218,6 +222,7 @@ export default function AdminEcoleInscriptionsPage({
         student_code: "",
         family_identifier: "",
         parent_full_name: "",
+        parent_relationship: "",
         parent_phone: "",
         parent_email: "",
         parent_address: "",
@@ -1655,6 +1660,31 @@ export default function AdminEcoleInscriptionsPage({
         </div>
 
         <div className="ec-form-grid">
+          <div className="ec-field">
+            <label>
+              Lien avec l'élève *
+            </label>
+
+            <select
+              name="parent_relationship"
+              value={form.parent_relationship}
+              onChange={handleChange}
+              disabled={loading}
+            >
+              <option value="">
+                Choisir
+              </option>
+
+              <option value="Papa">
+                Papa
+              </option>
+
+              <option value="Maman">
+                Maman
+              </option>
+            </select>
+          </div>
+
           <div className="ec-field">
             <label>
               Nom complet *
