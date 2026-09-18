@@ -803,12 +803,13 @@ export default function AdminEcoleNotesBulletinsPage({
   }
 
   .paper {
-    width: 100%;
+    width: 200mm;
     height: 287mm;
     overflow: hidden;
     border: 1px solid #111827;
     padding: 8px;
     font-size: 8px;
+    box-sizing: border-box;
   }
 
   .header {
@@ -998,17 +999,26 @@ export default function AdminEcoleNotesBulletinsPage({
   }
 
   @media print {
+    @page {
+      size: A4 portrait;
+      margin: 5mm;
+    }
+
     html,
     body {
       width: 210mm;
       height: 297mm;
       overflow: hidden;
+      margin: 0;
+      padding: 0;
     }
 
     .paper {
       width: 200mm;
       height: 287mm;
+      max-height: 287mm;
       overflow: hidden;
+      box-sizing: border-box;
     }
   }
 </style>
@@ -1378,6 +1388,7 @@ export default function AdminEcoleNotesBulletinsPage({
             border: 1px solid #111827;
             padding: 28px;
             background: #fff;
+            box-sizing: border-box;
           }
 
           .ec-bulletin-header {
@@ -1608,6 +1619,8 @@ export default function AdminEcoleNotesBulletinsPage({
             body {
               width: 210mm !important;
               height: 297mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
               overflow: hidden !important;
             }
 
@@ -1630,16 +1643,22 @@ export default function AdminEcoleNotesBulletinsPage({
               margin: 0;
               padding: 0;
               overflow: hidden;
+              box-sizing: border-box;
             }
 
             .ec-bulletin-paper {
               width: 200mm;
               height: 287mm;
+              max-width: 200mm;
+              max-height: 287mm;
               border: 1px solid #111827;
               padding: 8mm;
+              margin: 0;
               overflow: hidden;
+              box-sizing: border-box;
               font-size: 8px;
               zoom: 0.78;
+              transform-origin: top left;
             }
 
             .ec-bulletin-header {
