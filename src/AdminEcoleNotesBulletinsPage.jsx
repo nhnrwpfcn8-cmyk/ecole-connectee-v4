@@ -1213,7 +1213,7 @@ export default function AdminEcoleNotesBulletinsPage({
    * Le contenu A4 est enregistré dans pdf_url sous forme de data URL
    * afin que le parent puisse retrouver exactement le bulletin envoyé.
    */
-  async function sendBulletinToParents(row) {
+    async function sendBulletinToParents(row) {
     if (!row?.student?.id) return;
 
     const bulletin = bulletins.find(
@@ -1237,21 +1237,25 @@ export default function AdminEcoleNotesBulletinsPage({
     setMessage("");
 
     try {
-      const { data: parentLinks, error: parentsError } = await supabase
-        .from("parent_students")
-        .select(
+      /* =====================================================
+         1. RÉCUPÉRER LES PARENTS DE L'ÉLÈVE
+      ===================================================== */
+      const { data: parentLinks, error: parentsError } =
+        await supabase
+          .from("parent_students")
+          .select(
+            `
+            parent_id,
+            parents!inner(
+              id,
+              school_id,
+              full_name,
+              profile_id,
+              active
+            )
           `
-          parent_id,
-          parents!inner(
-            id,
-            school_id,
-            full_name,
-            profile_id,
-            active
           )
-        `
-        )
-        .eq("student_id", row.student.id);
+          .eq("student_id", row.student.id);
 
       if (parentsError) {
         throw parentsError;
@@ -1272,6 +1276,12 @@ export default function AdminEcoleNotesBulletinsPage({
         );
       }
 
+      /* =====================================================
+         2. PRÉPARER LE BULLETIN
+         
+         On conserve exactement le bulletin calculé
+         pour le trimestre sélectionné.
+      ===================================================== */
       const html = buildBulletinHtml(row);
 
       if (!html) {
@@ -1285,21 +1295,33 @@ export default function AdminEcoleNotesBulletinsPage({
 
       const now = new Date().toISOString();
 
-      const { error: bulletinError } = await supabase
-        .from("bulletins")
-        .update({
-          pdf_url: pdfUrl,
-          status: "sent",
-          sent_at: now,
-          updated_at: now,
-        })
-        .eq("id", bulletin.id)
-        .eq("school_id", schoolId);
+      /* =====================================================
+         3. ENREGISTRER LE BULLETIN COMME ENVOYÉ
+      ===================================================== */
+      const { data: updatedBulletin, error: bulletinError } =
+        await supabase
+          .from("bulletins")
+          .update({
+            pdf_url: pdfUrl,
+            status: "sent",
+            sent_at: now,
+            updated_at: now,
+          })
+          .eq("id", bulletin.id)
+          .eq("school_id", schoolId)
+          .select()
+          .single();
 
       if (bulletinError) {
         throw bulletinError;
       }
 
+      /* =====================================================
+         4. PRÉPARER LES NOTIFICATIONS
+         
+         Chaque notification est liée au bulletin précis
+         du trimestre sélectionné.
+      ===================================================== */
       const notifications = parents.map((parent) => ({
         school_id: schoolId,
         parent_id: parent.id,
@@ -1312,24 +1334,38 @@ export default function AdminEcoleNotesBulletinsPage({
         bulletin_id: bulletin.id,
       }));
 
-      /*
-       * IMPORTANT :
-       * On ne supprime pas la contrainte unique de la base.
-       * On vérifie d'abord quelles notifications existent déjà.
-       * Ainsi, un deuxième envoi du même bulletin ne provoque pas
-       * l'erreur "parent_notification_bulletin_unique".
-       */
+      /* =====================================================
+         5. VÉRIFIER LES NOTIFICATIONS DÉJÀ EXISTANTES
+         
+         IMPORTANT :
+         On ne supprime PAS la contrainte unique.
+         
+         Si le bulletin a déjà été envoyé à un parent,
+         on ne recrée pas sa notification.
+         
+         Pour un autre trimestre, le bulletin possède
+         un autre ID : la notification sera donc créée.
+      ===================================================== */
       const parentIds = parents.map((parent) => parent.id);
 
-      const { data: existingNotifications, error: existingError } =
-        await supabase
-          .from("parent_notifications")
-          .select("parent_id, bulletin_id")
-          .eq("bulletin_id", bulletin.id)
-          .in("parent_id", parentIds);
+      const {
+        data: existingNotifications,
+        error: existingNotificationsError,
+      } = await supabase
+        .from("parent_notifications")
+        .select(
+          `
+          id,
+          parent_id,
+          bulletin_id
+        `
+        )
+        .eq("school_id", schoolId)
+        .eq("bulletin_id", bulletin.id)
+        .in("parent_id", parentIds);
 
-      if (existingError) {
-        throw existingError;
+      if (existingNotificationsError) {
+        throw existingNotificationsError;
       }
 
       const existingKeys = new Set(
@@ -1346,26 +1382,62 @@ export default function AdminEcoleNotesBulletinsPage({
           )
       );
 
+      /* =====================================================
+         6. CRÉER UNIQUEMENT LES NOUVELLES NOTIFICATIONS
+      ===================================================== */
       if (notificationsToInsert.length > 0) {
         const { error: notificationError } = await supabase
           .from("parent_notifications")
           .insert(notificationsToInsert);
 
         if (notificationError) {
-          throw notificationError;
+          /*
+           * Protection supplémentaire contre une double
+           * tentative simultanée.
+           *
+           * Si Supabase signale malgré tout la contrainte
+           * unique, on vérifie si les notifications existent
+           * maintenant. Si elles existent, on considère
+           * l'envoi comme déjà effectué.
+           */
+          if (
+            String(notificationError.message || "").includes(
+              "parent_notifications_bulletin_unique"
+            )
+          ) {
+            const { data: confirmedNotifications } =
+              await supabase
+                .from("parent_notifications")
+                .select("id, parent_id, bulletin_id")
+                .eq("school_id", schoolId)
+                .eq("bulletin_id", bulletin.id)
+                .in("parent_id", parentIds);
+
+            const confirmedCount =
+              confirmedNotifications?.length || 0;
+
+            if (confirmedCount < parents.length) {
+              throw notificationError;
+            }
+          } else {
+            throw notificationError;
+          }
         }
       }
 
+      /* =====================================================
+         7. MESSAGE DE SUCCÈS
+      ===================================================== */
       setMessage(
-        `Bulletin envoyé à ${parents.length} parent${
-          parents.length > 1 ? "s" : ""
-        } avec succès.`
+        `Bulletin du ${trimesterLabel} envoyé à ${
+          parents.length
+        } parent${parents.length > 1 ? "s" : ""} avec succès.`
       );
 
       await loadAll();
 
       setSelectedBulletin({
-        ...bulletin,
+        ...(updatedBulletin || bulletin),
         pdf_url: pdfUrl,
         status: "sent",
         sent_at: now,
