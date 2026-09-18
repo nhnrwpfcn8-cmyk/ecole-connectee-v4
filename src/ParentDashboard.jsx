@@ -290,10 +290,12 @@ export default function ParentDashboard({
         setError(
           "Aucun profil parent associé à ce compte."
         );
-        
+
         return;
       }
+
       setCurrentParentId(parent.id);
+
       const {
         data: links,
         error: linksError,
@@ -872,31 +874,31 @@ export default function ParentDashboard({
         throw notificationsError;
       }
 
-// NOUVEAU : CONVOCATIONS
-const {
-  data: meetingRows,
-  error: meetingsError,
-} = await supabase
-  .from("secretary_parent_meetings")
-  .select(
-    "id,school_id,secretary_id,parent_id,student_id,reason,meeting_date,meeting_time,status,notes,created_at"
-  )
-  .eq("school_id", resolvedSchoolId)
-  .eq("parent_id", parent.id)
-  .order("meeting_date", {
-    ascending: true,
-  })
-  .order("meeting_time", {
-    ascending: true,
-  });
+      // NOUVEAU : CONVOCATIONS
+      const {
+        data: meetingRows,
+        error: meetingsError,
+      } = await supabase
+        .from("secretary_parent_meetings")
+        .select(
+          "id,school_id,secretary_id,parent_id,student_id,reason,meeting_date,meeting_time,status,notes,created_at"
+        )
+        .eq("school_id", resolvedSchoolId)
+        .eq("parent_id", parent.id)
+        .order("meeting_date", {
+          ascending: true,
+        })
+        .order("meeting_time", {
+          ascending: true,
+        });
 
-if (meetingsError) {
-  throw meetingsError;
-}
+      if (meetingsError) {
+        throw meetingsError;
+      }
 
-setAdminMeetings(meetingRows || []);
+      setAdminMeetings(meetingRows || []);
 
-setNotifications(notificationRows || []);
+      setNotifications(notificationRows || []);
     } catch (err) {
       console.error(
         "Erreur espace Parent :",
@@ -1108,51 +1110,141 @@ setNotifications(notificationRows || []);
         )
     );
   }
-async function sendReply(messageItem) {
-  const text = String(
-    replyDrafts[messageItem.id] || ""
-  ).trim();
 
-  if (!text) return;
+  async function sendReply(messageItem) {
+    const text = String(
+      replyDrafts[messageItem.id] || ""
+    ).trim();
 
-  if (!currentParentId || !schoolId) {
-    return;
-  }
+    if (!text) return;
 
-  setReplyLoadingId(messageItem.id);
-
-  try {
-    const { error: insertError } = await supabase
-      .from("secretary_parent_messages")
-      .insert({
-        school_id: schoolId,
-        secretary_id: messageItem.secretary_id,
-        parent_id: currentParentId,
-        subject: messageItem.subject,
-        message: text,
-        sender_type: "parent",
-        conversation_id: messageItem.conversation_id || null,
-      });
-
-    if (insertError) {
-      throw insertError;
+    if (!currentParentId || !schoolId) {
+      return;
     }
 
-    setReplyDrafts((current) => ({
-      ...current,
-      [messageItem.id]: "",
-    }));
+    setReplyLoadingId(messageItem.id);
 
-    await loadParentData();
-  } catch (error) {
-    console.error(
-      "Erreur lors de l'envoi de la réponse :",
-      error
-    );
-  } finally {
-    setReplyLoadingId(null);
+    try {
+      const { error: insertError } = await supabase
+        .from("secretary_parent_messages")
+        .insert({
+          school_id: schoolId,
+          secretary_id: messageItem.secretary_id,
+          parent_id: currentParentId,
+          subject: messageItem.subject,
+          message: text,
+          sender_type: "parent",
+          conversation_id: messageItem.conversation_id || null,
+        });
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      setReplyDrafts((current) => ({
+        ...current,
+        [messageItem.id]: "",
+      }));
+
+      await loadParentData();
+    } catch (error) {
+      console.error(
+        "Erreur lors de l'envoi de la réponse :",
+        error
+      );
+    } finally {
+      setReplyLoadingId(null);
+    }
   }
-}
+
+  /*
+   * =====================================================
+   * OUVERTURE DU BULLETIN
+   * =====================================================
+   *
+   * Le bulletin actuellement enregistré dans pdf_url
+   * peut être un document HTML sous la forme :
+   *
+   * data:text/html;charset=utf-8,...
+   *
+   * Certains navigateurs peuvent afficher une page
+   * blanche lorsqu'un tel lien est ouvert directement.
+   *
+   * On ouvre donc une nouvelle fenêtre puis on écrit
+   * directement le HTML décodé dans cette fenêtre.
+   *
+   * Les URL classiques continuent à fonctionner normalement.
+   */
+  function openBulletin(bulletin) {
+    const url = bulletin?.pdf_url;
+
+    if (!url) {
+      return;
+    }
+
+    try {
+      if (
+        typeof url === "string" &&
+        url.startsWith("data:text/html")
+      ) {
+        const printWindow =
+          window.open("", "_blank");
+
+        if (!printWindow) {
+          window.alert(
+            "Impossible d'ouvrir le bulletin. Autorisez les fenêtres contextuelles pour ce site."
+          );
+          return;
+        }
+
+        const commaIndex = url.indexOf(",");
+
+        if (commaIndex === -1) {
+          printWindow.close();
+          window.location.href = url;
+          return;
+        }
+
+        const encodedHtml =
+          url.slice(commaIndex + 1);
+
+        const html =
+          decodeURIComponent(encodedHtml);
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+
+        return;
+      }
+
+      window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (error) {
+      console.error(
+        "Erreur lors de l'ouverture du bulletin :",
+        error
+      );
+
+      try {
+        window.open(
+          url,
+          "_blank",
+          "noopener,noreferrer"
+        );
+      } catch (fallbackError) {
+        console.error(
+          "Erreur ouverture bulletin secours :",
+          fallbackError
+        );
+      }
+    }
+  }
+
   function HomePage() {
     const homeItems =
       MENU.filter(
@@ -2009,24 +2101,26 @@ async function sendReply(messageItem) {
                   </div>
 
                   {bulletin.pdf_url && (
-                    <a
-                      href={bulletin.pdf_url}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openBulletin(bulletin)
+                      }
                       style={{
                         display: "inline-flex",
                         marginTop: "13px",
                         padding: "10px 13px",
                         borderRadius: "10px",
+                        border: "none",
                         background: "#eef2ff",
                         color: "#4338ca",
-                        textDecoration: "none",
+                        cursor: "pointer",
                         fontWeight: 800,
                         fontSize: "13px",
                       }}
                     >
                       📥 Ouvrir le bulletin
-                    </a>
+                    </button>
                   )}
                 </Card>
               )
@@ -2497,306 +2591,306 @@ async function sendReply(messageItem) {
     );
   }
 
-    function CommunicationPage() {
-  const orderedMessages = [...adminMessages].reverse();
-  const lastMessage =
-    adminMessages[adminMessages.length - 1];
+  function CommunicationPage() {
+    const orderedMessages = [...adminMessages].reverse();
+    const lastMessage =
+      adminMessages[adminMessages.length - 1];
 
-  return (
-    <>
-      <PageTitle
-        icon="💬"
-        title="Communication"
-        description="Échangez avec le service administratif de l'école."
-        onBack={() => setPage("home")}
-      />
-
-      {!adminMessages.length ? (
-        <Empty
-          text="Aucun message reçu du service administratif."
+    return (
+      <>
+        <PageTitle
+          icon="💬"
+          title="Communication"
+          description="Échangez avec le service administratif de l'école."
+          onBack={() => setPage("home")}
         />
-      ) : (
-        <Card
-          style={{
-            padding: 0,
-            overflow: "hidden",
-            background: "#f8fafc",
-          }}
-        >
-          {/* EN-TÊTE DE LA CONVERSATION */}
-          <div
+
+        {!adminMessages.length ? (
+          <Empty
+            text="Aucun message reçu du service administratif."
+          />
+        ) : (
+          <Card
             style={{
-              padding: "16px 18px",
-              background: "#ffffff",
-              borderBottom: "1px solid #e2e8f0",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
+              padding: 0,
+              overflow: "hidden",
+              background: "#f8fafc",
             }}
           >
+            {/* EN-TÊTE DE LA CONVERSATION */}
             <div
               style={{
-                width: "42px",
-                height: "42px",
-                borderRadius: "50%",
-                background: "#eef2ff",
-                display: "grid",
-                placeItems: "center",
-                fontSize: "20px",
-                flexShrink: 0,
+                padding: "16px 18px",
+                background: "#ffffff",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
               }}
             >
-              🏢
-            </div>
-
-            <div>
               <div
                 style={{
-                  color: "#0f172a",
-                  fontWeight: 900,
-                  fontSize: "15px",
+                  width: "42px",
+                  height: "42px",
+                  borderRadius: "50%",
+                  background: "#eef2ff",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: "20px",
+                  flexShrink: 0,
                 }}
               >
-                Service administratif
+                🏢
               </div>
 
-              <div
-                style={{
-                  color: "#64748b",
-                  fontSize: "12px",
-                  marginTop: "2px",
-                }}
-              >
-                Communication avec votre école
-              </div>
-            </div>
-          </div>
-
-          {/* MESSAGES */}
-          <div
-            style={{
-              padding: "18px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "14px",
-              maxHeight: "600px",
-              overflowY: "auto",
-            }}
-          >
-            {orderedMessages.map((item) => {
-              const isParent =
-                item.sender_type === "parent";
-
-              return (
+              <div>
                 <div
-                  key={item.id}
                   style={{
-                    display: "flex",
-                    justifyContent: isParent
-                      ? "flex-end"
-                      : "flex-start",
+                    color: "#0f172a",
+                    fontWeight: 900,
+                    fontSize: "15px",
                   }}
                 >
+                  Service administratif
+                </div>
+
+                <div
+                  style={{
+                    color: "#64748b",
+                    fontSize: "12px",
+                    marginTop: "2px",
+                  }}
+                >
+                  Communication avec votre école
+                </div>
+              </div>
+            </div>
+
+            {/* MESSAGES */}
+            <div
+              style={{
+                padding: "18px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "14px",
+                maxHeight: "600px",
+                overflowY: "auto",
+              }}
+            >
+              {orderedMessages.map((item) => {
+                const isParent =
+                  item.sender_type === "parent";
+
+                return (
                   <div
+                    key={item.id}
                     style={{
-                      maxWidth: "78%",
                       display: "flex",
-                      flexDirection: "column",
-                      alignItems: isParent
+                      justifyContent: isParent
                         ? "flex-end"
                         : "flex-start",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: "11px",
-                        fontWeight: 800,
-                        color: "#64748b",
-                        marginBottom: "4px",
-                        padding: "0 6px",
+                        maxWidth: "78%",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: isParent
+                          ? "flex-end"
+                          : "flex-start",
                       }}
                     >
-                      {isParent
-                        ? "Vous"
-                        : "Service administratif"}
-                    </div>
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 800,
+                          color: "#64748b",
+                          marginBottom: "4px",
+                          padding: "0 6px",
+                        }}
+                      >
+                        {isParent
+                          ? "Vous"
+                          : "Service administratif"}
+                      </div>
 
-                    <div
-                      style={{
-                        background: isParent
-                          ? "#4f46e5"
-                          : "#ffffff",
-                        color: isParent
-                          ? "#ffffff"
-                          : "#0f172a",
-                        border: isParent
-                          ? "none"
-                          : "1px solid #e2e8f0",
-                        borderRadius: isParent
-                          ? "16px 16px 4px 16px"
-                          : "16px 16px 16px 4px",
-                        padding: "12px 14px",
-                        boxShadow:
-                          "0 2px 6px rgba(15,23,42,0.06)",
-                      }}
-                    >
-                      {item.subject && (
+                      <div
+                        style={{
+                          background: isParent
+                            ? "#4f46e5"
+                            : "#ffffff",
+                          color: isParent
+                            ? "#ffffff"
+                            : "#0f172a",
+                          border: isParent
+                            ? "none"
+                            : "1px solid #e2e8f0",
+                          borderRadius: isParent
+                            ? "16px 16px 4px 16px"
+                            : "16px 16px 16px 4px",
+                          padding: "12px 14px",
+                          boxShadow:
+                            "0 2px 6px rgba(15,23,42,0.06)",
+                        }}
+                      >
+                        {item.subject && (
+                          <div
+                            style={{
+                              fontWeight: 900,
+                              fontSize: "13px",
+                              marginBottom: "6px",
+                              color: isParent
+                                ? "#ffffff"
+                                : "#4338ca",
+                            }}
+                          >
+                            {item.subject}
+                          </div>
+                        )}
+
                         <div
                           style={{
-                            fontWeight: 900,
-                            fontSize: "13px",
-                            marginBottom: "6px",
-                            color: isParent
-                              ? "#ffffff"
-                              : "#4338ca",
+                            fontSize: "14px",
+                            lineHeight: 1.55,
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
                           }}
                         >
-                          {item.subject}
+                          {item.message}
                         </div>
-                      )}
 
-                      <div
-                        style={{
-                          fontSize: "14px",
-                          lineHeight: 1.55,
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {item.message}
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: "7px",
-                          fontSize: "10px",
-                          color: isParent
-                            ? "rgba(255,255,255,0.75)"
-                            : "#94a3b8",
-                          textAlign: "right",
-                        }}
-                      >
-                        {formatDate(item.created_at)}
-                      </div>
-                    </div>
-
-                    {!isParent &&
-                      !item.read_at && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            markMessageRead(item.id)
-                          }
+                        <div
                           style={{
-                            marginTop: "6px",
-                            border: "none",
-                            background: "transparent",
-                            color: "#4338ca",
-                            cursor: "pointer",
-                            fontSize: "11px",
-                            fontWeight: 800,
-                            padding: "2px 6px",
+                            marginTop: "7px",
+                            fontSize: "10px",
+                            color: isParent
+                              ? "rgba(255,255,255,0.75)"
+                              : "#94a3b8",
+                            textAlign: "right",
                           }}
                         >
-                          ✓ Marquer comme lu
-                        </button>
-                      )}
+                          {formatDate(item.created_at)}
+                        </div>
+                      </div>
+
+                      {!isParent &&
+                        !item.read_at && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              markMessageRead(item.id)
+                            }
+                            style={{
+                              marginTop: "6px",
+                              border: "none",
+                              background: "transparent",
+                              color: "#4338ca",
+                              cursor: "pointer",
+                              fontSize: "11px",
+                              fontWeight: 800,
+                              padding: "2px 6px",
+                            }}
+                          >
+                            ✓ Marquer comme lu
+                          </button>
+                        )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          {/* ZONE DE RÉPONSE */}
-          {lastMessage && (
-            <div
-              style={{
-                padding: "14px 16px",
-                background: "#ffffff",
-                borderTop: "1px solid #e2e8f0",
-              }}
-            >
+            {/* ZONE DE RÉPONSE */}
+            {lastMessage && (
               <div
                 style={{
-                  fontSize: "11px",
-                  fontWeight: 800,
-                  color: "#64748b",
-                  marginBottom: "7px",
+                  padding: "14px 16px",
+                  background: "#ffffff",
+                  borderTop: "1px solid #e2e8f0",
                 }}
               >
-                Répondre au service administratif
-              </div>
-
-              <textarea
-                value={replyDrafts[lastMessage.id] || ""}
-                onChange={(e) =>
-                  setReplyDrafts((current) => ({
-                    ...current,
-                    [lastMessage.id]: e.target.value,
-                  }))
-                }
-                placeholder="Écrivez votre message..."
-                rows={3}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: "12px",
-                  padding: "11px 12px",
-                  fontSize: "14px",
-                  color: "#0f172a",
-                  background: "#f8fafc",
-                  resize: "vertical",
-                  outline: "none",
-                }}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginTop: "8px",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    sendReply(lastMessage)
-                  }
-                  disabled={
-                    replyLoadingId === lastMessage.id
-                  }
+                <div
                   style={{
-                    border: "none",
-                    background: "#4f46e5",
-                    color: "#ffffff",
-                    borderRadius: "10px",
-                    padding: "10px 16px",
-                    cursor:
-                      replyLoadingId === lastMessage.id
-                        ? "not-allowed"
-                        : "pointer",
+                    fontSize: "11px",
                     fontWeight: 800,
-                    fontSize: "13px",
-                    opacity:
-                      replyLoadingId === lastMessage.id
-                        ? 0.6
-                        : 1,
+                    color: "#64748b",
+                    marginBottom: "7px",
                   }}
                 >
-                  {replyLoadingId === lastMessage.id
-                    ? "Envoi..."
-                    : "➤ Envoyer"}
-                </button>
+                  Répondre au service administratif
+                </div>
+
+                <textarea
+                  value={replyDrafts[lastMessage.id] || ""}
+                  onChange={(e) =>
+                    setReplyDrafts((current) => ({
+                      ...current,
+                      [lastMessage.id]: e.target.value,
+                    }))
+                  }
+                  placeholder="Écrivez votre message..."
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "12px",
+                    padding: "11px 12px",
+                    fontSize: "14px",
+                    color: "#0f172a",
+                    background: "#f8fafc",
+                    resize: "vertical",
+                    outline: "none",
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    marginTop: "8px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      sendReply(lastMessage)
+                    }
+                    disabled={
+                      replyLoadingId === lastMessage.id
+                    }
+                    style={{
+                      border: "none",
+                      background: "#4f46e5",
+                      color: "#ffffff",
+                      borderRadius: "10px",
+                      padding: "10px 16px",
+                      cursor:
+                        replyLoadingId === lastMessage.id
+                          ? "not-allowed"
+                          : "pointer",
+                      fontWeight: 800,
+                      fontSize: "13px",
+                      opacity:
+                        replyLoadingId === lastMessage.id
+                          ? 0.6
+                          : 1,
+                    }}
+                  >
+                    {replyLoadingId === lastMessage.id
+                      ? "Envoi..."
+                      : "➤ Envoyer"}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </Card>
-      )}
-    </>
-  );
-}
-        
+            )}
+          </Card>
+        )}
+      </>
+    );
+  }
+
   function renderPage() {
     if (page === "home")
       return <HomePage />;
@@ -2814,16 +2908,16 @@ async function sendReply(messageItem) {
       return <BulletinsPage />;
 
     if (page === "documents")
-  return (
-    <ParentDoc
-      schoolId={schoolId}
-      parentId={currentParentId}
-      onBack={() => setPage("home")}
-    />
-  );
+      return (
+        <ParentDoc
+          schoolId={schoolId}
+          parentId={currentParentId}
+          onBack={() => setPage("home")}
+        />
+      );
 
     if (page === "communication")
-  return CommunicationPage();
+      return CommunicationPage();
 
     if (page === "administrative")
       return <AdministrativePage />;
