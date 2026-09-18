@@ -19,11 +19,17 @@ export default function AdminEcoleInscriptionsPage({
     class_id: "",
     student_code: "",
     family_identifier: "",
-    parent_full_name: "",
-    parent_relationship: "",
-    parent_phone: "",
-    parent_email: "",
-    parent_address: "",
+
+    parent_papa_full_name: "",
+    parent_papa_phone: "",
+    parent_papa_email: "",
+    parent_papa_address: "",
+
+    parent_maman_full_name: "",
+    parent_maman_phone: "",
+    parent_maman_email: "",
+    parent_maman_address: "",
+
     student_photo: null,
   });
 
@@ -105,9 +111,10 @@ export default function AdminEcoleInscriptionsPage({
       !form.birth_place.trim() ||
       !form.class_id ||
       !form.family_identifier.trim() ||
-      !form.parent_full_name.trim() ||
-      !form.parent_relationship ||
-      !form.parent_phone.trim()
+      !form.parent_papa_full_name.trim() ||
+      !form.parent_papa_phone.trim() ||
+      !form.parent_maman_full_name.trim() ||
+      !form.parent_maman_phone.trim()
     ) {
       setError(
         "Veuillez remplir tous les champs obligatoires."
@@ -116,13 +123,25 @@ export default function AdminEcoleInscriptionsPage({
     }
 
     if (
-      form.parent_email &&
+      form.parent_papa_email &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        form.parent_email
+        form.parent_papa_email
       )
     ) {
       setError(
-        "L'adresse email du parent n'est pas valide."
+        "L'adresse email du Papa n'est pas valide."
+      );
+      return;
+    }
+
+    if (
+      form.parent_maman_email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        form.parent_maman_email
+      )
+    ) {
+      setError(
+        "L'adresse email de la Maman n'est pas valide."
       );
       return;
     }
@@ -143,18 +162,28 @@ export default function AdminEcoleInscriptionsPage({
               studentCode: form.student_code.trim(),
               familyIdentifier:
                 form.family_identifier.trim(),
-              parentFullName:
-                form.parent_full_name.trim(),
-              parentRelationship:
-                form.parent_relationship,
-              parentPhone:
-                form.parent_phone.trim(),
-              parentEmail:
-                form.parent_email
+
+              parentPapaFullName:
+                form.parent_papa_full_name.trim(),
+              parentPapaPhone:
+                form.parent_papa_phone.trim(),
+              parentPapaEmail:
+                form.parent_papa_email
                   .trim()
                   .toLowerCase(),
-              parentAddress:
-                form.parent_address.trim(),
+              parentPapaAddress:
+                form.parent_papa_address.trim(),
+
+              parentMamanFullName:
+                form.parent_maman_full_name.trim(),
+              parentMamanPhone:
+                form.parent_maman_phone.trim(),
+              parentMamanEmail:
+                form.parent_maman_email
+                  .trim()
+                  .toLowerCase(),
+              parentMamanAddress:
+                form.parent_maman_address.trim(),
             },
           }
         );
@@ -175,7 +204,7 @@ export default function AdminEcoleInscriptionsPage({
 
       setMessage(
         data.message ||
-          "L'élève et son responsable ont été créés avec succès."
+          "L'élève et ses parents ont été créés avec succès."
       );
 
       if (data.credentials) {
@@ -199,7 +228,7 @@ export default function AdminEcoleInscriptionsPage({
           });
 
           setMessage(
-            "L'élève, son responsable et sa photo ont été enregistrés avec succès."
+            "L'élève, ses parents et sa photo ont été enregistrés avec succès."
           );
         } catch (photoError) {
           console.error(
@@ -208,7 +237,7 @@ export default function AdminEcoleInscriptionsPage({
           );
 
           setMessage(
-            "L'élève et son responsable ont été créés avec succès, mais la photo n'a pas pu être enregistrée."
+            "L'élève et ses parents ont été créés avec succès, mais la photo n'a pas pu être enregistrée."
           );
         }
       }
@@ -221,11 +250,17 @@ export default function AdminEcoleInscriptionsPage({
         class_id: "",
         student_code: "",
         family_identifier: "",
-        parent_full_name: "",
-        parent_relationship: "",
-        parent_phone: "",
-        parent_email: "",
-        parent_address: "",
+
+        parent_papa_full_name: "",
+        parent_papa_phone: "",
+        parent_papa_email: "",
+        parent_papa_address: "",
+
+        parent_maman_full_name: "",
+        parent_maman_phone: "",
+        parent_maman_email: "",
+        parent_maman_address: "",
+
         student_photo: null,
       });
 
@@ -1400,7 +1435,7 @@ export default function AdminEcoleInscriptionsPage({
             {credentials.parent && (
               <div className="ec-field">
                 <label>
-                  Compte parent
+                  Compte familial — Papa + Maman
                 </label>
 
                 <div>
@@ -1416,6 +1451,11 @@ export default function AdminEcoleInscriptionsPage({
                   </strong>{" "}
                   {credentials.parent.password}
                 </div>
+
+                <small>
+                  Ce même compte peut être utilisé par le Papa
+                  et la Maman.
+                </small>
               </div>
             )}
           </div>
@@ -1635,13 +1675,13 @@ export default function AdminEcoleInscriptionsPage({
             />
 
             <small>
-              Cet identifiant sera commun aux comptes
-              liés à cette famille.
+              Cet identifiant sera commun au compte
+              familial lié à cette famille.
             </small>
           </div>
         </div>
 
-        {/* PARENT */}
+        {/* PARENTS */}
         <div
           className="ec-panel-header"
           style={{
@@ -1650,100 +1690,187 @@ export default function AdminEcoleInscriptionsPage({
         >
           <div>
             <h3>
-              Parent / Responsable
+              Parents
             </h3>
 
             <p>
-              Informations du responsable légal.
+              Les informations du Papa et de la Maman sont
+              enregistrées séparément, avec un seul compte
+              familial partagé.
             </p>
           </div>
         </div>
 
-        <div className="ec-form-grid">
-          <div className="ec-field">
-            <label>
-              Lien avec l'élève *
-            </label>
-
-            <select
-              name="parent_relationship"
-              value={form.parent_relationship}
-              onChange={handleChange}
-              disabled={loading}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "24px",
+          }}
+        >
+          {/* PAPA */}
+          <div
+            style={{
+              padding: "20px",
+              borderRadius: "12px",
+              background:
+                "rgba(148, 163, 184, 0.08)",
+              border:
+                "1px solid rgba(148, 163, 184, 0.20)",
+            }}
+          >
+            <h4
+              style={{
+                marginTop: 0,
+                marginBottom: "20px",
+              }}
             >
-              <option value="">
-                Choisir
-              </option>
+              👨 Papa
+            </h4>
 
-              <option value="Papa">
-                Papa
-              </option>
+            <div className="ec-field">
+              <label>
+                Nom complet *
+              </label>
 
-              <option value="Maman">
-                Maman
-              </option>
-            </select>
+              <input
+                name="parent_papa_full_name"
+                value={form.parent_papa_full_name}
+                onChange={handleChange}
+                placeholder="Nom complet du Papa"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="ec-field">
+              <label>
+                Téléphone *
+              </label>
+
+              <input
+                name="parent_papa_phone"
+                value={form.parent_papa_phone}
+                onChange={handleChange}
+                placeholder="Ex : 77 000 00 00"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="ec-field">
+              <label>
+                Email
+              </label>
+
+              <input
+                type="email"
+                name="parent_papa_email"
+                value={form.parent_papa_email}
+                onChange={handleChange}
+                placeholder="papa@example.com"
+                disabled={loading}
+              />
+
+              <small>
+                Facultatif.
+              </small>
+            </div>
+
+            <div className="ec-field">
+              <label>
+                Adresse
+              </label>
+
+              <input
+                name="parent_papa_address"
+                value={form.parent_papa_address}
+                onChange={handleChange}
+                placeholder="Adresse du Papa"
+                disabled={loading}
+              />
+            </div>
           </div>
 
-          <div className="ec-field">
-            <label>
-              Nom complet *
-            </label>
+          {/* MAMAN */}
+          <div
+            style={{
+              padding: "20px",
+              borderRadius: "12px",
+              background:
+                "rgba(148, 163, 184, 0.08)",
+              border:
+                "1px solid rgba(148, 163, 184, 0.20)",
+            }}
+          >
+            <h4
+              style={{
+                marginTop: 0,
+                marginBottom: "20px",
+              }}
+            >
+              👩 Maman
+            </h4>
 
-            <input
-              name="parent_full_name"
-              value={form.parent_full_name}
-              onChange={handleChange}
-              placeholder="Nom complet du parent"
-              disabled={loading}
-            />
-          </div>
+            <div className="ec-field">
+              <label>
+                Nom complet *
+              </label>
 
-          <div className="ec-field">
-            <label>
-              Téléphone *
-            </label>
+              <input
+                name="parent_maman_full_name"
+                value={form.parent_maman_full_name}
+                onChange={handleChange}
+                placeholder="Nom complet de la Maman"
+                disabled={loading}
+              />
+            </div>
 
-            <input
-              name="parent_phone"
-              value={form.parent_phone}
-              onChange={handleChange}
-              placeholder="Ex : 77 000 00 00"
-              disabled={loading}
-            />
-          </div>
+            <div className="ec-field">
+              <label>
+                Téléphone *
+              </label>
 
-          <div className="ec-field">
-            <label>
-              Email familial
-            </label>
+              <input
+                name="parent_maman_phone"
+                value={form.parent_maman_phone}
+                onChange={handleChange}
+                placeholder="Ex : 77 000 00 00"
+                disabled={loading}
+              />
+            </div>
 
-            <input
-              type="email"
-              name="parent_email"
-              value={form.parent_email}
-              onChange={handleChange}
-              placeholder="famille@example.com"
-              disabled={loading}
-            />
+            <div className="ec-field">
+              <label>
+                Email
+              </label>
 
-            <small>
-              Facultatif pour cette première version.
-            </small>
-          </div>
+              <input
+                type="email"
+                name="parent_maman_email"
+                value={form.parent_maman_email}
+                onChange={handleChange}
+                placeholder="maman@example.com"
+                disabled={loading}
+              />
 
-          <div className="ec-field">
-            <label>
-              Adresse
-            </label>
+              <small>
+                Facultatif.
+              </small>
+            </div>
 
-            <input
-              name="parent_address"
-              value={form.parent_address}
-              onChange={handleChange}
-              placeholder="Adresse du responsable"
-              disabled={loading}
-            />
+            <div className="ec-field">
+              <label>
+                Adresse
+              </label>
+
+              <input
+                name="parent_maman_address"
+                value={form.parent_maman_address}
+                onChange={handleChange}
+                placeholder="Adresse de la Maman"
+                disabled={loading}
+              />
+            </div>
           </div>
         </div>
 
