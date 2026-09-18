@@ -89,10 +89,19 @@ export default function AdminEcoleAPEActivitiesPage({
       .maybeSingle();
 
     if (apeError) {
-      console.error("Erreur chargement APE :", apeError);
-      setError("Impossible de charger l'APE.");
-      return null;
-    }
+  console.error("Erreur chargement APE :", apeError);
+
+  setError(
+    `Impossible de charger l'APE : ${
+      apeError.message ||
+      apeError.details ||
+      apeError.hint ||
+      "Erreur inconnue"
+    }`
+  );
+
+  return null;
+}
 
     if (!data) {
       setError("Aucune APE n'est encore configurée pour cette école.");
