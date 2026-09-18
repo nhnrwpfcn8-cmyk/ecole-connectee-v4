@@ -273,6 +273,76 @@ export default function ParentDoc({
     }
   }
 
+  function openBulletin(bulletin) {
+    const url = bulletin?.pdf_url;
+
+    if (!url) {
+      return;
+    }
+
+    try {
+      if (
+        typeof url === "string" &&
+        url.startsWith("data:text/html")
+      ) {
+        const printWindow =
+          window.open("", "_blank");
+
+        if (!printWindow) {
+          window.alert(
+            "Impossible d'ouvrir le bulletin. Autorisez les fenêtres contextuelles pour ce site."
+          );
+          return;
+        }
+
+        const commaIndex = url.indexOf(",");
+
+        if (commaIndex === -1) {
+          printWindow.close();
+          window.location.href = url;
+          return;
+        }
+
+        const encodedHtml =
+          url.slice(commaIndex + 1);
+
+        const html =
+          decodeURIComponent(encodedHtml);
+
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+
+        return;
+      }
+
+      window.open(
+        url,
+        "_blank",
+        "noopener,noreferrer"
+      );
+    } catch (error) {
+      console.error(
+        "Erreur lors de l'ouverture du bulletin :",
+        error
+      );
+
+      try {
+        window.open(
+          url,
+          "_blank",
+          "noopener,noreferrer"
+        );
+      } catch (fallbackError) {
+        console.error(
+          "Erreur ouverture bulletin secours :",
+          fallbackError
+        );
+      }
+    }
+  }
+
   function printInvoice(invoice) {
     const printWindow = window.open(
       "",
@@ -666,14 +736,15 @@ export default function ParentDoc({
                     </p>
 
                     {bulletin.pdf_url && (
-                      <a
-                        href={bulletin.pdf_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
                         className="parent-doc-button"
+                        onClick={() =>
+                          openBulletin(bulletin)
+                        }
                       >
                         📄 Ouvrir le bulletin PDF
-                      </a>
+                      </button>
                     )}
 
                     {!bulletin.pdf_url && (
