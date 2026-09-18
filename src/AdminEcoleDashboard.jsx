@@ -4,6 +4,7 @@ import AdminEcoleNotesBulletinsPage from "./AdminEcoleNotesBulletinsPage";
 import AdminEcoleInscriptionsPage from "./AdminEcoleInscriptionsPage";
 import AdminEcoleCertificats from "./AdminEcoleCertificats";
 import AdminEcoleAPEActivitiesPage from "./AdminEcoleAPEActivitiesPage";
+import AdminEcoleAPEMembersPage from "./AdminEcoleAPEMembersPage";
 
 /* =========================================================
 CONFIGURATION
