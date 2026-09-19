@@ -4425,6 +4425,7 @@ export default function TeacherDashboard({
             students={students}
             subjects={subjects}
             contents={contents}
+            onNavigate={setActivePage} 
           />
         );
 
