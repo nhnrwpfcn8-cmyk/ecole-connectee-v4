@@ -125,13 +125,19 @@ function PageHeader({ icon, title, description, children }) {
   );
 }
 
-function StatCard({ icon, title, value, subtitle }) {
+function StatCard({ icon, title, value, subtitle, onClick }) {
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       className="ec-card"
       style={{
         padding: 20,
         minHeight: 130,
+        width: "100%",
+        border: "none",
+        textAlign: "left",
+        cursor: onClick ? "pointer" : "default",
       }}
     >
       <div
@@ -194,7 +200,7 @@ function StatCard({ icon, title, value, subtitle }) {
           {icon}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -427,6 +433,7 @@ function OverviewPage({
   students,
   subjects,
   contents,
+  onNavigate,
 }) {
   return (
     <>
@@ -446,32 +453,36 @@ function OverviewPage({
         }}
       >
         <StatCard
-          icon="🏫"
-          title="Mes classes"
-          value={classes.length}
-          subtitle="Classes affectées"
-        />
+  icon="🏫"
+  title="Mes classes"
+  value={classes.length}
+  subtitle="Classes affectées"
+  onClick={() => onNavigate?.("classes")}
+/>
 
-        <StatCard
-          icon="👨‍🎓"
-          title="Mes élèves"
-          value={students.length}
-          subtitle="Élèves accessibles"
-        />
+<StatCard
+  icon="👨‍🎓"
+  title="Mes élèves"
+  value={students.length}
+  subtitle="Élèves accessibles"
+  onClick={() => onNavigate?.("students")}
+/>
 
-        <StatCard
-          icon="📚"
-          title="Matières"
-          value={subjects.length}
-          subtitle="Matières enseignées"
-        />
+<StatCard
+  icon="📚"
+  title="Matières"
+  value={subjects.length}
+  subtitle="Matières enseignées"
+  onClick={() => onNavigate?.("profile")}
+/>
 
-        <StatCard
-          icon="📁"
-          title="Contenus"
-          value={contents.length}
-          subtitle="Cours, documents et médias"
-        />
+<StatCard
+  icon="📁"
+  title="Contenus"
+  value={contents.length}
+  subtitle="Cours, documents et médias"
+  onClick={() => onNavigate?.("documents")}
+/>
       </div>
 
       <div
@@ -4561,6 +4572,7 @@ case "teacher_secretary_communication":
             students={students}
             subjects={subjects}
             contents={contents}
+            onNavigate={setActivePage}
           />
         );
     }
