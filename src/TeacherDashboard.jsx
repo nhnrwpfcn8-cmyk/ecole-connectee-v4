@@ -4755,25 +4755,36 @@ case "teacher_secretary_communication":
           </div>
         </div>
 
-        <div className="school-admin-user">
-          <div className="school-admin-avatar">
-            {(teacher?.display_name ||
-              profile?.full_name ||
-              "E")
-              .charAt(0)
-              .toUpperCase()}
-          </div>
+        <button
+  type="button"
+  onClick={() => setActivePage("overview")}
+  className="school-admin-user"
+  style={{
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    cursor: "pointer",
+    textAlign: "left",
+  }}
+>
+  <div className="school-admin-avatar">
+    {(teacher?.display_name ||
+      profile?.full_name ||
+      "E")
+      .charAt(0)
+      .toUpperCase()}
+  </div>
 
-          <div className="school-admin-user-info">
-            <strong>
-              {teacher?.display_name ||
-                profile?.full_name ||
-                "Enseignant"}
-            </strong>
+  <div className="school-admin-user-info">
+    <strong>
+      {teacher?.display_name ||
+        profile?.full_name ||
+        "Enseignant"}
+    </strong>
 
-            <span>Enseignant</span>
-          </div>
-        </div>
+    <span>Enseignant</span>
+  </div>
+</button>
       </header>
 
       <div className="school-admin-content">
