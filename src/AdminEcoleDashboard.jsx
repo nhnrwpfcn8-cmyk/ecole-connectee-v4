@@ -4,7 +4,7 @@ import AdminEcoleNotesBulletinsPage from "./AdminEcoleNotesBulletinsPage";
 import AdminEcoleInscriptionsPage from "./AdminEcoleInscriptionsPage";
 import AdminEcoleCertificats from "./AdminEcoleCertificats";
 import AdminEcoleAPEActivitiesPage from "./AdminEcoleAPEActivitiesPage";
-import AdminEcoleAPEMembersPage from "./AdminEcoleAPEMembersPage";
+import AdminEcoleAPEPresidentPage from "./AdminEcoleAPEPresidentPage";
 
 /* =========================================================
 CONFIGURATION
@@ -1015,30 +1015,30 @@ return (
     </button>
 
     <button
-      type="button"
-      className={
-        apeSection === "members"
-          ? "ec-btn ec-btn-primary"
-          : "ec-btn ec-btn-secondary"
-      }
-      onClick={() => setApeSection("members")}
-      style={{ color: "#000" }}
-    >
-      👥 Membres APE
-    </button>
+  type="button"
+  className={
+    apeSection === "president"
+      ? "ec-btn ec-btn-primary"
+      : "ec-btn ec-btn-secondary"
+  }
+  onClick={() => setApeSection("president")}
+  style={{ color: "#000" }}
+>
+  👑 Président APE
+</button>
   </div>
 
-  {apeSection === "members" ? (
-    <AdminEcoleAPEMembersPage
-      schoolId={schoolId}
-      onBack={() => setApeSection("activities")}
-    />
-  ) : (
-    <AdminEcoleAPEActivitiesPage
-      schoolId={schoolId}
-      onBack={() => setActivePage("overview")}
-    />
-  )}
+  {apeSection === "president" ? (
+  <AdminEcoleAPEPresidentPage
+    schoolId={schoolId}
+    onBack={() => setApeSection("activities")}
+  />
+) : (
+  <AdminEcoleAPEActivitiesPage
+    schoolId={schoolId}
+    onBack={() => setActivePage("overview")}
+  />
+)}
 </div>
 );
     
