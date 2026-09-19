@@ -127,16 +127,13 @@ function PageHeader({ icon, title, description, children }) {
 
 function StatCard({ icon, title, value, subtitle, onClick }) {
   return (
-    <button
-      type="button"
+    <div
       onClick={onClick}
       className="ec-card"
       style={{
         padding: 20,
         minHeight: 130,
         width: "100%",
-        border: "none",
-        textAlign: "left",
         cursor: onClick ? "pointer" : "default",
       }}
     >
@@ -200,10 +197,9 @@ function StatCard({ icon, title, value, subtitle, onClick }) {
           {icon}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
-
 function SelectInput({
   label,
   value,
