@@ -31,6 +31,7 @@ const EMPTY_SCHOOL_FORM = {
   phone: '',
   email: '',
   logo_url: '',
+  logo_file: null,
   admin_full_name: '',
   admin_username: '',
   admin_email: '',
@@ -149,6 +150,84 @@ function AdminDashboard({ profile, onLogout }) {
       ...current,
       [field]: value,
     }))
+  }
+
+  // =========================================================
+  // LOGO ÉCOLE
+  // =========================================================
+
+  function handleLogoFileChange(event) {
+    const file = event.target.files?.[0] || null
+
+    if (!file) {
+      updateSchoolField('logo_file', null)
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setError(
+        'Veuillez sélectionner une image pour le logo.'
+      )
+      event.target.value = ''
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError(
+        'Le logo ne doit pas dépasser 5 Mo.'
+      )
+      event.target.value = ''
+      return
+    }
+
+    setError('')
+
+    updateSchoolField('logo_file', file)
+
+    const previewUrl = URL.createObjectURL(file)
+
+    updateSchoolField('logo_url', previewUrl)
+  }
+
+  async function uploadSchoolLogo(file, schoolId) {
+    if (!file || !schoolId) {
+      return null
+    }
+
+    const extension =
+      file.name.split('.').pop()?.toLowerCase() ||
+      'png'
+
+    const filePath = `${schoolId}/logo-${Date.now()}.${extension}`
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from('school-branding')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type,
+        })
+
+    if (uploadError) {
+      throw uploadError
+    }
+
+    const {
+      data: signedUrlData,
+      error: signedUrlError,
+    } = await supabase.storage
+      .from('school-branding')
+      .createSignedUrl(
+        filePath,
+        60 * 60 * 24 * 365
+      )
+
+    if (signedUrlError) {
+      throw signedUrlError
+    }
+
+    return signedUrlData?.signedUrl || null
   }
 
   function goBack() {
@@ -513,24 +592,28 @@ function AdminDashboard({ profile, onLogout }) {
         )
       }
 
-      /*
-       * La création actuelle est conservée.
-       * Si un logo est fourni sous forme d'URL,
-       * on l'enregistre ensuite dans schools.logo_url.
-       */
-      if (schoolForm.logo_url.trim() && data?.school_id) {
-        const { error: logoError } = await supabase
-          .from('schools')
-          .update({
-            logo_url: schoolForm.logo_url.trim(),
-          })
-          .eq('id', data.school_id)
-
-        if (logoError) {
-          console.error(
-            'Erreur lors de l’enregistrement du logo :',
-            logoError
+      if (
+        schoolForm.logo_file &&
+        data?.school_id
+      ) {
+        const logoUrl =
+          await uploadSchoolLogo(
+            schoolForm.logo_file,
+            data.school_id
           )
+
+        if (logoUrl) {
+          const { error: logoError } =
+            await supabase
+              .from('schools')
+              .update({
+                logo_url: logoUrl,
+              })
+              .eq('id', data.school_id)
+
+          if (logoError) {
+            throw logoError
+          }
         }
       }
 
@@ -583,6 +666,7 @@ function AdminDashboard({ profile, onLogout }) {
       phone: school.phone || '',
       email: school.email || '',
       logo_url: school.logo_url || '',
+      logo_file: null,
     })
 
     setShowSchoolForm(true)
@@ -619,6 +703,16 @@ function AdminDashboard({ profile, onLogout }) {
     setMessage('')
 
     try {
+      let logoUrl =
+        editingSchool.logo_url || null
+
+      if (schoolForm.logo_file) {
+        logoUrl = await uploadSchoolLogo(
+          schoolForm.logo_file,
+          editingSchool.id
+        )
+      }
+
       const { error: updateError } =
         await supabase
           .from('schools')
@@ -633,8 +727,7 @@ function AdminDashboard({ profile, onLogout }) {
             email:
               schoolForm.email.trim().toLowerCase() ||
               null,
-            logo_url:
-              schoolForm.logo_url.trim() || null,
+            logo_url: logoUrl,
           })
           .eq('id', editingSchool.id)
 
@@ -2069,18 +2162,29 @@ function AdminDashboard({ profile, onLogout }) {
                     type="email"
                   />
 
-                  <FormField
-                    label="Logo de l'école — URL"
-                    value={schoolForm.logo_url}
-                    onChange={(e) =>
-                      updateSchoolField(
-                        'logo_url',
-                        e.target.value
-                      )
-                    }
-                    placeholder="https://..."
-                    type="url"
-                  />
+                  <label
+                    className="admin-form-field"
+                    style={{ color: '#000' }}
+                  >
+                    <span style={{ color: '#000' }}>
+                      Logo de l'école
+                    </span>
+
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      onChange={
+                        handleLogoFileChange
+                      }
+                      style={{ color: '#000' }}
+                    />
+
+                    <small style={{ color: '#000' }}>
+                      Choisissez le logo directement
+                      depuis votre téléphone.
+                      Taille maximale : 5 Mo.
+                    </small>
+                  </label>
                 </div>
 
                 {schoolForm.logo_url && (
