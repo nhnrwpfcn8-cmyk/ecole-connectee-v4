@@ -1,121 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 
-function formatDate(value) {
-  if (!value) return "—";
+const TEAM_FUNCTIONS = [
+  "Vice-président",
+  "Secrétaire",
+  "Trésorier",
+  "Communication",
+  "Responsable activités",
+  "Membre",
+];
 
-  return new Date(value).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function formatAmount(value) {
-  const amount = Number(value || 0);
-
-  return `${amount.toLocaleString("fr-FR")} FCFA`;
-}
-
-function Card({ children, style = {} }) {
-  return (
-    <div
-      style={{
-        background: "#ffffff",
-        border: "1px solid #e2e8f0",
-        borderRadius: "16px",
-        padding: "18px",
-        boxShadow: "0 3px 12px rgba(15,23,42,0.05)",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function SectionTitle({ icon, title, description }) {
-  return (
-    <div style={{ marginBottom: "16px" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        <div
-          style={{
-            width: "40px",
-            height: "40px",
-            borderRadius: "11px",
-            background: "#eef2ff",
-            display: "grid",
-            placeItems: "center",
-            fontSize: "20px",
-            flexShrink: 0,
-          }}
-        >
-          {icon}
-        </div>
-
-        <div>
-          <h3
-            style={{
-              margin: 0,
-              color: "#0f172a",
-              fontSize: "18px",
-              fontWeight: 900,
-            }}
-          >
-            {title}
-          </h3>
-
-          {description && (
-            <p
-              style={{
-                margin: "4px 0 0",
-                color: "#64748b",
-                fontSize: "13px",
-              }}
-            >
-              {description}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EmptyState({ icon = "📭", text }) {
-  return (
-    <div
-      style={{
-        textAlign: "center",
-        padding: "28px 15px",
-        color: "#64748b",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "30px",
-          marginBottom: "8px",
-        }}
-      >
-        {icon}
-      </div>
-
-      <div
-        style={{
-          fontSize: "14px",
-        }}
-      >
-        {text}
-      </div>
-    </div>
-  );
-}
+const EMPTY_TEAM_FORM = {
+  parent_id: "",
+  function_name: "Membre",
+};
 
 export default function ParentAPEPage({
   schoolId,
@@ -123,95 +21,98 @@ export default function ParentAPEPage({
   onBack,
 }) {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [savingTeam, setSavingTeam] = useState(false);
 
   const [ape, setApe] = useState(null);
   const [member, setMember] = useState(null);
+
   const [members, setMembers] = useState([]);
+  const [parents, setParents] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [activities, setActivities] = useState([]);
   const [contributions, setContributions] = useState([]);
 
-  const [activeSection, setActiveSection] = useState("home");
+  const [section, setSection] = useState("home");
 
-  const isPresident = Boolean(
-    member?.is_president === true
-  );
+  const [teamForm, setTeamForm] = useState(EMPTY_TEAM_FORM);
+  const [editingMemberId, setEditingMemberId] = useState(null);
+  const [teamMessage, setTeamMessage] = useState("");
 
-  const isActiveMember =
-    member?.status === "active";
+  const isPresident = Boolean(member?.is_president === true);
+  const isActiveMember = member?.status === "active";
 
-  const visibleMembers = useMemo(
-    () =>
-      members.filter(
-        (item) => item.status === "active"
-      ),
-    [members]
-  );
+  const parentMap = useMemo(() => {
+    const map = {};
+
+    parents.forEach((parent) => {
+      map[parent.id] = parent;
+    });
+
+    return map;
+  }, [parents]);
+
+  const availableParents = useMemo(() => {
+    const existingParentIds = new Set(
+      members.map((item) => item.parent_id)
+    );
+
+    return parents.filter(
+      (parent) => !existingParentIds.has(parent.id)
+    );
+  }, [parents, members]);
+
+  const currentTeamMembers = useMemo(() => {
+    return [...members].sort((a, b) => {
+      if (a.is_president && !b.is_president) return -1;
+      if (!a.is_president && b.is_president) return 1;
+
+      const nameA =
+        parentMap[a.parent_id]?.full_name || "";
+      const nameB =
+        parentMap[b.parent_id]?.full_name || "";
+
+      return nameA.localeCompare(nameB);
+    });
+  }, [members, parentMap]);
 
   async function loadAPE() {
     if (!schoolId || !parentId) {
       setLoading(false);
-      setError(
-        "Impossible d'identifier votre école ou votre compte parent."
-      );
       return;
     }
 
-    setLoading(true);
-    setError("");
-
     try {
-      const {
-        data: apeData,
-        error: apeError,
-      } = await supabase
+      setLoading(true);
+      setTeamMessage("");
+
+      const { data: apeData, error: apeError } = await supabase
         .from("school_apes")
         .select(
-          "id,school_id,name,academic_year,description,active"
+          "id, school_id, name, academic_year, description, active"
         )
         .eq("school_id", schoolId)
         .maybeSingle();
 
-      if (apeError) {
-        throw apeError;
-      }
+      if (apeError) throw apeError;
+
+      setApe(apeData || null);
 
       if (!apeData) {
-        setApe(null);
         setMember(null);
         setMembers([]);
+        setParents([]);
         setMeetings([]);
         setAnnouncements([]);
         setActivities([]);
         setContributions([]);
-        setLoading(false);
         return;
       }
 
-      setApe(apeData);
-
-      const {
-        data: memberData,
-        error: memberError,
-      } = await supabase
-        .from("ape_members")
-        .select(
-          "id,ape_id,parent_id,function_name,status,joined_at,notes,is_president"
-        )
-        .eq("ape_id", apeData.id)
-        .eq("parent_id", parentId)
-        .maybeSingle();
-
-      if (memberError) {
-        throw memberError;
-      }
-
-      setMember(memberData || null);
-
       const [
+        memberResult,
         membersResult,
+        parentsResult,
         meetingsResult,
         announcementsResult,
         activitiesResult,
@@ -219,109 +120,95 @@ export default function ParentAPEPage({
         supabase
           .from("ape_members")
           .select(
-            "id,ape_id,parent_id,function_name,status,joined_at,notes,is_president"
+            "id, ape_id, parent_id, function_name, status, joined_at, notes, is_president"
           )
           .eq("ape_id", apeData.id)
-          .eq("status", "active"),
+          .eq("parent_id", parentId)
+          .maybeSingle(),
+
+        supabase
+          .from("ape_members")
+          .select(
+            "id, ape_id, parent_id, function_name, status, joined_at, notes, is_president"
+          )
+          .eq("ape_id", apeData.id)
+          .eq("status", "active")
+          .order("created_at", { ascending: true }),
+
+        supabase
+          .from("parents")
+          .select(
+            "id, school_id, full_name, phone, email, active"
+          )
+          .eq("school_id", schoolId)
+          .eq("active", true)
+          .order("full_name", { ascending: true }),
 
         supabase
           .from("ape_meetings")
           .select(
-            "id,ape_id,title,description,meeting_date,meeting_time,location,status,agenda,minutes"
+            "id, ape_id, title, description, meeting_date, meeting_time, location, status, agenda, minutes"
           )
           .eq("ape_id", apeData.id)
-          .order("meeting_date", {
-            ascending: true,
-          }),
+          .order("meeting_date", { ascending: true }),
 
         supabase
           .from("ape_announcements")
           .select(
-            "id,ape_id,title,content,status,published_at,created_at"
+            "id, ape_id, title, content, status, published_at, created_at"
           )
           .eq("ape_id", apeData.id)
           .eq("status", "published")
           .order("published_at", {
             ascending: false,
+            nullsFirst: false,
           }),
 
         supabase
           .from("ape_activities")
           .select(
-            "id,ape_id,title,description,activity_date,location,status,budget,notes"
+            "id, ape_id, title, description, activity_date, location, status, budget, notes"
           )
           .eq("ape_id", apeData.id)
-          .order("activity_date", {
-            ascending: true,
-          }),
+          .order("activity_date", { ascending: true }),
       ]);
 
-      if (membersResult.error) {
-        throw membersResult.error;
-      }
-
-      if (meetingsResult.error) {
-        throw meetingsResult.error;
-      }
-
-      if (announcementsResult.error) {
+      if (memberResult.error) throw memberResult.error;
+      if (membersResult.error) throw membersResult.error;
+      if (parentsResult.error) throw parentsResult.error;
+      if (meetingsResult.error) throw meetingsResult.error;
+      if (announcementsResult.error)
         throw announcementsResult.error;
-      }
+      if (activitiesResult.error) throw activitiesResult.error;
 
-      if (activitiesResult.error) {
-        throw activitiesResult.error;
-      }
-
-      const memberRows =
-        membersResult.data || [];
-
-      setMembers(memberRows);
+      setMember(memberResult.data || null);
+      setMembers(membersResult.data || []);
+      setParents(parentsResult.data || []);
       setMeetings(meetingsResult.data || []);
-      setAnnouncements(
-        announcementsResult.data || []
-      );
-      setActivities(
-        activitiesResult.data || []
-      );
+      setAnnouncements(announcementsResult.data || []);
+      setActivities(activitiesResult.data || []);
 
-      /*
-       * Les cotisations sont visibles uniquement
-       * pour le parent connecté lorsqu'il est membre.
-       */
-      if (memberData?.id) {
-        const {
-          data: contributionRows,
-          error: contributionError,
-        } = await supabase
-          .from("ape_contributions")
-          .select(
-            "id,ape_id,member_id,amount_due,amount_paid,due_date,paid_at,payment_method,reference,status,notes"
-          )
-          .eq("ape_id", apeData.id)
-          .eq("member_id", memberData.id)
-          .order("created_at", {
-            ascending: false,
-          });
+      if (memberResult.data) {
+        const { data: contributionData, error: contributionError } =
+          await supabase
+            .from("ape_contributions")
+            .select(
+              "id, ape_id, member_id, amount_due, amount_paid, due_date, paid_at, payment_method, reference, status, notes"
+            )
+            .eq("ape_id", apeData.id)
+            .eq("member_id", memberResult.data.id)
+            .order("created_at", { ascending: false });
 
-        if (contributionError) {
-          throw contributionError;
-        }
+        if (contributionError) throw contributionError;
 
-        setContributions(
-          contributionRows || []
-        );
+        setContributions(contributionData || []);
       } else {
         setContributions([]);
       }
-    } catch (err) {
-      console.error(
-        "Erreur chargement espace APE :",
-        err
-      );
-
-      setError(
-        err?.message ||
-          "Impossible de charger l'espace APE."
+    } catch (error) {
+      console.error("Erreur chargement APE :", error);
+      setTeamMessage(
+        error?.message || "Impossible de charger l'espace APE."
       );
     } finally {
       setLoading(false);
@@ -332,610 +219,701 @@ export default function ParentAPEPage({
     loadAPE();
   }, [schoolId, parentId]);
 
-  function goBack() {
-    if (activeSection !== "home") {
-      setActiveSection("home");
+  function resetTeamForm() {
+    setTeamForm(EMPTY_TEAM_FORM);
+    setEditingMemberId(null);
+  }
+
+  function startEditMember(teamMember) {
+    if (!isPresident) return;
+    if (teamMember.is_president) return;
+
+    setTeamMessage("");
+
+    setEditingMemberId(teamMember.id);
+    setTeamForm({
+      parent_id: teamMember.parent_id,
+      function_name:
+        teamMember.function_name || "Membre",
+    });
+
+    setSection("team");
+  }
+
+  async function saveTeamMember(event) {
+    event.preventDefault();
+
+    if (!isPresident || !ape) return;
+
+    if (!teamForm.function_name) {
+      setTeamMessage("Veuillez choisir une fonction.");
       return;
     }
 
-    if (onBack) {
-      onBack();
+    if (!editingMemberId && !teamForm.parent_id) {
+      setTeamMessage("Veuillez sélectionner un parent.");
+      return;
+    }
+
+    try {
+      setSavingTeam(true);
+      setTeamMessage("");
+
+      if (editingMemberId) {
+        const { error } = await supabase
+          .from("ape_members")
+          .update({
+            function_name: teamForm.function_name,
+            status: "active",
+          })
+          .eq("id", editingMemberId)
+          .eq("ape_id", ape.id)
+          .eq("is_president", false);
+
+        if (error) throw error;
+
+        setTeamMessage("Fonction du membre modifiée avec succès.");
+      } else {
+        const { error } = await supabase
+          .from("ape_members")
+          .insert({
+            ape_id: ape.id,
+            parent_id: teamForm.parent_id,
+            function_name: teamForm.function_name,
+            status: "active",
+            joined_at: new Date()
+              .toISOString()
+              .slice(0, 10),
+            is_president: false,
+          });
+
+        if (error) throw error;
+
+        setTeamMessage("Membre ajouté avec succès.");
+      }
+
+      resetTeamForm();
+      await loadAPE();
+    } catch (error) {
+      console.error("Erreur équipe APE :", error);
+
+      if (
+        error?.code === "23505"
+      ) {
+        setTeamMessage(
+          "Ce parent fait déjà partie de l'équipe APE."
+        );
+      } else {
+        setTeamMessage(
+          error?.message ||
+            "Impossible d'enregistrer le membre."
+        );
+      }
+    } finally {
+      setSavingTeam(false);
     }
   }
 
-  function renderHeader() {
-    return (
-      <div
-        style={{
-          marginBottom: "22px",
-        }}
-      >
-        <button
-          type="button"
-          onClick={goBack}
-          style={{
-            border: "1px solid #e2e8f0",
-            background: "#ffffff",
-            color: "#000000",
-            borderRadius: "10px",
-            padding: "9px 13px",
-            cursor: "pointer",
-            fontWeight: 800,
-            fontSize: "13px",
-            marginBottom: "14px",
-          }}
-        >
-          ← Retour
-        </button>
+  async function deleteTeamMember(teamMember) {
+    if (!isPresident) return;
+    if (teamMember.is_president) return;
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-          }}
-        >
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "13px",
-              background: "#eef2ff",
-              display: "grid",
-              placeItems: "center",
-              fontSize: "24px",
-            }}
-          >
-            🤝
-          </div>
+    const parentName =
+      parentMap[teamMember.parent_id]?.full_name ||
+      "ce membre";
 
-          <div>
-            <h2
-              style={{
-                margin: 0,
-                color: "#000000",
-                fontSize: "23px",
-                fontWeight: 900,
-              }}
-            >
-              Espace APE
-            </h2>
-
-            <p
-              style={{
-                margin: "5px 0 0",
-                color: "#000000",
-                fontSize: "13px",
-              }}
-            >
-              {ape?.name ||
-                "Association des Parents d'Élèves"}
-            </p>
-          </div>
-        </div>
-      </div>
+    const confirmed = window.confirm(
+      `Voulez-vous vraiment retirer ${parentName} de l'équipe APE ?`
     );
-  }
 
-  function renderNavigation() {
-    const items = [
-      {
-        id: "home",
-        icon: "🏠",
-        label: "Accueil APE",
-      },
-      {
-        id: "team",
-        icon: "👥",
-        label: "Équipe APE",
-      },
-      {
-        id: "meetings",
-        icon: "📅",
-        label: "Réunions",
-      },
-      {
-        id: "announcements",
-        icon: "📢",
-        label: "Annonces",
-      },
-      {
-        id: "activities",
-        icon: "🎯",
-        label: "Activités / Projets",
-      },
-      {
-        id: "contributions",
-        icon: "💰",
-        label: "Cotisations",
-      },
-    ];
+    if (!confirmed) return;
 
-    return (
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit,minmax(145px,1fr))",
-          gap: "10px",
-          marginBottom: "20px",
-        }}
-      >
-        {items.map((item) => {
-          const active =
-            activeSection === item.id;
+    try {
+      setSavingTeam(true);
+      setTeamMessage("");
 
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() =>
-                setActiveSection(item.id)
-              }
-              style={{
-                border: active
-                  ? "1px solid #4f46e5"
-                  : "1px solid #e2e8f0",
-                background: active
-                  ? "#eef2ff"
-                  : "#ffffff",
-                color: "#000000",
-                borderRadius: "12px",
-                padding: "13px 10px",
-                cursor: "pointer",
-                fontWeight: 800,
-                fontSize: "12px",
-                minHeight: "70px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "5px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "21px",
-                }}
-              >
-                {item.icon}
-              </span>
+      const { error } = await supabase
+        .from("ape_members")
+        .delete()
+        .eq("id", teamMember.id)
+        .eq("ape_id", ape.id)
+        .eq("is_president", false);
 
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
+      if (error) throw error;
+
+      if (editingMemberId === teamMember.id) {
+        resetTeamForm();
+      }
+
+      setTeamMessage("Membre retiré de l'équipe APE.");
+      await loadAPE();
+    } catch (error) {
+      console.error("Erreur suppression membre :", error);
+
+      setTeamMessage(
+        error?.message ||
+          "Impossible de retirer ce membre."
+      );
+    } finally {
+      setSavingTeam(false);
+    }
   }
 
   function renderHome() {
-    if (!ape) {
-      return (
-        <>
-          <Card>
-            <EmptyState
-              icon="🤝"
-              text="L'Association des Parents d'Élèves n'est pas encore configurée pour votre école."
-            />
-          </Card>
-        </>
-      );
-    }
-
     return (
-      <>
-        <Card
+      <div>
+        <div
           style={{
-            marginBottom: "18px",
-            background:
-              "linear-gradient(135deg,#eef2ff,#ffffff)",
+            background: "#fff",
+            border: "1px solid #ddd",
+            borderRadius: "16px",
+            padding: "20px",
+            marginBottom: "20px",
           }}
         >
-          <div
+          <h2
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "15px",
-              flexWrap: "wrap",
+              marginTop: 0,
+              color: "#000",
             }}
           >
-            <div>
-              <div
+            🤝 {ape?.name || "Association des Parents d'Élèves"}
+          </h2>
+
+          {ape?.academic_year && (
+            <p style={{ color: "#000" }}>
+              Année scolaire :{" "}
+              <strong>{ape.academic_year}</strong>
+            </p>
+          )}
+
+          {ape?.description && (
+            <p style={{ color: "#000" }}>
+              {ape.description}
+            </p>
+          )}
+
+          {member ? (
+            <div
+              style={{
+                marginTop: "18px",
+                padding: "16px",
+                borderRadius: "12px",
+                background: "#f5f5f5",
+              }}
+            >
+              <p
                 style={{
-                  fontSize: "11px",
-                  fontWeight: 900,
-                  color: "#000000",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
+                  margin: "0 0 8px",
+                  color: "#000",
+                  fontWeight: 700,
                 }}
               >
-                Association des Parents d'Élèves
-              </div>
+                Votre statut APE
+              </p>
 
-              <h3
+              <p
                 style={{
-                  margin: "6px 0 0",
-                  color: "#000000",
-                  fontSize: "21px",
-                  fontWeight: 900,
+                  margin: "4px 0",
+                  color: "#000",
                 }}
               >
-                {ape.name}
-              </h3>
+                Fonction :{" "}
+                <strong>
+                  {member.is_president
+                    ? "Président"
+                    : member.function_name}
+                </strong>
+              </p>
 
-              {ape.academic_year && (
-                <div
+              <p
+                style={{
+                  margin: "4px 0",
+                  color: "#000",
+                }}
+              >
+                Statut :{" "}
+                <strong>
+                  {member.status === "active"
+                    ? "Actif"
+                    : member.status}
+                </strong>
+              </p>
+
+              {isPresident && (
+                <p
                   style={{
-                    marginTop: "5px",
-                    color: "#000000",
-                    fontSize: "13px",
+                    marginTop: "12px",
+                    marginBottom: 0,
+                    color: "#000",
                   }}
                 >
-                  Année scolaire :{" "}
-                  {ape.academic_year}
-                </div>
+                  👑 Vous êtes Président de l'APE.
+                  Vous pouvez gérer les membres de
+                  votre équipe et leurs fonctions.
+                </p>
               )}
             </div>
-
+          ) : (
             <div
               style={{
-                padding: "9px 13px",
-                borderRadius: "999px",
-                background: isActiveMember
-                  ? "#dcfce7"
-                  : "#f1f5f9",
-                color: "#000000",
-                fontSize: "12px",
-                fontWeight: 900,
+                marginTop: "18px",
+                padding: "16px",
+                borderRadius: "12px",
+                background: "#f5f5f5",
               }}
             >
-              {isPresident
-                ? "👑 Président"
-                : isActiveMember
-                ? `👥 ${member.function_name}`
-                : "👤 Parent"}
-            </div>
-          </div>
-        </Card>
-
-        {isPresident && (
-          <Card
-            style={{
-              marginBottom: "18px",
-              border:
-                "1px solid #f59e0b",
-              background: "#fffbeb",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                alignItems: "flex-start",
-              }}
-            >
-              <div
+              <p
                 style={{
-                  fontSize: "25px",
+                  margin: 0,
+                  color: "#000",
                 }}
               >
-                👑
-              </div>
-
-              <div>
-                <div
-                  style={{
-                    color: "#000000",
-                    fontWeight: 900,
-                    fontSize: "15px",
-                  }}
-                >
-                  Vous êtes le Président de l'APE
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "5px",
-                    color: "#000000",
-                    fontSize: "13px",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Vous pourrez prochainement gérer
-                  votre équipe, les fonctions des
-                  membres, les réunions, les activités,
-                  les annonces et le suivi de l'APE.
-                </div>
-              </div>
+                Vous n'êtes pas actuellement membre
+                de l'équipe APE.
+              </p>
             </div>
-          </Card>
-        )}
-
-        {!isActiveMember && (
-          <Card
-            style={{
-              marginBottom: "18px",
-            }}
-          >
-            <SectionTitle
-              icon="ℹ️"
-              title="Votre statut"
-              description="Informations générales sur l'APE"
-            />
-
-            <div
-              style={{
-                color: "#000000",
-                fontSize: "14px",
-                lineHeight: 1.6,
-              }}
-            >
-              Vous êtes actuellement enregistré
-              comme parent de l'école, mais vous
-              n'êtes pas membre de l'équipe APE.
-            </div>
-          </Card>
-        )}
+          )}
+        </div>
 
         <div
           style={{
             display: "grid",
             gridTemplateColumns:
-              "repeat(auto-fit,minmax(180px,1fr))",
-            gap: "12px",
+              "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "14px",
           }}
         >
-          <Card>
-            <div
-              style={{
-                fontSize: "25px",
-              }}
-            >
-              👥
-            </div>
+          <button
+            type="button"
+            onClick={() => setSection("team")}
+            style={cardStyle}
+          >
+            <span style={iconStyle}>👥</span>
+            <strong style={blackText}>Équipe APE</strong>
+            <span style={smallText}>
+              Membres et fonctions
+            </span>
+          </button>
 
-            <div
-              style={{
-                marginTop: "8px",
-                color: "#000000",
-                fontSize: "24px",
-                fontWeight: 900,
-              }}
-            >
-              {visibleMembers.length}
-            </div>
+          <button
+            type="button"
+            onClick={() => setSection("meetings")}
+            style={cardStyle}
+          >
+            <span style={iconStyle}>📅</span>
+            <strong style={blackText}>Réunions</strong>
+            <span style={smallText}>
+              Réunions et comptes rendus
+            </span>
+          </button>
 
-            <div
-              style={{
-                color: "#000000",
-                fontSize: "12px",
-              }}
-            >
-              Membres actifs
-            </div>
-          </Card>
+          <button
+            type="button"
+            onClick={() => setSection("announcements")}
+            style={cardStyle}
+          >
+            <span style={iconStyle}>📢</span>
+            <strong style={blackText}>Annonces</strong>
+            <span style={smallText}>
+              Communications de l'APE
+            </span>
+          </button>
 
-          <Card>
-            <div
-              style={{
-                fontSize: "25px",
-              }}
-            >
-              📅
-            </div>
+          <button
+            type="button"
+            onClick={() => setSection("activities")}
+            style={cardStyle}
+          >
+            <span style={iconStyle}>🎯</span>
+            <strong style={blackText}>
+              Activités / Projets
+            </strong>
+            <span style={smallText}>
+              Projets de l'association
+            </span>
+          </button>
 
-            <div
-              style={{
-                marginTop: "8px",
-                color: "#000000",
-                fontSize: "24px",
-                fontWeight: 900,
-              }}
-            >
-              {meetings.length}
-            </div>
-
-            <div
-              style={{
-                color: "#000000",
-                fontSize: "12px",
-              }}
-            >
-              Réunions
-            </div>
-          </Card>
-
-          <Card>
-            <div
-              style={{
-                fontSize: "25px",
-              }}
-            >
-              📢
-            </div>
-
-            <div
-              style={{
-                marginTop: "8px",
-                color: "#000000",
-                fontSize: "24px",
-                fontWeight: 900,
-              }}
-            >
-              {announcements.length}
-            </div>
-
-            <div
-              style={{
-                color: "#000000",
-                fontSize: "12px",
-              }}
-            >
-              Annonces
-            </div>
-          </Card>
-
-          <Card>
-            <div
-              style={{
-                fontSize: "25px",
-              }}
-            >
-              🎯
-            </div>
-
-            <div
-              style={{
-                marginTop: "8px",
-                color: "#000000",
-                fontSize: "24px",
-                fontWeight: 900,
-              }}
-            >
-              {activities.length}
-            </div>
-
-            <div
-              style={{
-                color: "#000000",
-                fontSize: "12px",
-              }}
-            >
-              Activités / projets
-            </div>
-          </Card>
+          <button
+            type="button"
+            onClick={() => setSection("contributions")}
+            style={cardStyle}
+          >
+            <span style={iconStyle}>💰</span>
+            <strong style={blackText}>Cotisations</strong>
+            <span style={smallText}>
+              Suivi des cotisations
+            </span>
+          </button>
         </div>
-      </>
+      </div>
     );
   }
 
   function renderTeam() {
     return (
-      <Card>
-        <SectionTitle
-          icon="👥"
-          title="Équipe APE"
-          description={
-            isPresident
-              ? "Vous supervisez l'équipe de l'APE."
-              : "Les membres actuellement enregistrés dans l'APE."
-          }
-        />
+      <div>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                color: "#000",
+              }}
+            >
+              👥 Équipe APE
+            </h2>
 
-        {!visibleMembers.length ? (
-          <EmptyState
-            icon="👥"
-            text="Aucun membre actif n'est encore enregistré."
-          />
-        ) : (
+            <p
+              style={{
+                margin: "6px 0 0",
+                color: "#000",
+              }}
+            >
+              Les membres de l'équipe et leurs fonctions.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={loadAPE}
+            style={iconButtonStyle}
+            title="Actualiser"
+          >
+            🔄
+          </button>
+        </div>
+
+        {isPresident && (
           <div
             style={{
-              display: "grid",
-              gap: "10px",
+              background: "#fff",
+              border: "1px solid #ddd",
+              borderRadius: "16px",
+              padding: "18px",
+              marginBottom: "20px",
             }}
           >
-            {visibleMembers.map((item) => (
+            <h3
+              style={{
+                marginTop: 0,
+                color: "#000",
+              }}
+            >
+              {editingMemberId
+                ? "✏️ Modifier la fonction"
+                : "➕ Ajouter un membre"}
+            </h3>
+
+            <form
+              onSubmit={saveTeamMember}
+              style={{
+                display: "grid",
+                gap: "12px",
+              }}
+            >
+              {!editingMemberId ? (
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "6px",
+                      color: "#000",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Parent
+                  </label>
+
+                  <select
+                    value={teamForm.parent_id}
+                    onChange={(event) =>
+                      setTeamForm((current) => ({
+                        ...current,
+                        parent_id: event.target.value,
+                      }))
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="">
+                      Choisir un parent
+                    </option>
+
+                    {availableParents.map((parent) => (
+                      <option
+                        key={parent.id}
+                        value={parent.id}
+                      >
+                        {parent.full_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {availableParents.length === 0 && (
+                    <p
+                      style={{
+                        margin: "7px 0 0",
+                        color: "#000",
+                        fontSize: "14px",
+                      }}
+                    >
+                      Tous les parents actifs sont
+                      déjà membres de l'équipe APE.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    padding: "12px",
+                    background: "#f5f5f5",
+                    borderRadius: "10px",
+                    color: "#000",
+                  }}
+                >
+                  <strong>
+                    {parentMap[teamForm.parent_id]
+                      ?.full_name || "Membre"}
+                  </strong>
+                </div>
+              )}
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "6px",
+                    color: "#000",
+                    fontWeight: 600,
+                  }}
+                >
+                  Fonction
+                </label>
+
+                <select
+                  value={teamForm.function_name}
+                  onChange={(event) =>
+                    setTeamForm((current) => ({
+                      ...current,
+                      function_name: event.target.value,
+                    }))
+                  }
+                  style={inputStyle}
+                >
+                  {TEAM_FUNCTIONS.map((functionName) => (
+                    <option
+                      key={functionName}
+                      value={functionName}
+                    >
+                      {functionName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div
-                key={item.id}
                 style={{
-                  border:
-                    "1px solid #e2e8f0",
-                  borderRadius: "12px",
-                  padding: "13px",
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent:
-                    "space-between",
-                  gap: "12px",
+                  gap: "10px",
                   flexWrap: "wrap",
                 }}
               >
+                <button
+                  type="submit"
+                  disabled={
+                    savingTeam ||
+                    (!editingMemberId &&
+                      !teamForm.parent_id)
+                  }
+                  style={primaryButtonStyle}
+                >
+                  {savingTeam
+                    ? "Enregistrement..."
+                    : editingMemberId
+                    ? "💾 Enregistrer"
+                    : "➕ Ajouter"}
+                </button>
+
+                {editingMemberId && (
+                  <button
+                    type="button"
+                    onClick={resetTeamForm}
+                    style={secondaryButtonStyle}
+                  >
+                    ✖ Annuler
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {teamMessage && (
+              <p
+                style={{
+                  marginBottom: 0,
+                  marginTop: "12px",
+                  color: "#000",
+                }}
+              >
+                {teamMessage}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!isPresident && teamMessage && (
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #ddd",
+              borderRadius: "12px",
+              padding: "12px",
+              marginBottom: "16px",
+              color: "#000",
+            }}
+          >
+            {teamMessage}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "grid",
+            gap: "12px",
+          }}
+        >
+          {currentTeamMembers.length === 0 ? (
+            <div style={emptyStyle}>
+              Aucun membre de l'équipe APE
+              actuellement.
+            </div>
+          ) : (
+            currentTeamMembers.map((teamMember) => {
+              const parent =
+                parentMap[teamMember.parent_id];
+
+              const president =
+                teamMember.is_president === true;
+
+              return (
                 <div
+                  key={teamMember.id}
                   style={{
+                    background: "#fff",
+                    border: "1px solid #ddd",
+                    borderRadius: "14px",
+                    padding: "16px",
                     display: "flex",
+                    justifyContent: "space-between",
                     alignItems: "center",
-                    gap: "10px",
+                    gap: "12px",
+                    flexWrap: "wrap",
                   }}
                 >
-                  <div
-                    style={{
-                      width: "38px",
-                      height: "38px",
-                      borderRadius: "50%",
-                      background:
-                        item.is_president
-                          ? "#fef3c7"
-                          : "#eef2ff",
-                      display: "grid",
-                      placeItems: "center",
-                      fontSize: "17px",
-                    }}
-                  >
-                    {item.is_president
-                      ? "👑"
-                      : "👤"}
-                  </div>
-
                   <div>
                     <div
                       style={{
-                        color: "#000000",
-                        fontWeight: 900,
-                        fontSize: "13px",
+                        color: "#000",
+                        fontWeight: 700,
+                        fontSize: "17px",
                       }}
                     >
-                      {item.is_president
-                        ? "Président de l'APE"
-                        : "Membre APE"}
+                      {parent?.full_name ||
+                        "Parent APE"}
                     </div>
 
                     <div
                       style={{
-                        marginTop: "3px",
-                        color: "#000000",
-                        fontSize: "12px",
+                        color: "#000",
+                        marginTop: "4px",
                       }}
                     >
-                      {item.function_name}
+                      {president
+                        ? "👑 Président"
+                        : teamMember.function_name ||
+                          "Membre"}
                     </div>
-                  </div>
-                </div>
 
-                <div
-                  style={{
-                    color: "#000000",
-                    fontSize: "11px",
-                  }}
-                >
-                  Depuis le{" "}
-                  {formatDate(
-                    item.joined_at
+                    {parent?.phone && (
+                      <div
+                        style={{
+                          color: "#000",
+                          marginTop: "4px",
+                          fontSize: "14px",
+                        }}
+                      >
+                        📞 {parent.phone}
+                      </div>
+                    )}
+                  </div>
+
+                  {isPresident && !president && (
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startEditMember(teamMember)
+                        }
+                        style={smallActionButtonStyle}
+                        title="Modifier"
+                      >
+                        ✏️
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteTeamMember(teamMember)
+                        }
+                        style={smallActionButtonStyle}
+                        title="Supprimer"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+              );
+            })
+          )}
+        </div>
+      </div>
     );
   }
 
   function renderMeetings() {
     return (
-      <Card>
-        <SectionTitle
-          icon="📅"
-          title="Réunions"
-          description="Réunions et rencontres de l'APE"
-        />
+      <div>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                color: "#000",
+              }}
+            >
+              📅 Réunions APE
+            </h2>
+          </div>
 
-        {!meetings.length ? (
-          <EmptyState
-            icon="📅"
-            text="Aucune réunion enregistrée."
-          />
+          <button
+            type="button"
+            onClick={loadAPE}
+            style={iconButtonStyle}
+            title="Actualiser"
+          >
+            🔄
+          </button>
+        </div>
+
+        {meetings.length === 0 ? (
+          <div style={emptyStyle}>
+            Aucune réunion APE enregistrée.
+          </div>
         ) : (
           <div
             style={{
@@ -946,139 +924,91 @@ export default function ParentAPEPage({
             {meetings.map((meeting) => (
               <div
                 key={meeting.id}
-                style={{
-                  border:
-                    "1px solid #e2e8f0",
-                  borderRadius: "13px",
-                  padding: "15px",
-                }}
+                style={itemStyle}
               >
-                <div
+                <h3
                   style={{
-                    display: "flex",
-                    justifyContent:
-                      "space-between",
-                    gap: "10px",
-                    flexWrap: "wrap",
+                    marginTop: 0,
+                    color: "#000",
                   }}
                 >
-                  <div
-                    style={{
-                      color: "#000000",
-                      fontWeight: 900,
-                      fontSize: "15px",
-                    }}
-                  >
-                    {meeting.title}
-                  </div>
+                  {meeting.title}
+                </h3>
 
-                  <div
-                    style={{
-                      color: "#000000",
-                      fontSize: "12px",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {formatDate(
-                      meeting.meeting_date
-                    )}
-                  </div>
-                </div>
-
-                {meeting.meeting_time && (
-                  <div
-                    style={{
-                      marginTop: "7px",
-                      color: "#000000",
-                      fontSize: "12px",
-                    }}
-                  >
-                    🕐 {meeting.meeting_time}
-                  </div>
-                )}
+                <p style={blackText}>
+                  📅 {meeting.meeting_date}
+                  {meeting.meeting_time
+                    ? ` à ${meeting.meeting_time}`
+                    : ""}
+                </p>
 
                 {meeting.location && (
-                  <div
-                    style={{
-                      marginTop: "5px",
-                      color: "#000000",
-                      fontSize: "12px",
-                    }}
-                  >
+                  <p style={blackText}>
                     📍 {meeting.location}
-                  </div>
+                  </p>
                 )}
 
                 {meeting.description && (
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      color: "#000000",
-                      fontSize: "13px",
-                      lineHeight: 1.55,
-                    }}
-                  >
+                  <p style={blackText}>
                     {meeting.description}
-                  </div>
+                  </p>
                 )}
 
                 {meeting.agenda && (
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      padding: "10px",
-                      background: "#f8fafc",
-                      borderRadius: "10px",
-                      color: "#000000",
-                      fontSize: "12px",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <strong>Ordre du jour :</strong>
-                    <br />
+                  <p style={blackText}>
+                    <strong>Ordre du jour :</strong>{" "}
                     {meeting.agenda}
-                  </div>
+                  </p>
                 )}
 
                 {meeting.minutes && (
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      padding: "10px",
-                      background: "#f8fafc",
-                      borderRadius: "10px",
-                      color: "#000000",
-                      fontSize: "12px",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    <strong>Compte rendu :</strong>
-                    <br />
+                  <p style={blackText}>
+                    <strong>Compte rendu :</strong>{" "}
                     {meeting.minutes}
-                  </div>
+                  </p>
                 )}
+
+                <p style={blackText}>
+                  Statut :{" "}
+                  <strong>{meeting.status}</strong>
+                </p>
               </div>
             ))}
           </div>
         )}
-      </Card>
+      </div>
     );
   }
 
   function renderAnnouncements() {
     return (
-      <Card>
-        <SectionTitle
-          icon="📢"
-          title="Annonces"
-          description="Informations publiées par l'APE"
-        />
+      <div>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                color: "#000",
+              }}
+            >
+              📢 Annonces APE
+            </h2>
+          </div>
 
-        {!announcements.length ? (
-          <EmptyState
-            icon="📢"
-            text="Aucune annonce publiée pour le moment."
-          />
+          <button
+            type="button"
+            onClick={loadAPE}
+            style={iconButtonStyle}
+            title="Actualiser"
+          >
+            🔄
+          </button>
+        </div>
+
+        {announcements.length === 0 ? (
+          <div style={emptyStyle}>
+            Aucune annonce publiée.
+          </div>
         ) : (
           <div
             style={{
@@ -1086,75 +1016,80 @@ export default function ParentAPEPage({
               gap: "12px",
             }}
           >
-            {announcements.map(
-              (announcement) => (
-                <div
-                  key={announcement.id}
+            {announcements.map((announcement) => (
+              <div
+                key={announcement.id}
+                style={itemStyle}
+              >
+                <h3
                   style={{
-                    border:
-                      "1px solid #e2e8f0",
-                    borderRadius: "13px",
-                    padding: "15px",
+                    marginTop: 0,
+                    color: "#000",
                   }}
                 >
-                  <div
-                    style={{
-                      color: "#000000",
-                      fontWeight: 900,
-                      fontSize: "15px",
-                    }}
-                  >
-                    {announcement.title}
-                  </div>
+                  {announcement.title}
+                </h3>
 
-                  <div
-                    style={{
-                      marginTop: "5px",
-                      color: "#000000",
-                      fontSize: "11px",
-                    }}
-                  >
-                    Publié le{" "}
-                    {formatDate(
-                      announcement.published_at ||
-                        announcement.created_at
-                    )}
-                  </div>
+                <p
+                  style={{
+                    ...blackText,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {announcement.content}
+                </p>
 
-                  <div
+                {announcement.published_at && (
+                  <p
                     style={{
-                      marginTop: "10px",
-                      color: "#000000",
+                      marginBottom: 0,
+                      color: "#000",
                       fontSize: "13px",
-                      lineHeight: 1.6,
-                      whiteSpace: "pre-wrap",
                     }}
                   >
-                    {announcement.content}
-                  </div>
-                </div>
-              )
-            )}
+                    Publiée le{" "}
+                    {new Date(
+                      announcement.published_at
+                    ).toLocaleDateString("fr-FR")}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
-      </Card>
+      </div>
     );
   }
 
   function renderActivities() {
     return (
-      <Card>
-        <SectionTitle
-          icon="🎯"
-          title="Activités / Projets"
-          description="Activités et projets de l'APE"
-        />
+      <div>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                color: "#000",
+              }}
+            >
+              🎯 Activités / Projets
+            </h2>
+          </div>
 
-        {!activities.length ? (
-          <EmptyState
-            icon="🎯"
-            text="Aucune activité ou projet enregistré."
-          />
+          <button
+            type="button"
+            onClick={loadAPE}
+            style={iconButtonStyle}
+            title="Actualiser"
+          >
+            🔄
+          </button>
+        </div>
+
+        {activities.length === 0 ? (
+          <div style={emptyStyle}>
+            Aucune activité ou projet enregistré.
+          </div>
         ) : (
           <div
             style={{
@@ -1165,121 +1100,102 @@ export default function ParentAPEPage({
             {activities.map((activity) => (
               <div
                 key={activity.id}
-                style={{
-                  border:
-                    "1px solid #e2e8f0",
-                  borderRadius: "13px",
-                  padding: "15px",
-                }}
+                style={itemStyle}
               >
-                <div
+                <h3
                   style={{
-                    display: "flex",
-                    justifyContent:
-                      "space-between",
-                    gap: "10px",
-                    flexWrap: "wrap",
+                    marginTop: 0,
+                    color: "#000",
                   }}
                 >
-                  <div
-                    style={{
-                      color: "#000000",
-                      fontWeight: 900,
-                      fontSize: "15px",
-                    }}
-                  >
-                    {activity.title}
-                  </div>
+                  {activity.title}
+                </h3>
 
-                  <div
-                    style={{
-                      color: "#000000",
-                      fontSize: "11px",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {activity.status}
-                  </div>
-                </div>
+                {activity.description && (
+                  <p style={blackText}>
+                    {activity.description}
+                  </p>
+                )}
 
                 {activity.activity_date && (
-                  <div
-                    style={{
-                      marginTop: "7px",
-                      color: "#000000",
-                      fontSize: "12px",
-                    }}
-                  >
-                    📅{" "}
-                    {formatDate(
-                      activity.activity_date
-                    )}
-                  </div>
+                  <p style={blackText}>
+                    📅 {activity.activity_date}
+                  </p>
                 )}
 
                 {activity.location && (
-                  <div
-                    style={{
-                      marginTop: "5px",
-                      color: "#000000",
-                      fontSize: "12px",
-                    }}
-                  >
+                  <p style={blackText}>
                     📍 {activity.location}
-                  </div>
+                  </p>
                 )}
 
-                {activity.description && (
-                  <div
-                    style={{
-                      marginTop: "10px",
-                      color: "#000000",
-                      fontSize: "13px",
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {activity.description}
-                  </div>
+                <p style={blackText}>
+                  Statut :{" "}
+                  <strong>{activity.status}</strong>
+                </p>
+
+                {activity.budget !== null &&
+                  activity.budget !== undefined && (
+                    <p style={blackText}>
+                      Budget :{" "}
+                      <strong>
+                        {Number(
+                          activity.budget
+                        ).toLocaleString("fr-FR")}{" "}
+                        FCFA
+                      </strong>
+                    </p>
+                  )}
+
+                {activity.notes && (
+                  <p style={blackText}>
+                    <strong>Notes :</strong>{" "}
+                    {activity.notes}
+                  </p>
                 )}
               </div>
             ))}
           </div>
         )}
-      </Card>
+      </div>
     );
   }
 
   function renderContributions() {
-    if (!isActiveMember) {
-      return (
-        <Card>
-          <SectionTitle
-            icon="💰"
-            title="Cotisations"
-            description="Suivi des cotisations APE"
-          />
-
-          <EmptyState
-            icon="💰"
-            text="Les cotisations APE sont accessibles aux membres de l'association."
-          />
-        </Card>
-      );
-    }
-
     return (
-      <Card>
-        <SectionTitle
-          icon="💰"
-          title="Mes cotisations"
-          description="Suivi de vos cotisations auprès de l'APE"
-        />
+      <div>
+        <div style={sectionHeaderStyle}>
+          <div>
+            <h2
+              style={{
+                margin: 0,
+                color: "#000",
+              }}
+            >
+              💰 Cotisations
+            </h2>
+          </div>
 
-        {!contributions.length ? (
-          <EmptyState
-            icon="💰"
-            text="Aucune cotisation enregistrée pour votre compte."
-          />
+          <button
+            type="button"
+            onClick={loadAPE}
+            style={iconButtonStyle}
+            title="Actualiser"
+          >
+            🔄
+          </button>
+        </div>
+
+        {!isActiveMember ? (
+          <div style={emptyStyle}>
+            Les informations de cotisation sont
+            disponibles pour les membres de l'APE.
+          </div>
+        ) : contributions.length === 0 ? (
+          <div style={emptyStyle}>
+            Aucune cotisation enregistrée pour
+            votre compte.
+          </div>
         ) : (
           <div
             style={{
@@ -1287,279 +1203,155 @@ export default function ParentAPEPage({
               gap: "12px",
             }}
           >
-            {contributions.map(
-              (contribution) => {
-                const remaining = Math.max(
-                  Number(
-                    contribution.amount_due ||
-                      0
-                  ) -
-                    Number(
-                      contribution.amount_paid ||
-                        0
-                    ),
-                  0
-                );
+            {contributions.map((contribution) => (
+              <div
+                key={contribution.id}
+                style={itemStyle}
+              >
+                <p style={blackText}>
+                  Montant dû :{" "}
+                  <strong>
+                    {Number(
+                      contribution.amount_due || 0
+                    ).toLocaleString("fr-FR")}{" "}
+                    FCFA
+                  </strong>
+                </p>
 
-                return (
-                  <div
-                    key={contribution.id}
-                    style={{
-                      border:
-                        "1px solid #e2e8f0",
-                      borderRadius: "13px",
-                      padding: "15px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit,minmax(150px,1fr))",
-                        gap: "12px",
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            color: "#64748b",
-                            fontSize: "11px",
-                          }}
-                        >
-                          Montant demandé
-                        </div>
+                <p style={blackText}>
+                  Montant payé :{" "}
+                  <strong>
+                    {Number(
+                      contribution.amount_paid || 0
+                    ).toLocaleString("fr-FR")}{" "}
+                    FCFA
+                  </strong>
+                </p>
 
-                        <div
-                          style={{
-                            marginTop: "4px",
-                            color: "#000000",
-                            fontWeight: 900,
-                          }}
-                        >
-                          {formatAmount(
-                            contribution.amount_due
-                          )}
-                        </div>
-                      </div>
+                {contribution.due_date && (
+                  <p style={blackText}>
+                    Échéance :{" "}
+                    {contribution.due_date}
+                  </p>
+                )}
 
-                      <div>
-                        <div
-                          style={{
-                            color: "#64748b",
-                            fontSize: "11px",
-                          }}
-                        >
-                          Montant payé
-                        </div>
+                <p style={blackText}>
+                  Statut :{" "}
+                  <strong>
+                    {contribution.status}
+                  </strong>
+                </p>
 
-                        <div
-                          style={{
-                            marginTop: "4px",
-                            color: "#000000",
-                            fontWeight: 900,
-                          }}
-                        >
-                          {formatAmount(
-                            contribution.amount_paid
-                          )}
-                        </div>
-                      </div>
+                {contribution.payment_method && (
+                  <p style={blackText}>
+                    Mode de paiement :{" "}
+                    {contribution.payment_method}
+                  </p>
+                )}
 
-                      <div>
-                        <div
-                          style={{
-                            color: "#64748b",
-                            fontSize: "11px",
-                          }}
-                        >
-                          Reste
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop: "4px",
-                            color: "#000000",
-                            fontWeight: 900,
-                          }}
-                        >
-                          {formatAmount(
-                            remaining
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div
-                          style={{
-                            color: "#64748b",
-                            fontSize: "11px",
-                          }}
-                        >
-                          Statut
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop: "4px",
-                            color: "#000000",
-                            fontWeight: 900,
-                          }}
-                        >
-                          {contribution.status}
-                        </div>
-                      </div>
-                    </div>
-
-                    {contribution.due_date && (
-                      <div
-                        style={{
-                          marginTop: "12px",
-                          color: "#000000",
-                          fontSize: "12px",
-                        }}
-                      >
-                        📅 Échéance :{" "}
-                        {formatDate(
-                          contribution.due_date
-                        )}
-                      </div>
-                    )}
-
-                    {contribution.paid_at && (
-                      <div
-                        style={{
-                          marginTop: "5px",
-                          color: "#000000",
-                          fontSize: "12px",
-                        }}
-                      >
-                        ✓ Paiement enregistré le{" "}
-                        {formatDate(
-                          contribution.paid_at
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-            )}
+                {contribution.reference && (
+                  <p style={blackText}>
+                    Référence :{" "}
+                    {contribution.reference}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
-      </Card>
+      </div>
     );
   }
 
-  function renderSection() {
-    if (activeSection === "team") {
-      return renderTeam();
-    }
+  function renderCurrentSection() {
+    switch (section) {
+      case "team":
+        return renderTeam();
 
-    if (activeSection === "meetings") {
-      return renderMeetings();
-    }
+      case "meetings":
+        return renderMeetings();
 
-    if (activeSection === "announcements") {
-      return renderAnnouncements();
-    }
+      case "announcements":
+        return renderAnnouncements();
 
-    if (activeSection === "activities") {
-      return renderActivities();
-    }
+      case "activities":
+        return renderActivities();
 
-    if (activeSection === "contributions") {
-      return renderContributions();
-    }
+      case "contributions":
+        return renderContributions();
 
-    return renderHome();
+      case "home":
+      default:
+        return renderHome();
+    }
   }
 
   if (loading) {
     return (
       <div
         style={{
-          color: "#000000",
+          padding: "20px",
+          color: "#000",
         }}
       >
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            style={{
-              border:
-                "1px solid #e2e8f0",
-              background: "#ffffff",
-              color: "#000000",
-              borderRadius: "10px",
-              padding: "9px 13px",
-              cursor: "pointer",
-              fontWeight: 800,
-              marginBottom: "15px",
-            }}
-          >
-            ← Retour
-          </button>
-        )}
-
-        <Card>
-          <EmptyState
-            icon="⏳"
-            text="Chargement de votre espace APE..."
-          />
-        </Card>
+        Chargement de l'espace APE...
       </div>
     );
   }
 
-  if (error) {
+  if (!schoolId) {
     return (
-      <div>
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            style={{
-              border:
-                "1px solid #e2e8f0",
-              background: "#ffffff",
-              color: "#000000",
-              borderRadius: "10px",
-              padding: "9px 13px",
-              cursor: "pointer",
-              fontWeight: 800,
-              marginBottom: "15px",
-            }}
-          >
-            ← Retour
-          </button>
-        )}
+      <div
+        style={{
+          padding: "20px",
+          color: "#000",
+        }}
+      >
+        École introuvable.
+      </div>
+    );
+  }
 
-        <Card>
-          <div
-            style={{
-              color: "#000000",
-              fontWeight: 800,
-              marginBottom: "12px",
-            }}
-          >
-            ⚠️ {error}
-          </div>
+  if (!ape) {
+    return (
+      <div
+        style={{
+          padding: "20px",
+          color: "#000",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onBack}
+          style={backButtonStyle}
+        >
+          ← Retour
+        </button>
 
-          <button
-            type="button"
-            onClick={loadAPE}
+        <div
+          style={{
+            marginTop: "20px",
+            background: "#fff",
+            border: "1px solid #ddd",
+            borderRadius: "16px",
+            padding: "20px",
+          }}
+        >
+          <h2
             style={{
-              border: "1px solid #e2e8f0",
-              background: "#ffffff",
-              color: "#000000",
-              borderRadius: "10px",
-              padding: "9px 13px",
-              cursor: "pointer",
-              fontWeight: 800,
+              marginTop: 0,
+              color: "#000",
             }}
           >
-            🔄 Réessayer
-          </button>
-        </Card>
+            🤝 APE
+          </h2>
+
+          <p style={blackText}>
+            L'Association des Parents d'Élèves
+            n'est pas encore configurée pour cette
+            école.
+          </p>
+        </div>
       </div>
     );
   }
@@ -1568,14 +1360,149 @@ export default function ParentAPEPage({
     <div
       style={{
         width: "100%",
-        color: "#000000",
+        color: "#000",
       }}
     >
-      {renderHeader()}
+      <button
+        type="button"
+        onClick={onBack}
+        style={backButtonStyle}
+      >
+        ← Retour
+      </button>
 
-      {renderNavigation()}
+      {section !== "home" && (
+        <button
+          type="button"
+          onClick={() => setSection("home")}
+          style={{
+            ...backButtonStyle,
+            marginLeft: "8px",
+          }}
+        >
+          🏠 Accueil APE
+        </button>
+      )}
 
-      {renderSection()}
+      <div
+        style={{
+          marginTop: "20px",
+        }}
+      >
+        {renderCurrentSection()}
+      </div>
     </div>
   );
 }
+
+const blackText = {
+  color: "#000",
+};
+
+const smallText = {
+  color: "#000",
+  fontSize: "14px",
+  marginTop: "5px",
+};
+
+const cardStyle = {
+  border: "1px solid #ddd",
+  borderRadius: "16px",
+  padding: "18px",
+  background: "#fff",
+  cursor: "pointer",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "5px",
+  textAlign: "left",
+};
+
+const iconStyle = {
+  fontSize: "28px",
+  marginBottom: "4px",
+};
+
+const sectionHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "12px",
+  marginBottom: "18px",
+  flexWrap: "wrap",
+};
+
+const iconButtonStyle = {
+  border: "1px solid #ccc",
+  borderRadius: "10px",
+  background: "#fff",
+  color: "#000",
+  padding: "9px 12px",
+  cursor: "pointer",
+  fontSize: "18px",
+};
+
+const backButtonStyle = {
+  border: "1px solid #ccc",
+  borderRadius: "10px",
+  background: "#fff",
+  color: "#000",
+  padding: "10px 14px",
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const primaryButtonStyle = {
+  border: "1px solid #000",
+  borderRadius: "10px",
+  background: "#fff",
+  color: "#000",
+  padding: "10px 15px",
+  cursor: "pointer",
+  fontWeight: 700,
+};
+
+const secondaryButtonStyle = {
+  border: "1px solid #ccc",
+  borderRadius: "10px",
+  background: "#fff",
+  color: "#000",
+  padding: "10px 15px",
+  cursor: "pointer",
+  fontWeight: 600,
+};
+
+const smallActionButtonStyle = {
+  border: "1px solid #ccc",
+  borderRadius: "9px",
+  background: "#fff",
+  color: "#000",
+  padding: "8px 10px",
+  cursor: "pointer",
+  fontSize: "17px",
+};
+
+const inputStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  border: "1px solid #ccc",
+  borderRadius: "10px",
+  padding: "11px 12px",
+  background: "#fff",
+  color: "#000",
+};
+
+const itemStyle = {
+  background: "#fff",
+  border: "1px solid #ddd",
+  borderRadius: "14px",
+  padding: "16px",
+};
+
+const emptyStyle = {
+  background: "#fff",
+  border: "1px solid #ddd",
+  borderRadius: "14px",
+  padding: "18px",
+  color: "#000",
+};
