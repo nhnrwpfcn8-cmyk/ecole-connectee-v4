@@ -3708,7 +3708,7 @@ async function sendCommunicationMessage() {
           date_of_birth,
           birth_place,
           family_identifier,
-          login_identifier
+          login_identifier,
           qr_token,
         `)
         .eq("profile_id", connectedUserId)
