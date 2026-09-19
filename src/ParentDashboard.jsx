@@ -2926,15 +2926,14 @@ export default function ParentDashboard({
 
     if (page === "notifications")
       return <NotificationsPage />;
-if (page === "ape") {
+if (page === "ape")
   return (
     <ParentAPEPage
       schoolId={schoolId}
-      parentId={parentId}
-      onBack={() => setPage("overview")}
+      parentId={currentParentId}
+      onBack={() => setPage("home")}
     />
   );
-}
     return <HomePage />;
   }
 
