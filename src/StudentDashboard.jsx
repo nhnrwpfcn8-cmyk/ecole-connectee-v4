@@ -2577,8 +2577,7 @@ function SchoolCardPage({
     profile?.school_city ||
     "";
 
-  const qrData =
-    `ECOLE-CONNECTEE|ELEVE|${studentCode}`;
+  const qrData = student.qr_token || "";
 
   return (
     <div>
@@ -3710,6 +3709,7 @@ async function sendCommunicationMessage() {
           birth_place,
           family_identifier,
           login_identifier
+          qr_token,
         `)
         .eq("profile_id", connectedUserId)
         .eq("school_id", schoolId)
