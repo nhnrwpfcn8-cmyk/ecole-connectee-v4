@@ -3709,7 +3709,7 @@ async function sendCommunicationMessage() {
           birth_place,
           family_identifier,
           login_identifier,
-          qr_token,
+          qr_token
         `)
         .eq("profile_id", connectedUserId)
         .eq("school_id", schoolId)
