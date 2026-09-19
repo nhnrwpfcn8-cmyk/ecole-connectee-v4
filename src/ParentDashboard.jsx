@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabase";
 import ParentDoc from "./ParentDoc";
+import ParentAPEPage from "./ParentAPEPage";
 
 const MENU = [
   { id: "home", icon: "🏠", label: "Accueil" },
@@ -20,6 +21,7 @@ const MENU = [
     icon: "🔔",
     label: "Notifications",
   },
+{ id: "ape", label: "APE", icon: "🤝" },
 ];
 
 function formatDate(value) {
@@ -2924,7 +2926,15 @@ export default function ParentDashboard({
 
     if (page === "notifications")
       return <NotificationsPage />;
-
+if (page === "ape") {
+  return (
+    <ParentAPEPage
+      schoolId={schoolId}
+      parentId={parentId}
+      onBack={() => setPage("overview")}
+    />
+  );
+}
     return <HomePage />;
   }
 
