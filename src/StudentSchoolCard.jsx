@@ -31,11 +31,7 @@ export default function StudentSchoolCard({
    * une URL sécurisée permettant de contrôler
    * l'entrée et la sortie de l'élève.
    */
-  const qrData = [
-    "ECOLE-CONNECTEE",
-    "STUDENT",
-    student.id || "",
-  ].join("|");
+  const qrData = student.qr_token || "";
 
   const qrCodeUrl =
     "https://api.qrserver.com/v1/create-qr-code/?" +
