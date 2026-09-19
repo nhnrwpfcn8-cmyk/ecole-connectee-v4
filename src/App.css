@@ -1203,6 +1203,7 @@ button:disabled {
   min-width: 22px;
   text-align: center;
   font-size: 17px;
+  pointer-events: none;
 }
 
 .school-admin-sidebar-bottom {
