@@ -1923,17 +1923,42 @@ function AttendancePage({
                   >
                     <div>
                       <strong
-                        style={{
-                          display: "block",
-                          color: "#111827",
-                        }}
-                      >
-                        {formatDate(
-                          item.attendance_date
-                        )}
-                      </strong>
+  style={{
+    display: "block",
+    color: "#111827",
+  }}
+>
+  {formatDate(
+    item.attendance_date
+  )}
+</strong>
 
-                      {item.justification && (
+<div
+  style={{
+    marginTop: "4px",
+    fontSize: "12px",
+    color: "#374151",
+  }}
+>
+  <strong>Entrée :</strong>{" "}
+  {item.entry_at
+    ? formatDateTime(item.entry_at)
+    : "—"}
+</div>
+
+<div
+  style={{
+    fontSize: "12px",
+    color: "#374151",
+  }}
+>
+  <strong>Sortie :</strong>{" "}
+  {item.exit_at
+    ? formatDateTime(item.exit_at)
+    : "—"}
+</div>
+
+{item.justification && (
                         <span
                           style={{
                             color: "#6b7280",
