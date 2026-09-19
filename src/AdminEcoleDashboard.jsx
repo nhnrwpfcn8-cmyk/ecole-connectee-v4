@@ -5,6 +5,7 @@ import AdminEcoleInscriptionsPage from "./AdminEcoleInscriptionsPage";
 import AdminEcoleCertificats from "./AdminEcoleCertificats";
 import AdminEcoleAPEActivitiesPage from "./AdminEcoleAPEActivitiesPage";
 import AdminEcoleAPEPresidentPage from "./AdminEcoleAPEPresidentPage";
+import QRAttendanceScanner from "./QRAttendanceScanner";
 
 /* =========================================================
 CONFIGURATION
@@ -15,7 +16,9 @@ const MENU = [
 { id: "teachers", label: "Enseignants", icon: "👨‍🏫" },
 { id: "secretaries", label: "Secrétaires", icon: "🗂️" },
 { id: "secretary_tracking", label: "Suivi secrétaire", icon: "📋" },
-{ id: "students", label: "Élèves", icon: "🎓" }, { id: "inscriptions", label: "Inscriptions", icon: "📝" },
+{ id: "students", label: "Élèves", icon: "🎓" }, 
+ { id: "inscriptions", label: "Inscriptions", icon: "📝" },
+{ id: "qr_attendance", label: "Scanner QR", icon: "📷" },  
 { id: "parents", label: "Parents", icon: "👨‍👩‍👧" },
 { id: "classes", label: "Classes", icon: "🏫" },
 { id: "subjects", label: "Matières", icon: "📚" },
@@ -884,6 +887,14 @@ loadSecretaryLogs(schoolId)
 />
 );
 
+case "qr_attendance":
+  return (
+    <QRAttendanceScanner
+      profile={currentProfile}
+      onBack={() => setActivePage("overview")}
+    />
+  );
+    
 case "students":
 return (
 <StudentsPage
