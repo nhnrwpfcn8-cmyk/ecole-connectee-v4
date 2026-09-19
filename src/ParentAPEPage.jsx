@@ -69,6 +69,7 @@ export default function ParentAPEPage({
 
       const nameA =
         parentMap[a.parent_id]?.full_name || "";
+
       const nameB =
         parentMap[b.parent_id]?.full_name || "";
 
@@ -77,7 +78,7 @@ export default function ParentAPEPage({
   }, [members, parentMap]);
 
   async function loadAPE() {
-    if (!schoolId || !parentId) {
+    if (!schoolId) {
       setLoading(false);
       return;
     }
@@ -86,13 +87,102 @@ export default function ParentAPEPage({
       setLoading(true);
       setTeamMessage("");
 
-      const { data: apeData, error: apeError } = await supabase
-        .from("school_apes")
+      /*
+       * =====================================================
+       * IDENTIFICATION DU PARENT CONNECTÉ
+       * =====================================================
+       *
+       * On utilise directement auth.uid() afin de ne pas
+       * dépendre uniquement du parentId transmis par
+       * ParentDashboard.
+       *
+       * Chemin :
+       * compte connecté
+       * → auth.uid()
+       * → parents.profile_id
+       * → parent.id
+       */
+
+      const {
+        data: {
+          user,
+        },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError) {
+        throw authError;
+      }
+
+      const connectedUserId =
+        user?.id || null;
+
+      if (!connectedUserId) {
+        setApe(null);
+        setMember(null);
+        setMembers([]);
+        setParents([]);
+        setMeetings([]);
+        setAnnouncements([]);
+        setActivities([]);
+        setContributions([]);
+
+        setTeamMessage(
+          "Impossible d'identifier le compte parent connecté."
+        );
+
+        return;
+      }
+
+      const {
+        data: connectedParent,
+        error: parentError,
+      } = await supabase
+        .from("parents")
         .select(
-          "id, school_id, name, academic_year, description, active"
+          "id,profile_id,school_id,full_name,phone,email,address,active"
         )
+        .eq("profile_id", connectedUserId)
         .eq("school_id", schoolId)
+        .eq("active", true)
         .maybeSingle();
+
+      if (parentError) {
+        throw parentError;
+      }
+
+      /*
+       * Si le parent connecté n'est pas retrouvé,
+       * on utilise uniquement parentId comme secours.
+       */
+      const resolvedParentId =
+        connectedParent?.id || parentId || null;
+
+      if (!resolvedParentId) {
+        setApe(null);
+        setMember(null);
+        setMembers([]);
+        setParents([]);
+        setMeetings([]);
+        setAnnouncements([]);
+        setActivities([]);
+        setContributions([]);
+
+        setTeamMessage(
+          "Aucun profil parent associé à ce compte."
+        );
+
+        return;
+      }
+
+      const { data: apeData, error: apeError } =
+        await supabase
+          .from("school_apes")
+          .select(
+            "id, school_id, name, academic_year, description, active"
+          )
+          .eq("school_id", schoolId)
+          .maybeSingle();
 
       if (apeError) throw apeError;
 
@@ -109,6 +199,12 @@ export default function ParentAPEPage({
         return;
       }
 
+      /*
+       * =====================================================
+       * CHARGEMENT DES DONNÉES APE
+       * =====================================================
+       */
+
       const [
         memberResult,
         membersResult,
@@ -123,7 +219,7 @@ export default function ParentAPEPage({
             "id, ape_id, parent_id, function_name, status, joined_at, notes, is_president"
           )
           .eq("ape_id", apeData.id)
-          .eq("parent_id", parentId)
+          .eq("parent_id", resolvedParentId)
           .maybeSingle(),
 
         supabase
@@ -133,7 +229,9 @@ export default function ParentAPEPage({
           )
           .eq("ape_id", apeData.id)
           .eq("status", "active")
-          .order("created_at", { ascending: true }),
+          .order("created_at", {
+            ascending: true,
+          }),
 
         supabase
           .from("parents")
@@ -142,7 +240,9 @@ export default function ParentAPEPage({
           )
           .eq("school_id", schoolId)
           .eq("active", true)
-          .order("full_name", { ascending: true }),
+          .order("full_name", {
+            ascending: true,
+          }),
 
         supabase
           .from("ape_meetings")
@@ -150,7 +250,9 @@ export default function ParentAPEPage({
             "id, ape_id, title, description, meeting_date, meeting_time, location, status, agenda, minutes"
           )
           .eq("ape_id", apeData.id)
-          .order("meeting_date", { ascending: true }),
+          .order("meeting_date", {
+            ascending: true,
+          }),
 
         supabase
           .from("ape_announcements")
@@ -170,16 +272,34 @@ export default function ParentAPEPage({
             "id, ape_id, title, description, activity_date, location, status, budget, notes"
           )
           .eq("ape_id", apeData.id)
-          .order("activity_date", { ascending: true }),
+          .order("activity_date", {
+            ascending: true,
+          }),
       ]);
 
-      if (memberResult.error) throw memberResult.error;
-      if (membersResult.error) throw membersResult.error;
-      if (parentsResult.error) throw parentsResult.error;
-      if (meetingsResult.error) throw meetingsResult.error;
-      if (announcementsResult.error)
+      if (memberResult.error) {
+        throw memberResult.error;
+      }
+
+      if (membersResult.error) {
+        throw membersResult.error;
+      }
+
+      if (parentsResult.error) {
+        throw parentsResult.error;
+      }
+
+      if (meetingsResult.error) {
+        throw meetingsResult.error;
+      }
+
+      if (announcementsResult.error) {
         throw announcementsResult.error;
-      if (activitiesResult.error) throw activitiesResult.error;
+      }
+
+      if (activitiesResult.error) {
+        throw activitiesResult.error;
+      }
 
       setMember(memberResult.data || null);
       setMembers(membersResult.data || []);
@@ -188,27 +308,46 @@ export default function ParentAPEPage({
       setAnnouncements(announcementsResult.data || []);
       setActivities(activitiesResult.data || []);
 
+      /*
+       * =====================================================
+       * COTISATIONS DU MEMBRE CONNECTÉ
+       * =====================================================
+       */
+
       if (memberResult.data) {
-        const { data: contributionData, error: contributionError } =
-          await supabase
-            .from("ape_contributions")
-            .select(
-              "id, ape_id, member_id, amount_due, amount_paid, due_date, paid_at, payment_method, reference, status, notes"
-            )
-            .eq("ape_id", apeData.id)
-            .eq("member_id", memberResult.data.id)
-            .order("created_at", { ascending: false });
+        const {
+          data: contributionData,
+          error: contributionError,
+        } = await supabase
+          .from("ape_contributions")
+          .select(
+            "id, ape_id, member_id, amount_due, amount_paid, due_date, paid_at, payment_method, reference, status, notes"
+          )
+          .eq("ape_id", apeData.id)
+          .eq("member_id", memberResult.data.id)
+          .order("created_at", {
+            ascending: false,
+          });
 
-        if (contributionError) throw contributionError;
+        if (contributionError) {
+          throw contributionError;
+        }
 
-        setContributions(contributionData || []);
+        setContributions(
+          contributionData || []
+        );
       } else {
         setContributions([]);
       }
     } catch (error) {
-      console.error("Erreur chargement APE :", error);
+      console.error(
+        "Erreur chargement APE :",
+        error
+      );
+
       setTeamMessage(
-        error?.message || "Impossible de charger l'espace APE."
+        error?.message ||
+          "Impossible de charger l'espace APE."
       );
     } finally {
       setLoading(false);
@@ -231,6 +370,7 @@ export default function ParentAPEPage({
     setTeamMessage("");
 
     setEditingMemberId(teamMember.id);
+
     setTeamForm({
       parent_id: teamMember.parent_id,
       function_name:
@@ -246,12 +386,16 @@ export default function ParentAPEPage({
     if (!isPresident || !ape) return;
 
     if (!teamForm.function_name) {
-      setTeamMessage("Veuillez choisir une fonction.");
+      setTeamMessage(
+        "Veuillez choisir une fonction."
+      );
       return;
     }
 
     if (!editingMemberId && !teamForm.parent_id) {
-      setTeamMessage("Veuillez sélectionner un parent.");
+      setTeamMessage(
+        "Veuillez sélectionner un parent."
+      );
       return;
     }
 
@@ -263,7 +407,8 @@ export default function ParentAPEPage({
         const { error } = await supabase
           .from("ape_members")
           .update({
-            function_name: teamForm.function_name,
+            function_name:
+              teamForm.function_name,
             status: "active",
           })
           .eq("id", editingMemberId)
@@ -272,14 +417,17 @@ export default function ParentAPEPage({
 
         if (error) throw error;
 
-        setTeamMessage("Fonction du membre modifiée avec succès.");
+        setTeamMessage(
+          "Fonction du membre modifiée avec succès."
+        );
       } else {
         const { error } = await supabase
           .from("ape_members")
           .insert({
             ape_id: ape.id,
             parent_id: teamForm.parent_id,
-            function_name: teamForm.function_name,
+            function_name:
+              teamForm.function_name,
             status: "active",
             joined_at: new Date()
               .toISOString()
@@ -289,17 +437,20 @@ export default function ParentAPEPage({
 
         if (error) throw error;
 
-        setTeamMessage("Membre ajouté avec succès.");
+        setTeamMessage(
+          "Membre ajouté avec succès."
+        );
       }
 
       resetTeamForm();
       await loadAPE();
     } catch (error) {
-      console.error("Erreur équipe APE :", error);
+      console.error(
+        "Erreur équipe APE :",
+        error
+      );
 
-      if (
-        error?.code === "23505"
-      ) {
+      if (error?.code === "23505") {
         setTeamMessage(
           "Ce parent fait déjà partie de l'équipe APE."
         );
@@ -345,10 +496,16 @@ export default function ParentAPEPage({
         resetTeamForm();
       }
 
-      setTeamMessage("Membre retiré de l'équipe APE.");
+      setTeamMessage(
+        "Membre retiré de l'équipe APE."
+      );
+
       await loadAPE();
     } catch (error) {
-      console.error("Erreur suppression membre :", error);
+      console.error(
+        "Erreur suppression membre :",
+        error
+      );
 
       setTeamMessage(
         error?.message ||
@@ -377,13 +534,17 @@ export default function ParentAPEPage({
               color: "#000",
             }}
           >
-            🤝 {ape?.name || "Association des Parents d'Élèves"}
+            🤝{" "}
+            {ape?.name ||
+              "Association des Parents d'Élèves"}
           </h2>
 
           {ape?.academic_year && (
             <p style={{ color: "#000" }}>
               Année scolaire :{" "}
-              <strong>{ape.academic_year}</strong>
+              <strong>
+                {ape.academic_year}
+              </strong>
             </p>
           )}
 
@@ -490,7 +651,11 @@ export default function ParentAPEPage({
             style={cardStyle}
           >
             <span style={iconStyle}>👥</span>
-            <strong style={blackText}>Équipe APE</strong>
+
+            <strong style={blackText}>
+              Équipe APE
+            </strong>
+
             <span style={smallText}>
               Membres et fonctions
             </span>
@@ -498,11 +663,17 @@ export default function ParentAPEPage({
 
           <button
             type="button"
-            onClick={() => setSection("meetings")}
+            onClick={() =>
+              setSection("meetings")
+            }
             style={cardStyle}
           >
             <span style={iconStyle}>📅</span>
-            <strong style={blackText}>Réunions</strong>
+
+            <strong style={blackText}>
+              Réunions
+            </strong>
+
             <span style={smallText}>
               Réunions et comptes rendus
             </span>
@@ -510,11 +681,17 @@ export default function ParentAPEPage({
 
           <button
             type="button"
-            onClick={() => setSection("announcements")}
+            onClick={() =>
+              setSection("announcements")
+            }
             style={cardStyle}
           >
             <span style={iconStyle}>📢</span>
-            <strong style={blackText}>Annonces</strong>
+
+            <strong style={blackText}>
+              Annonces
+            </strong>
+
             <span style={smallText}>
               Communications de l'APE
             </span>
@@ -522,13 +699,17 @@ export default function ParentAPEPage({
 
           <button
             type="button"
-            onClick={() => setSection("activities")}
+            onClick={() =>
+              setSection("activities")
+            }
             style={cardStyle}
           >
             <span style={iconStyle}>🎯</span>
+
             <strong style={blackText}>
               Activités / Projets
             </strong>
+
             <span style={smallText}>
               Projets de l'association
             </span>
@@ -536,11 +717,17 @@ export default function ParentAPEPage({
 
           <button
             type="button"
-            onClick={() => setSection("contributions")}
+            onClick={() =>
+              setSection("contributions")
+            }
             style={cardStyle}
           >
             <span style={iconStyle}>💰</span>
-            <strong style={blackText}>Cotisations</strong>
+
+            <strong style={blackText}>
+              Cotisations
+            </strong>
+
             <span style={smallText}>
               Suivi des cotisations
             </span>
@@ -570,7 +757,8 @@ export default function ParentAPEPage({
                 color: "#000",
               }}
             >
-              Les membres de l'équipe et leurs fonctions.
+              Les membres de l'équipe et leurs
+              fonctions.
             </p>
           </div>
 
@@ -630,7 +818,8 @@ export default function ParentAPEPage({
                     onChange={(event) =>
                       setTeamForm((current) => ({
                         ...current,
-                        parent_id: event.target.value,
+                        parent_id:
+                          event.target.value,
                       }))
                     }
                     style={inputStyle}
@@ -639,17 +828,20 @@ export default function ParentAPEPage({
                       Choisir un parent
                     </option>
 
-                    {availableParents.map((parent) => (
-                      <option
-                        key={parent.id}
-                        value={parent.id}
-                      >
-                        {parent.full_name}
-                      </option>
-                    ))}
+                    {availableParents.map(
+                      (parent) => (
+                        <option
+                          key={parent.id}
+                          value={parent.id}
+                        >
+                          {parent.full_name}
+                        </option>
+                      )
+                    )}
                   </select>
 
-                  {availableParents.length === 0 && (
+                  {availableParents.length ===
+                    0 && (
                     <p
                       style={{
                         margin: "7px 0 0",
@@ -657,8 +849,9 @@ export default function ParentAPEPage({
                         fontSize: "14px",
                       }}
                     >
-                      Tous les parents actifs sont
-                      déjà membres de l'équipe APE.
+                      Tous les parents actifs
+                      sont déjà membres de
+                      l'équipe APE.
                     </p>
                   )}
                 </div>
@@ -672,8 +865,10 @@ export default function ParentAPEPage({
                   }}
                 >
                   <strong>
-                    {parentMap[teamForm.parent_id]
-                      ?.full_name || "Membre"}
+                    {parentMap[
+                      teamForm.parent_id
+                    ]?.full_name ||
+                      "Membre"}
                   </strong>
                 </div>
               )}
@@ -695,19 +890,22 @@ export default function ParentAPEPage({
                   onChange={(event) =>
                     setTeamForm((current) => ({
                       ...current,
-                      function_name: event.target.value,
+                      function_name:
+                        event.target.value,
                     }))
                   }
                   style={inputStyle}
                 >
-                  {TEAM_FUNCTIONS.map((functionName) => (
-                    <option
-                      key={functionName}
-                      value={functionName}
-                    >
-                      {functionName}
-                    </option>
-                  ))}
+                  {TEAM_FUNCTIONS.map(
+                    (functionName) => (
+                      <option
+                        key={functionName}
+                        value={functionName}
+                      >
+                        {functionName}
+                      </option>
+                    )
+                  )}
                 </select>
               </div>
 
@@ -787,98 +985,112 @@ export default function ParentAPEPage({
               actuellement.
             </div>
           ) : (
-            currentTeamMembers.map((teamMember) => {
-              const parent =
-                parentMap[teamMember.parent_id];
+            currentTeamMembers.map(
+              (teamMember) => {
+                const parent =
+                  parentMap[
+                    teamMember.parent_id
+                  ];
 
-              const president =
-                teamMember.is_president === true;
+                const president =
+                  teamMember.is_president === true;
 
-              return (
-                <div
-                  key={teamMember.id}
-                  style={{
-                    background: "#fff",
-                    border: "1px solid #ddd",
-                    borderRadius: "14px",
-                    padding: "16px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: "12px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        color: "#000",
-                        fontWeight: 700,
-                        fontSize: "17px",
-                      }}
-                    >
-                      {parent?.full_name ||
-                        "Parent APE"}
-                    </div>
+                return (
+                  <div
+                    key={teamMember.id}
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #ddd",
+                      borderRadius: "14px",
+                      padding: "16px",
+                      display: "flex",
+                      justifyContent:
+                        "space-between",
+                      alignItems: "center",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          color: "#000",
+                          fontWeight: 700,
+                          fontSize: "17px",
+                        }}
+                      >
+                        {parent?.full_name ||
+                          "Parent APE"}
+                      </div>
 
-                    <div
-                      style={{
-                        color: "#000",
-                        marginTop: "4px",
-                      }}
-                    >
-                      {president
-                        ? "👑 Président"
-                        : teamMember.function_name ||
-                          "Membre"}
-                    </div>
-
-                    {parent?.phone && (
                       <div
                         style={{
                           color: "#000",
                           marginTop: "4px",
-                          fontSize: "14px",
                         }}
                       >
-                        📞 {parent.phone}
+                        {president
+                          ? "👑 Président"
+                          : teamMember.function_name ||
+                            "Membre"}
                       </div>
-                    )}
-                  </div>
 
-                  {isPresident && !president && (
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: "8px",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          startEditMember(teamMember)
-                        }
-                        style={smallActionButtonStyle}
-                        title="Modifier"
-                      >
-                        ✏️
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          deleteTeamMember(teamMember)
-                        }
-                        style={smallActionButtonStyle}
-                        title="Supprimer"
-                      >
-                        🗑️
-                      </button>
+                      {parent?.phone && (
+                        <div
+                          style={{
+                            color: "#000",
+                            marginTop: "4px",
+                            fontSize: "14px",
+                          }}
+                        >
+                          📞 {parent.phone}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })
+
+                    {isPresident &&
+                      !president && (
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "8px",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startEditMember(
+                                teamMember
+                              )
+                            }
+                            style={
+                              smallActionButtonStyle
+                            }
+                            title="Modifier"
+                          >
+                            ✏️
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deleteTeamMember(
+                                teamMember
+                              )
+                            }
+                            style={
+                              smallActionButtonStyle
+                            }
+                            title="Supprimer"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                );
+              }
+            )
           )}
         </div>
       </div>
@@ -956,21 +1168,27 @@ export default function ParentAPEPage({
 
                 {meeting.agenda && (
                   <p style={blackText}>
-                    <strong>Ordre du jour :</strong>{" "}
+                    <strong>
+                      Ordre du jour :
+                    </strong>{" "}
                     {meeting.agenda}
                   </p>
                 )}
 
                 {meeting.minutes && (
                   <p style={blackText}>
-                    <strong>Compte rendu :</strong>{" "}
+                    <strong>
+                      Compte rendu :
+                    </strong>{" "}
                     {meeting.minutes}
                   </p>
                 )}
 
                 <p style={blackText}>
                   Statut :{" "}
-                  <strong>{meeting.status}</strong>
+                  <strong>
+                    {meeting.status}
+                  </strong>
                 </p>
               </div>
             ))}
@@ -1016,45 +1234,49 @@ export default function ParentAPEPage({
               gap: "12px",
             }}
           >
-            {announcements.map((announcement) => (
-              <div
-                key={announcement.id}
-                style={itemStyle}
-              >
-                <h3
-                  style={{
-                    marginTop: 0,
-                    color: "#000",
-                  }}
+            {announcements.map(
+              (announcement) => (
+                <div
+                  key={announcement.id}
+                  style={itemStyle}
                 >
-                  {announcement.title}
-                </h3>
-
-                <p
-                  style={{
-                    ...blackText,
-                    whiteSpace: "pre-wrap",
-                  }}
-                >
-                  {announcement.content}
-                </p>
-
-                {announcement.published_at && (
-                  <p
+                  <h3
                     style={{
-                      marginBottom: 0,
+                      marginTop: 0,
                       color: "#000",
-                      fontSize: "13px",
                     }}
                   >
-                    Publiée le{" "}
-                    {new Date(
-                      announcement.published_at
-                    ).toLocaleDateString("fr-FR")}
+                    {announcement.title}
+                  </h3>
+
+                  <p
+                    style={{
+                      ...blackText,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {announcement.content}
                   </p>
-                )}
-              </div>
-            ))}
+
+                  {announcement.published_at && (
+                    <p
+                      style={{
+                        marginBottom: 0,
+                        color: "#000",
+                        fontSize: "13px",
+                      }}
+                    >
+                      Publiée le{" "}
+                      {new Date(
+                        announcement.published_at
+                      ).toLocaleDateString(
+                        "fr-FR"
+                      )}
+                    </p>
+                  )}
+                </div>
+              )
+            )}
           </div>
         )}
       </div>
@@ -1088,7 +1310,8 @@ export default function ParentAPEPage({
 
         {activities.length === 0 ? (
           <div style={emptyStyle}>
-            Aucune activité ou projet enregistré.
+            Aucune activité ou projet
+            enregistré.
           </div>
         ) : (
           <div
@@ -1131,7 +1354,9 @@ export default function ParentAPEPage({
 
                 <p style={blackText}>
                   Statut :{" "}
-                  <strong>{activity.status}</strong>
+                  <strong>
+                    {activity.status}
+                  </strong>
                 </p>
 
                 {activity.budget !== null &&
@@ -1141,7 +1366,9 @@ export default function ParentAPEPage({
                       <strong>
                         {Number(
                           activity.budget
-                        ).toLocaleString("fr-FR")}{" "}
+                        ).toLocaleString(
+                          "fr-FR"
+                        )}{" "}
                         FCFA
                       </strong>
                     </p>
@@ -1189,7 +1416,8 @@ export default function ParentAPEPage({
         {!isActiveMember ? (
           <div style={emptyStyle}>
             Les informations de cotisation sont
-            disponibles pour les membres de l'APE.
+            disponibles pour les membres de
+            l'APE.
           </div>
         ) : contributions.length === 0 ? (
           <div style={emptyStyle}>
@@ -1203,60 +1431,70 @@ export default function ParentAPEPage({
               gap: "12px",
             }}
           >
-            {contributions.map((contribution) => (
-              <div
-                key={contribution.id}
-                style={itemStyle}
-              >
-                <p style={blackText}>
-                  Montant dû :{" "}
-                  <strong>
-                    {Number(
-                      contribution.amount_due || 0
-                    ).toLocaleString("fr-FR")}{" "}
-                    FCFA
-                  </strong>
-                </p>
-
-                <p style={blackText}>
-                  Montant payé :{" "}
-                  <strong>
-                    {Number(
-                      contribution.amount_paid || 0
-                    ).toLocaleString("fr-FR")}{" "}
-                    FCFA
-                  </strong>
-                </p>
-
-                {contribution.due_date && (
+            {contributions.map(
+              (contribution) => (
+                <div
+                  key={contribution.id}
+                  style={itemStyle}
+                >
                   <p style={blackText}>
-                    Échéance :{" "}
-                    {contribution.due_date}
+                    Montant dû :{" "}
+                    <strong>
+                      {Number(
+                        contribution.amount_due ||
+                          0
+                      ).toLocaleString(
+                        "fr-FR"
+                      )}{" "}
+                      FCFA
+                    </strong>
                   </p>
-                )}
 
-                <p style={blackText}>
-                  Statut :{" "}
-                  <strong>
-                    {contribution.status}
-                  </strong>
-                </p>
-
-                {contribution.payment_method && (
                   <p style={blackText}>
-                    Mode de paiement :{" "}
-                    {contribution.payment_method}
+                    Montant payé :{" "}
+                    <strong>
+                      {Number(
+                        contribution.amount_paid ||
+                          0
+                      ).toLocaleString(
+                        "fr-FR"
+                      )}{" "}
+                      FCFA
+                    </strong>
                   </p>
-                )}
 
-                {contribution.reference && (
+                  {contribution.due_date && (
+                    <p style={blackText}>
+                      Échéance :{" "}
+                      {contribution.due_date}
+                    </p>
+                  )}
+
                   <p style={blackText}>
-                    Référence :{" "}
-                    {contribution.reference}
+                    Statut :{" "}
+                    <strong>
+                      {contribution.status}
+                    </strong>
                   </p>
-                )}
-              </div>
-            ))}
+
+                  {contribution.payment_method && (
+                    <p style={blackText}>
+                      Mode de paiement :{" "}
+                      {
+                        contribution.payment_method
+                      }
+                    </p>
+                  )}
+
+                  {contribution.reference && (
+                    <p style={blackText}>
+                      Référence :{" "}
+                      {contribution.reference}
+                    </p>
+                  )}
+                </div>
+              )
+            )}
           </div>
         )}
       </div>
@@ -1348,8 +1586,8 @@ export default function ParentAPEPage({
 
           <p style={blackText}>
             L'Association des Parents d'Élèves
-            n'est pas encore configurée pour cette
-            école.
+            n'est pas encore configurée pour
+            cette école.
           </p>
         </div>
       </div>
