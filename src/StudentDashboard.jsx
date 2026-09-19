@@ -2577,7 +2577,7 @@ function SchoolCardPage({
     profile?.school_city ||
     "";
 
-  const qrData = student.qr_token || "";
+  const qrData = profile?.qr_token || "";
 
   return (
     <div>
