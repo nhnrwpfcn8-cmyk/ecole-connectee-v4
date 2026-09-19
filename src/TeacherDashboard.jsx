@@ -4755,6 +4755,22 @@ case "teacher_secretary_communication":
           </div>
         </div>
 
+         {activePage !== "overview" && (
+  <button
+    type="button"
+    onClick={() => setActivePage("overview")}
+    className="ec-btn ec-btn-secondary"
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 6,
+      cursor: "pointer",
+    }}
+  >
+    ← Retour
+  </button>
+)}
+
         <button
   type="button"
   onClick={() => setActivePage("overview")}
