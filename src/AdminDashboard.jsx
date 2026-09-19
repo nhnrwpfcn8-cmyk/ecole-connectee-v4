@@ -122,6 +122,12 @@ function AdminDashboard({ profile, onLogout }) {
   const [editingSchool, setEditingSchool] = useState(null)
   const [schoolUpdating, setSchoolUpdating] = useState(false)
 
+  // =========================================================
+  // NOUVEAU : FICHE DÉTAILLÉE ÉCOLE
+  // =========================================================
+
+  const [selectedSchool, setSelectedSchool] = useState(null)
+
   const isSuperAdmin = profile?.role === 'super_admin'
 
   // =========================================================
@@ -233,12 +239,14 @@ function AdminDashboard({ profile, onLogout }) {
   function goBack() {
     setError('')
     setMessage('')
+    setSelectedSchool(null)
     setActiveMenu('overview')
   }
 
   function openMenu(menuId) {
     setError('')
     setMessage('')
+    setSelectedSchool(null)
     setActiveMenu(menuId)
   }
 
@@ -440,6 +448,29 @@ function AdminDashboard({ profile, onLogout }) {
   useEffect(() => {
     loadDashboard()
   }, [])
+
+  // =========================================================
+  // NOUVEAU : OUVRIR LA FICHE DÉTAILLÉE D'UNE ÉCOLE
+  // =========================================================
+
+  function openSchoolDetails(school) {
+    if (!isSuperAdmin) {
+      setError(
+        'Seul le Super Administrateur peut consulter la fiche détaillée d’une école.'
+      )
+      return
+    }
+
+    setError('')
+    setMessage('')
+    setSelectedSchool(school)
+  }
+
+  function closeSchoolDetails() {
+    setError('')
+    setMessage('')
+    setSelectedSchool(null)
+  }
 
   // =========================================================
   // CRÉATION ÉCOLE + ADMIN ÉCOLE
@@ -656,6 +687,7 @@ function AdminDashboard({ profile, onLogout }) {
 
     setError('')
     setMessage('')
+    setSelectedSchool(null)
     setEditingSchool(school)
 
     setSchoolForm({
@@ -797,6 +829,15 @@ function AdminDashboard({ profile, onLogout }) {
         throw updateError
       }
 
+      const updatedSchool = {
+        ...school,
+        active: nextStatus,
+      }
+
+      if (selectedSchool?.id === school.id) {
+        setSelectedSchool(updatedSchool)
+      }
+
       setMessage(
         `✅ L’école « ${
           school.name || 'Sans nom'
@@ -859,6 +900,8 @@ function AdminDashboard({ profile, onLogout }) {
         throw deleteError
       }
 
+      setSelectedSchool(null)
+
       setMessage(
         `✅ L’école « ${schoolName} » a été supprimée définitivement.`
       )
@@ -897,6 +940,99 @@ function AdminDashboard({ profile, onLogout }) {
       ),
     [classes]
   )
+
+  // =========================================================
+  // DONNÉES DE LA FICHE ÉCOLE
+  // =========================================================
+
+  const selectedSchoolData = useMemo(() => {
+    if (!selectedSchool) {
+      return null
+    }
+
+    const schoolId = selectedSchool.id
+
+    const schoolTeachers = teachers.filter(
+      (teacher) =>
+        teacher.school_id === schoolId
+    )
+
+    const schoolStudents = students.filter(
+      (student) =>
+        student.school_id === schoolId
+    )
+
+    const schoolParents = parents.filter(
+      (parent) =>
+        parent.school_id === schoolId
+    )
+
+    const schoolClasses = classes.filter(
+      (item) =>
+        item.school_id === schoolId
+    )
+
+    const schoolTeacherIds = new Set(
+      schoolTeachers.map(
+        (teacher) => teacher.id
+      )
+    )
+
+    const schoolDocuments = documents.filter(
+      (document) =>
+        schoolTeacherIds.has(
+          document.teacher_id
+        )
+    )
+
+    const schoolAdmins = admins.filter(
+      (admin) =>
+        admin.school_id === schoolId &&
+        (
+          admin.role === 'admin' ||
+          admin.role === 'school_admin'
+        )
+    )
+
+    /*
+     * La table subjects utilisée actuellement
+     * par le dashboard ne contient pas school_id
+     * dans la requête existante.
+     *
+     * Nous ne modifions donc pas sa structure.
+     * On affiche les matières actuellement
+     * référencées par les documents de cette école.
+     */
+    const schoolSubjectIds = new Set(
+      schoolDocuments
+        .map((document) => document.subject_id)
+        .filter(Boolean)
+    )
+
+    const schoolSubjects = subjects.filter(
+      (subject) =>
+        schoolSubjectIds.has(subject.id)
+    )
+
+    return {
+      teachers: schoolTeachers,
+      students: schoolStudents,
+      parents: schoolParents,
+      classes: schoolClasses,
+      documents: schoolDocuments,
+      subjects: schoolSubjects,
+      admins: schoolAdmins,
+    }
+  }, [
+    selectedSchool,
+    teachers,
+    students,
+    parents,
+    classes,
+    documents,
+    subjects,
+    admins,
+  ])
 
   // =========================================================
   // TABLEAU DE BORD
@@ -1065,229 +1201,1339 @@ function AdminDashboard({ profile, onLogout }) {
   }
 
   // =========================================================
-  // ÉCOLES
+  // FICHE DÉTAILLÉE ÉCOLE
   // =========================================================
 
-  function renderSchools() {
+  function renderSchoolDetails() {
+    if (!selectedSchool || !selectedSchoolData) {
+      return null
+    }
+
+    const schoolAdmin =
+      selectedSchoolData.admins[0] || null
+
     return (
-      <section className="admin-panel">
-        <div className="admin-panel-header">
+      <section
+        className="admin-panel"
+        style={{
+          color: '#000',
+        }}
+      >
+        <div
+          className="admin-panel-header"
+          style={{
+            alignItems: 'flex-start',
+          }}
+        >
           <div>
-            <h3>🏫 Écoles</h3>
+            <button
+              type="button"
+              className="admin-secondary-button"
+              onClick={closeSchoolDetails}
+              style={{
+                color: '#000',
+                marginBottom: '12px',
+              }}
+            >
+              ← Retour aux écoles
+            </button>
+
+            <span
+              className="admin-modal-kicker"
+              style={{ color: '#000' }}
+            >
+              FICHE ÉCOLE
+            </span>
+
+            <h3
+              style={{
+                fontSize: '26px',
+                marginTop: '6px',
+              }}
+            >
+              {selectedSchool.name ||
+                'École sans nom'}
+            </h3>
+
             <p>
-              {schools.length} école(s) affichée(s).
+              Vue complète de l’établissement
+              sélectionné.
             </p>
           </div>
 
           {isSuperAdmin && (
-            <button
-              type="button"
-              className="admin-primary-button"
-              onClick={() => {
-                setError('')
-                setMessage('')
-                setEditingSchool(null)
-                setSchoolForm({
-                  ...EMPTY_SCHOOL_FORM,
-                })
-                setShowSchoolForm(true)
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
               }}
-              style={{ color: '#000' }}
             >
-              ＋ Nouvelle école
-            </button>
+              <button
+                type="button"
+                className="admin-secondary-button"
+                onClick={() =>
+                  openEditSchool(
+                    selectedSchool
+                  )
+                }
+                style={{ color: '#000' }}
+              >
+                ✏️ Modifier
+              </button>
+
+              <button
+                type="button"
+                className="admin-secondary-button"
+                onClick={() =>
+                  toggleSchoolStatus(
+                    selectedSchool
+                  )
+                }
+                style={{ color: '#000' }}
+              >
+                {selectedSchool.active
+                  ? '🔴 Désactiver'
+                  : '🟢 Activer'}
+              </button>
+
+              <button
+                type="button"
+                className="admin-secondary-button"
+                onClick={() =>
+                  deleteSchool(
+                    selectedSchool
+                  )
+                }
+                style={{ color: '#000' }}
+              >
+                🗑️ Supprimer
+              </button>
+            </div>
           )}
         </div>
 
-        {schools.length === 0 ? (
-          <EmptyState
-            title="Aucune école"
-            text="Aucune école n'est encore disponible."
-          />
-        ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Logo</th>
-                  <th>École</th>
-                  <th>Ville</th>
-                  <th>Téléphone</th>
-                  <th>Email</th>
-                  <th>Statut</th>
-                  {isSuperAdmin && (
-                    <th>Actions</th>
-                  )}
-                </tr>
-              </thead>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'minmax(180px, 260px) minmax(0, 1fr)',
+            gap: '24px',
+            marginTop: '20px',
+          }}
+        >
+          <div
+            style={{
+              border: '1px solid #ddd',
+              borderRadius: '14px',
+              padding: '20px',
+              textAlign: 'center',
+              background: '#fff',
+            }}
+          >
+            {selectedSchool.logo_url ? (
+              <img
+                src={selectedSchool.logo_url}
+                alt={`Logo ${
+                  selectedSchool.name ||
+                  'école'
+                }`}
+                style={{
+                  width: '150px',
+                  height: '150px',
+                  objectFit: 'contain',
+                  borderRadius: '12px',
+                  border: '1px solid #ddd',
+                  background: '#fff',
+                }}
+                onError={(event) => {
+                  event.currentTarget.style.display =
+                    'none'
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: '150px',
+                  height: '150px',
+                  margin: '0 auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid #ddd',
+                  borderRadius: '12px',
+                  fontSize: '60px',
+                }}
+              >
+                🏫
+              </div>
+            )}
 
-              <tbody>
-                {schools.map((school) => (
-                  <tr key={school.id}>
-                    <td>
-                      {school.logo_url ? (
-                        <img
-                          src={school.logo_url}
-                          alt={`Logo ${school.name || 'école'}`}
-                          style={{
-                            width: '44px',
-                            height: '44px',
-                            objectFit: 'contain',
-                            borderRadius: '8px',
-                            border: '1px solid #ddd',
-                            background: '#fff',
-                          }}
-                          onError={(event) => {
-                            event.currentTarget.style.display =
-                              'none'
-                          }}
-                        />
-                      ) : (
-                        <span
-                          title="Aucun logo"
-                          style={{
-                            fontSize: '24px',
-                            cursor: 'pointer',
-                          }}
-                          onClick={() =>
-                            openEditSchool(school)
-                          }
-                        >
-                          🏫
-                        </span>
-                      )}
-                    </td>
+            <div
+              style={{
+                marginTop: '14px',
+              }}
+            >
+              <span
+                className={
+                  selectedSchool.active
+                    ? 'status-active'
+                    : 'status-inactive'
+                }
+              >
+                {selectedSchool.active
+                  ? '🟢 École active'
+                  : '🔴 École inactive'}
+              </span>
+            </div>
+          </div>
 
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openEditSchool(school)
-                        }
-                        title="Ouvrir / modifier cette école"
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          padding: 0,
-                          color: '#000',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                      >
-                        <strong>
-                          {school.name || 'Sans nom'}
-                        </strong>
-                      </button>
-                    </td>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            <div
+              style={{
+                padding: '16px',
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+              }}
+            >
+              <small>🏫 Nom de l’école</small>
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchool.name ||
+                  '—'}
+              </strong>
+            </div>
 
-                    <td>
-                      {school.city || '—'}
-                    </td>
+            <div
+              style={{
+                padding: '16px',
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+              }}
+            >
+              <small>📍 Adresse</small>
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchool.address ||
+                  '—'}
+              </strong>
+            </div>
 
-                    <td>
-                      {school.phone || '—'}
-                    </td>
+            <div
+              style={{
+                padding: '16px',
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+              }}
+            >
+              <small>🌍 Ville</small>
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchool.city ||
+                  '—'}
+              </strong>
+            </div>
 
-                    <td>
-                      {school.email || '—'}
-                    </td>
+            <div
+              style={{
+                padding: '16px',
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+              }}
+            >
+              <small>📞 Téléphone</small>
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchool.phone ||
+                  '—'}
+              </strong>
+            </div>
 
-                    <td>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          toggleSchoolStatus(school)
-                        }
-                        title={
-                          school.active
-                            ? 'Cliquer pour désactiver'
-                            : 'Cliquer pour activer'
-                        }
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          cursor: 'pointer',
-                          color: '#000',
-                        }}
-                      >
-                        <span
-                          className={
-                            school.active
-                              ? 'status-active'
-                              : 'status-inactive'
-                          }
-                        >
-                          {school.active
-                            ? '🟢 Active'
-                            : '🔴 Inactive'}
-                        </span>
-                      </button>
-                    </td>
+            <div
+              style={{
+                padding: '16px',
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+              }}
+            >
+              <small>✉️ Email</small>
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '5px',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {selectedSchool.email ||
+                  '—'}
+              </strong>
+            </div>
+
+            <div
+              style={{
+                padding: '16px',
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+              }}
+            >
+              <small>📅 Créée le</small>
+              <strong
+                style={{
+                  display: 'block',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchool.created_at
+                  ? new Date(
+                      selectedSchool.created_at
+                    ).toLocaleDateString(
+                      'fr-FR'
+                    )
+                  : '—'}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: '24px',
+          }}
+        >
+          <h4
+            style={{
+              marginBottom: '12px',
+            }}
+          >
+            👨‍💼 Administrateur de l’école
+          </h4>
+
+          {schoolAdmin ? (
+            <div
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '20px',
+                alignItems: 'center',
+              }}
+            >
+              <div
+                style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid #ddd',
+                  fontSize: '22px',
+                }}
+              >
+                🛡️
+              </div>
+
+              <div>
+                <strong>
+                  {schoolAdmin.full_name ||
+                    'Sans nom'}
+                </strong>
+
+                <div
+                  style={{
+                    marginTop: '5px',
+                  }}
+                >
+                  <span className="role-badge">
+                    Administrateur école
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <small>Téléphone</small>
+                <strong
+                  style={{
+                    display: 'block',
+                    marginTop: '4px',
+                  }}
+                >
+                  {schoolAdmin.phone ||
+                    '—'}
+                </strong>
+              </div>
+
+              <div>
+                <small>Statut</small>
+                <strong
+                  style={{
+                    display: 'block',
+                    marginTop: '4px',
+                  }}
+                >
+                  {schoolAdmin.active
+                    ? '🟢 Actif'
+                    : '🔴 Inactif'}
+                </strong>
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              title="Aucun Admin École trouvé"
+              text="Aucun compte administrateur n'est actuellement associé à cette école."
+            />
+          )}
+        </div>
+
+        <div
+          style={{
+            marginTop: '24px',
+          }}
+        >
+          <h4
+            style={{
+              marginBottom: '12px',
+            }}
+          >
+            📊 Activité et effectifs de l’école
+          </h4>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(160px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() =>
+                openMenu('teachers')
+              }
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+                padding: '18px',
+                background: '#fff',
+                color: '#000',
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '26px',
+                }}
+              >
+                👨‍🏫
+              </span>
+
+              <small>Enseignants</small>
+
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '24px',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchoolData.teachers.length}
+              </strong>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                openMenu('students')
+              }
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+                padding: '18px',
+                background: '#fff',
+                color: '#000',
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '26px',
+                }}
+              >
+                👨‍🎓
+              </span>
+
+              <small>Élèves</small>
+
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '24px',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchoolData.students.length}
+              </strong>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                openMenu('parents')
+              }
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+                padding: '18px',
+                background: '#fff',
+                color: '#000',
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '26px',
+                }}
+              >
+                👪
+              </span>
+
+              <small>Parents</small>
+
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '24px',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchoolData.parents.length}
+              </strong>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                openMenu('classes')
+              }
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+                padding: '18px',
+                background: '#fff',
+                color: '#000',
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '26px',
+                }}
+              >
+                📚
+              </span>
+
+              <small>Classes</small>
+
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '24px',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchoolData.classes.length}
+              </strong>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                openMenu('subjects')
+              }
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+                padding: '18px',
+                background: '#fff',
+                color: '#000',
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '26px',
+                }}
+              >
+                📖
+              </span>
+
+              <small>
+                Matières référencées
+              </small>
+
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '24px',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchoolData.subjects.length}
+              </strong>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                openMenu('documents')
+              }
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: '12px',
+                padding: '18px',
+                background: '#fff',
+                color: '#000',
+                textAlign: 'left',
+                cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: '26px',
+                }}
+              >
+                📄
+              </span>
+
+              <small>Documents</small>
+
+              <strong
+                style={{
+                  display: 'block',
+                  fontSize: '24px',
+                  marginTop: '5px',
+                }}
+              >
+                {selectedSchoolData.documents.length}
+              </strong>
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: '24px',
+          }}
+        >
+          <h4
+            style={{
+              marginBottom: '12px',
+            }}
+          >
+            📋 Répartition rapide
+          </h4>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '12px',
+            }}
+          >
+            {selectedSchoolData.classes.map(
+              (item) => {
+                const studentCount =
+                  selectedSchoolData.students.filter(
+                    (student) =>
+                      student.class_id ===
+                      item.id
+                  ).length
+
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      border: '1px solid #ddd',
+                      borderRadius: '12px',
+                      padding: '14px',
+                    }}
+                  >
+                    <strong>
+                      {item.name ||
+                        'Classe sans nom'}
+                    </strong>
+
+                    <div
+                      style={{
+                        marginTop: '5px',
+                      }}
+                    >
+                      Niveau :{' '}
+                      {item.level || '—'}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: '5px',
+                      }}
+                    >
+                      👨‍🎓 {studentCount}{' '}
+                      élève(s)
+                    </div>
+                  </div>
+                )
+              }
+            )}
+
+            {selectedSchoolData.classes
+              .length === 0 && (
+              <p>
+                Aucune classe enregistrée
+                pour cette école.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // =========================================================
+  // ÉCOLES
+  // =========================================================
+
+  function renderSchools() {
+    if (selectedSchool) {
+      return renderSchoolDetails()
+    }
+
+    const activeSchools = schools.filter(
+      (school) => school.active
+    )
+
+    const inactiveSchools = schools.filter(
+      (school) => !school.active
+    )
+
+    return (
+      <>
+        <section className="admin-panel">
+          <div className="admin-panel-header">
+            <div>
+              <h3>🏫 Écoles</h3>
+
+              <p>
+                {schools.length} école(s)
+                affichée(s).
+              </p>
+            </div>
+
+            {isSuperAdmin && (
+              <button
+                type="button"
+                className="admin-primary-button"
+                onClick={() => {
+                  setError('')
+                  setMessage('')
+                  setSelectedSchool(null)
+                  setEditingSchool(null)
+                  setSchoolForm({
+                    ...EMPTY_SCHOOL_FORM,
+                  })
+                  setShowSchoolForm(true)
+                }}
+                style={{ color: '#000' }}
+              >
+                ＋ Nouvelle école
+              </button>
+            )}
+          </div>
+
+          {schools.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '12px',
+                marginBottom: '20px',
+              }}
+            >
+              <div
+                style={{
+                  border: '1px solid #ddd',
+                  borderRadius: '12px',
+                  padding: '15px',
+                }}
+              >
+                <small>Total écoles</small>
+
+                <strong
+                  style={{
+                    display: 'block',
+                    fontSize: '25px',
+                    marginTop: '4px',
+                  }}
+                >
+                  {schools.length}
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid #ddd',
+                  borderRadius: '12px',
+                  padding: '15px',
+                }}
+              >
+                <small>Écoles actives</small>
+
+                <strong
+                  style={{
+                    display: 'block',
+                    fontSize: '25px',
+                    marginTop: '4px',
+                  }}
+                >
+                  {activeSchools.length}
+                </strong>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid #ddd',
+                  borderRadius: '12px',
+                  padding: '15px',
+                }}
+              >
+                <small>Écoles inactives</small>
+
+                <strong
+                  style={{
+                    display: 'block',
+                    fontSize: '25px',
+                    marginTop: '4px',
+                  }}
+                >
+                  {inactiveSchools.length}
+                </strong>
+              </div>
+            </div>
+          )}
+
+          {schools.length === 0 ? (
+            <EmptyState
+              title="Aucune école"
+              text="Aucune école n'est encore disponible."
+            />
+          ) : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Logo</th>
+                    <th>École</th>
+                    <th>Ville</th>
+                    <th>Téléphone</th>
+                    <th>Email</th>
+                    <th>Statut</th>
 
                     {isSuperAdmin && (
-                      <td>
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '6px',
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="admin-secondary-button"
-                            onClick={() =>
-                              openEditSchool(school)
-                            }
-                            title="Modifier l'école"
-                            style={{ color: '#000' }}
-                          >
-                            ✏️ Modifier
-                          </button>
+                      <th>Actions</th>
+                    )}
+                  </tr>
+                </thead>
 
-                          <button
-                            type="button"
-                            className="admin-secondary-button"
+                <tbody>
+                  {schools.map((school) => (
+                    <tr key={school.id}>
+                      <td>
+                        {school.logo_url ? (
+                          <img
+                            src={school.logo_url}
+                            alt={`Logo ${
+                              school.name ||
+                              'école'
+                            }`}
+                            style={{
+                              width: '44px',
+                              height: '44px',
+                              objectFit:
+                                'contain',
+                              borderRadius:
+                                '8px',
+                              border:
+                                '1px solid #ddd',
+                              background:
+                                '#fff',
+                            }}
+                            onError={(
+                              event
+                            ) => {
+                              event.currentTarget.style.display =
+                                'none'
+                            }}
+                          />
+                        ) : (
+                          <span
+                            title="Aucun logo"
+                            style={{
+                              fontSize: '24px',
+                              cursor:
+                                'pointer',
+                            }}
                             onClick={() =>
-                              toggleSchoolStatus(
+                              openSchoolDetails(
                                 school
                               )
                             }
-                            title={
-                              school.active
-                                ? 'Désactiver'
-                                : 'Activer'
-                            }
-                            style={{ color: '#000' }}
                           >
-                            {school.active
-                              ? '🔴 Désactiver'
-                              : '🟢 Activer'}
-                          </button>
+                            🏫
+                          </span>
+                        )}
+                      </td>
 
-                          <button
-                            type="button"
-                            className="admin-secondary-button"
-                            onClick={() =>
-                              deleteSchool(school)
-                            }
-                            title="Supprimer définitivement"
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openSchoolDetails(
+                              school
+                            )
+                          }
+                          title="Voir la fiche détaillée"
+                          style={{
+                            border: 'none',
+                            background:
+                              'transparent',
+                            padding: 0,
+                            color: '#000',
+                            cursor:
+                              'pointer',
+                            textAlign:
+                              'left',
+                          }}
+                        >
+                          <strong>
+                            {school.name ||
+                              'Sans nom'}
+                          </strong>
+
+                          <small
                             style={{
-                              color: '#000',
+                              display:
+                                'block',
+                              marginTop:
+                                '4px',
                             }}
                           >
-                            🗑️ Supprimer
-                          </button>
-                        </div>
+                            👁️ Voir la fiche
+                          </small>
+                        </button>
                       </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+                      <td>
+                        {school.city ||
+                          '—'}
+                      </td>
+
+                      <td>
+                        {school.phone ||
+                          '—'}
+                      </td>
+
+                      <td>
+                        {school.email ||
+                          '—'}
+                      </td>
+
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleSchoolStatus(
+                              school
+                            )
+                          }
+                          title={
+                            school.active
+                              ? 'Cliquer pour désactiver'
+                              : 'Cliquer pour activer'
+                          }
+                          style={{
+                            border: 'none',
+                            background:
+                              'transparent',
+                            cursor:
+                              'pointer',
+                            color: '#000',
+                          }}
+                        >
+                          <span
+                            className={
+                              school.active
+                                ? 'status-active'
+                                : 'status-inactive'
+                            }
+                          >
+                            {school.active
+                              ? '🟢 Active'
+                              : '🔴 Inactive'}
+                          </span>
+                        </button>
+                      </td>
+
+                      {isSuperAdmin && (
+                        <td>
+                          <div
+                            style={{
+                              display:
+                                'flex',
+                              flexWrap:
+                                'wrap',
+                              gap: '6px',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="admin-secondary-button"
+                              onClick={() =>
+                                openSchoolDetails(
+                                  school
+                                )
+                              }
+                              title="Voir la fiche"
+                              style={{
+                                color:
+                                  '#000',
+                              }}
+                            >
+                              👁️ Fiche
+                            </button>
+
+                            <button
+                              type="button"
+                              className="admin-secondary-button"
+                              onClick={() =>
+                                openEditSchool(
+                                  school
+                                )
+                              }
+                              title="Modifier l'école"
+                              style={{
+                                color:
+                                  '#000',
+                              }}
+                            >
+                              ✏️ Modifier
+                            </button>
+
+                            <button
+                              type="button"
+                              className="admin-secondary-button"
+                              onClick={() =>
+                                toggleSchoolStatus(
+                                  school
+                                )
+                              }
+                              title={
+                                school.active
+                                  ? 'Désactiver'
+                                  : 'Activer'
+                              }
+                              style={{
+                                color:
+                                  '#000',
+                              }}
+                            >
+                              {school.active
+                                ? '🔴 Désactiver'
+                                : '🟢 Activer'}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="admin-secondary-button"
+                              onClick={() =>
+                                deleteSchool(
+                                  school
+                                )
+                              }
+                              title="Supprimer définitivement"
+                              style={{
+                                color:
+                                  '#000',
+                              }}
+                            >
+                              🗑️ Supprimer
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {/* =================================================
+            VUE GLOBALE PAR ÉCOLE
+        ================================================= */}
+
+        {schools.length > 0 && (
+          <section
+            className="admin-panel"
+            style={{
+              marginTop: '20px',
+            }}
+          >
+            <div className="admin-panel-header">
+              <div>
+                <h3>
+                  📊 Vue globale des écoles
+                </h3>
+
+                <p>
+                  Ouvrez une école pour consulter
+                  sa fiche détaillée.
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '14px',
+              }}
+            >
+              {schools.map((school) => {
+                const schoolTeacherCount =
+                  teachers.filter(
+                    (teacher) =>
+                      teacher.school_id ===
+                      school.id
+                  ).length
+
+                const schoolStudentCount =
+                  students.filter(
+                    (student) =>
+                      student.school_id ===
+                      school.id
+                  ).length
+
+                const schoolParentCount =
+                  parents.filter(
+                    (parent) =>
+                      parent.school_id ===
+                      school.id
+                  ).length
+
+                const schoolClassCount =
+                  classes.filter(
+                    (item) =>
+                      item.school_id ===
+                      school.id
+                  ).length
+
+                return (
+                  <button
+                    key={school.id}
+                    type="button"
+                    onClick={() =>
+                      openSchoolDetails(
+                        school
+                      )
+                    }
+                    style={{
+                      color: '#000',
+                      background:
+                        '#fff',
+                      border:
+                        '1px solid #ddd',
+                      borderRadius:
+                        '14px',
+                      padding: '16px',
+                      textAlign:
+                        'left',
+                      cursor:
+                        'pointer',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display:
+                          'flex',
+                        alignItems:
+                          'center',
+                        gap: '12px',
+                      }}
+                    >
+                      {school.logo_url ? (
+                        <img
+                          src={
+                            school.logo_url
+                          }
+                          alt=""
+                          style={{
+                            width:
+                              '55px',
+                            height:
+                              '55px',
+                            objectFit:
+                              'contain',
+                            border:
+                              '1px solid #ddd',
+                            borderRadius:
+                              '10px',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width:
+                              '55px',
+                            height:
+                              '55px',
+                            display:
+                              'flex',
+                            alignItems:
+                              'center',
+                            justifyContent:
+                              'center',
+                            border:
+                              '1px solid #ddd',
+                            borderRadius:
+                              '10px',
+                            fontSize:
+                              '25px',
+                          }}
+                        >
+                          🏫
+                        </div>
+                      )}
+
+                      <div>
+                        <strong>
+                          {school.name ||
+                            'Sans nom'}
+                        </strong>
+
+                        <div
+                          style={{
+                            marginTop:
+                              '4px',
+                          }}
+                        >
+                          <span
+                            className={
+                              school.active
+                                ? 'status-active'
+                                : 'status-inactive'
+                            }
+                          >
+                            {school.active
+                              ? '🟢 Active'
+                              : '🔴 Inactive'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display:
+                          'grid',
+                        gridTemplateColumns:
+                          '1fr 1fr',
+                        gap: '8px',
+                        marginTop:
+                          '15px',
+                      }}
+                    >
+                      <span>
+                        👨‍🏫{' '}
+                        {schoolTeacherCount}{' '}
+                        enseignants
+                      </span>
+
+                      <span>
+                        👨‍🎓{' '}
+                        {schoolStudentCount}{' '}
+                        élèves
+                      </span>
+
+                      <span>
+                        👪{' '}
+                        {schoolParentCount}{' '}
+                        parents
+                      </span>
+
+                      <span>
+                        📚{' '}
+                        {schoolClassCount}{' '}
+                        classes
+                      </span>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop:
+                          '14px',
+                        fontWeight:
+                          '600',
+                      }}
+                    >
+                      👁️ Ouvrir la fiche →
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
         )}
-      </section>
+      </>
     )
   }
 
@@ -1798,6 +3044,7 @@ function AdminDashboard({ profile, onLogout }) {
           style={{ color: '#000' }}
         >
           <div className="admin-spinner" />
+
           <p>
             Chargement du tableau de bord...
           </p>
@@ -1836,9 +3083,14 @@ function AdminDashboard({ profile, onLogout }) {
   }
 
   const pageTitle =
-    MENU.find(
-      (item) => item.id === activeMenu
-    )?.label || 'Tableau de bord'
+    selectedSchool && activeMenu === 'schools'
+      ? `Fiche — ${
+          selectedSchool.name ||
+          'École'
+        }`
+      : MENU.find(
+          (item) => item.id === activeMenu
+        )?.label || 'Tableau de bord'
 
   // =========================================================
   // AFFICHAGE
@@ -1970,8 +3222,18 @@ function AdminDashboard({ profile, onLogout }) {
               <button
                 type="button"
                 className="admin-secondary-button"
-                onClick={goBack}
-                title="Retour au tableau de bord"
+                onClick={() => {
+                  if (
+                    activeMenu === 'schools' &&
+                    selectedSchool
+                  ) {
+                    closeSchoolDetails()
+                    return
+                  }
+
+                  goBack()
+                }}
+                title="Retour"
                 style={{ color: '#000' }}
               >
                 ← Retour
