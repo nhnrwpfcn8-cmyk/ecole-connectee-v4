@@ -7,6 +7,15 @@
     return window.innerWidth <= MOBILE_BREAKPOINT;
   }
 
+  function normalizeText(value) {
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function findSidebar() {
     const sidebars = Array.from(
       document.querySelectorAll("aside")
@@ -18,137 +27,43 @@
 
     return (
       sidebars.find((aside) => {
-        const text = (
-          aside.textContent || ""
-        ).toLowerCase();
+        const text = normalizeText(
+          aside.textContent
+        );
 
         return (
           text.includes("accueil") ||
+          text.includes("tableau") ||
           text.includes("cours") ||
-          text.includes("élèves") ||
           text.includes("eleves") ||
           text.includes("notes") ||
           text.includes("communication") ||
-          text.includes("présences") ||
-          text.includes("presences") ||
-          text.includes("bulletins") ||
-          text.includes("déconnexion") ||
+          text.includes("presence") ||
+          text.includes("bulletin") ||
           text.includes("deconnexion")
         );
       }) || sidebars[0]
     );
   }
 
-  function normalizeText(value) {
-    return String(value || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function getItemText(item) {
-    return normalizeText(
-      item?.textContent || ""
-    );
-  }
-
-  function isLogoutItem(item) {
-    const text = getItemText(item);
-
-    return (
-      text.includes("deconnexion") ||
-      text.includes("se deconnecter") ||
-      text === "logout"
-    );
-  }
-
-  function getSidebarItems(sidebar) {
-    if (!sidebar) {
-      return [];
-    }
-
-    return Array.from(
-      sidebar.querySelectorAll(
-        "button, a"
-      )
-    ).filter((item) => {
-      if (
-        item.classList.contains(
-          "ec-mobile-menu-close"
-        )
-      ) {
-        return false;
-      }
-
-      if (isLogoutItem(item)) {
-        return false;
-      }
-
-      const text =
-        getItemText(item);
-
-      return Boolean(text);
-    });
-  }
-
-  function findItemByLabel(
-    sidebar,
-    label
-  ) {
-    const wanted =
-      normalizeText(label);
-
-    return getSidebarItems(sidebar).find(
-      (item) =>
-        getItemText(item) === wanted
-    );
-  }
-
-  function getItemIcon(item) {
-    if (!item) {
-      return "";
-    }
-
-    const iconElement =
-      item.querySelector(
-        "span:first-child, img"
-      );
-
-    if (
-      iconElement &&
-      iconElement.tagName === "IMG"
-    ) {
-      return "";
-    }
-
-    if (iconElement) {
-      const text =
-        iconElement.textContent?.trim();
-
-      if (text && text.length <= 4) {
-        return text;
-      }
-    }
-
-    const text =
-      item.textContent?.trim() || "";
-
-    const emojiMatch =
-      text.match(
-        /^[^\p{L}\p{N}\s]{1,4}/u
-      );
-
-    return emojiMatch
-      ? emojiMatch[0]
-      : "";
-  }
-
   function injectStyles() {
+    const oldStyles = [
+      "ec-mobile-menu-styles",
+      "ec-mobile-menu-styles-v2",
+      "ec-mobile-menu-styles-v3",
+    ];
+
+    oldStyles.forEach((id) => {
+      const old = document.getElementById(id);
+
+      if (old) {
+        old.remove();
+      }
+    });
+
     if (
       document.getElementById(
-        "ec-mobile-menu-styles"
+        "ec-mobile-menu-styles-v4"
       )
     ) {
       return;
@@ -158,23 +73,13 @@
       document.createElement("style");
 
     style.id =
-      "ec-mobile-menu-styles";
+      "ec-mobile-menu-styles-v4";
 
     style.textContent = `
       /* =====================================================
-         DESKTOP
-         Aucun changement au menu desktop.
-      ===================================================== */
-
-      .ec-mobile-bottom-nav,
-      .ec-mobile-more-panel,
-      .ec-mobile-more-backdrop {
-        display: none;
-      }
-
-      /* =====================================================
-         MOBILE
-      ===================================================== */
+         ECOLE CONNECTEE
+         MOBILE MENU V4
+         ===================================================== */
 
       @media (max-width: 768px) {
 
@@ -186,568 +91,494 @@
         }
 
         body {
-          margin: 0 !important;
-          padding: 0 !important;
+          padding-bottom: 78px !important;
         }
 
-        /*
-          Le dashboard ne doit plus être comprimé
-          par la sidebar desktop.
-        */
+        /* -------------------------------------------------
+           ANCIEN MENU MOBILE : SUPPRESSION
+           ------------------------------------------------- */
+
+        .ec-mobile-menu-button,
+        .ec-mobile-overlay,
+        .ec-mobile-menu-close {
+          display: none !important;
+        }
+
+        /* -------------------------------------------------
+           SIDEBAR DESKTOP : CACHEE SUR MOBILE
+           ------------------------------------------------- */
 
         aside.ec-mobile-sidebar {
           display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+          position: static !important;
           width: 0 !important;
           min-width: 0 !important;
           max-width: 0 !important;
-          flex: 0 0 0 !important;
-          visibility: hidden !important;
-          pointer-events: none !important;
+          height: 0 !important;
+          overflow: hidden !important;
         }
 
-        /*
-          Zone principale :
-          pleine largeur du téléphone.
-        */
+        /* -------------------------------------------------
+           CONTENU PRINCIPAL
+           ------------------------------------------------- */
 
+        main.ec-mobile-main,
         .ec-mobile-content-area {
           width: 100% !important;
           min-width: 0 !important;
           max-width: 100% !important;
-          box-sizing: border-box !important;
-          flex: 1 1 auto !important;
-        }
-
-        /*
-          Le layout général ne doit plus réserver
-          de largeur à la sidebar.
-        */
-
-        .ec-mobile-dashboard-layout {
-          width: 100% !important;
-          min-width: 0 !important;
-          max-width: 100% !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
           box-sizing: border-box !important;
         }
 
-        /*
-          Empêche le contenu de dépasser
-          horizontalement sur iPhone.
-        */
-
-        main {
-          width: 100% !important;
-          min-width: 0 !important;
-          max-width: 100% !important;
-          box-sizing: border-box !important;
+        main.ec-mobile-main {
+          padding-bottom: 90px !important;
           overflow-x: hidden !important;
         }
 
-        /*
-          Le contenu doit laisser de la place
-          pour la navigation inférieure.
-        */
+        /* -------------------------------------------------
+           COMMUNICATION : PLEIN ECRAN
+           ------------------------------------------------- */
 
-        main.ec-mobile-main {
-          padding-bottom:
-            96px !important;
+        main.ec-mobile-communication-page {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          margin: 0 !important;
+          padding-left: 12px !important;
+          padding-right: 12px !important;
+          box-sizing: border-box !important;
+        }
+
+        main.ec-mobile-communication-page
+        > div,
+        main.ec-mobile-communication-page
+        section,
+        main.ec-mobile-communication-page
+        article {
+          max-width: 100% !important;
+          box-sizing: border-box !important;
+        }
+
+        main.ec-mobile-communication-page
+        textarea {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          min-height: 120px !important;
+          box-sizing: border-box !important;
+          resize: vertical !important;
+          font-size: 16px !important;
+          line-height: 1.45 !important;
+        }
+
+        main.ec-mobile-communication-page
+        input,
+        main.ec-mobile-communication-page
+        select {
+          max-width: 100% !important;
+          box-sizing: border-box !important;
         }
 
         /*
-          =====================================================
-          NAVIGATION MOBILE DU BAS
-          =====================================================
-        */
+         * Les blocs en grille de Communication passent
+         * automatiquement en une seule colonne.
+         */
+        main.ec-mobile-communication-page
+        [style*="grid-template-columns"] {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+
+        /* -------------------------------------------------
+           BARRE MOBILE INFERIEURE
+           ------------------------------------------------- */
 
         .ec-mobile-bottom-nav {
           position: fixed !important;
-
-          left: 10px !important;
-          right: 10px !important;
-          bottom: 10px !important;
-
-          height: 68px !important;
-
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
+          width: 100% !important;
+          height: 72px !important;
+          min-height: 72px !important;
           box-sizing: border-box !important;
 
-          display: flex !important;
+          display: grid !important;
+          grid-template-columns:
+            repeat(4, minmax(0, 1fr)) !important;
 
           align-items: stretch !important;
-          justify-content: space-around !important;
 
-          background:
-            rgba(255, 255, 255, 0.97) !important;
-
-          border:
-            1px solid #e5e7eb !important;
-
-          border-radius: 22px !important;
+          background: #ffffff !important;
+          border-top: 1px solid #e5e7eb !important;
 
           box-shadow:
-            0 10px 35px
-            rgba(15, 23, 42, 0.16) !important;
+            0 -6px 22px
+            rgba(15, 23, 42, 0.10) !important;
 
-          backdrop-filter:
-            blur(18px) !important;
-
-          -webkit-backdrop-filter:
-            blur(18px) !important;
-
-          z-index: 9998 !important;
+          z-index: 99999 !important;
 
           padding:
-            6px !important;
+            6px 5px
+            calc(6px + env(safe-area-inset-bottom))
+            5px !important;
 
-          padding-bottom:
-            max(6px, env(safe-area-inset-bottom)) !important;
-
-          gap: 2px !important;
+          gap: 3px !important;
         }
 
         .ec-mobile-bottom-item {
           position: relative !important;
 
-          flex: 1 1 0 !important;
-
+          width: 100% !important;
           min-width: 0 !important;
-
-          height: 56px !important;
-
-          border: 0 !important;
-
-          background:
-            transparent !important;
-
-          color: #4b5563 !important;
-
-          border-radius: 17px !important;
+          height: 60px !important;
 
           display: flex !important;
-
           flex-direction: column !important;
-
           align-items: center !important;
-
           justify-content: center !important;
 
           gap: 2px !important;
 
-          padding:
-            5px 3px !important;
+          border: 0 !important;
+          border-radius: 12px !important;
 
+          background: transparent !important;
+          color: #64748b !important;
+
+          padding: 5px 2px !important;
           margin: 0 !important;
 
-          font-family:
-            inherit !important;
-
+          font-family: inherit !important;
           font-size: 10px !important;
-
-          font-weight: 700 !important;
-
-          line-height: 1.15 !important;
-
-          text-align: center !important;
+          font-weight: 600 !important;
+          line-height: 1.1 !important;
 
           cursor: pointer !important;
 
-          touch-action:
-            manipulation !important;
-
           -webkit-tap-highlight-color:
             transparent !important;
-        }
 
-        .ec-mobile-bottom-item
-        .ec-mobile-bottom-icon {
-          display: flex !important;
+          touch-action: manipulation !important;
 
-          align-items: center !important;
-          justify-content: center !important;
-
-          width: 30px !important;
-          height: 28px !important;
-
-          font-size: 22px !important;
-
-          line-height: 1 !important;
-        }
-
-        .ec-mobile-bottom-item
-        .ec-mobile-bottom-label {
-          display: block !important;
-
-          max-width: 100% !important;
-
-          overflow: hidden !important;
-
-          white-space: nowrap !important;
-
-          text-overflow: ellipsis !important;
-        }
-
-        .ec-mobile-bottom-item
-        .ec-mobile-bottom-active {
-          background:
-            #eef2ff !important;
-
-          color:
-            #4f46e5 !important;
+          box-sizing: border-box !important;
         }
 
         .ec-mobile-bottom-item:active {
-          transform:
-            scale(0.95) !important;
+          transform: scale(0.95) !important;
         }
 
-        /*
-          Badge Communication
-        */
+        .ec-mobile-bottom-item.ec-active {
+          color: #4f46e5 !important;
+          background: #eef2ff !important;
+        }
+
+        .ec-mobile-bottom-icon {
+          width: 28px !important;
+          height: 28px !important;
+
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+
+          font-size: 21px !important;
+          line-height: 1 !important;
+        }
+
+        .ec-mobile-bottom-label {
+          max-width: 100% !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+          white-space: nowrap !important;
+        }
 
         .ec-mobile-bottom-badge {
           position: absolute !important;
-
-          top: 3px !important;
-          right: 20% !important;
+          top: 2px !important;
+          right: calc(50% - 23px) !important;
 
           min-width: 17px !important;
           height: 17px !important;
 
-          padding:
-            0 4px !important;
-
-          box-sizing: border-box !important;
-
           display: flex !important;
-
           align-items: center !important;
           justify-content: center !important;
 
+          padding: 0 4px !important;
+
           border-radius: 999px !important;
 
-          background:
-            #ef4444 !important;
-
-          color:
-            #ffffff !important;
-
-          border:
-            2px solid #ffffff !important;
+          background: #ef4444 !important;
+          color: #ffffff !important;
 
           font-size: 9px !important;
-
-          font-weight: 800 !important;
-
+          font-weight: 700 !important;
           line-height: 1 !important;
         }
 
-        /*
-          =====================================================
-          BOUTON PLUS
-          =====================================================
-        */
+        /* -------------------------------------------------
+           BOUTON PLUS
+           ------------------------------------------------- */
+
+        .ec-mobile-more-button {
+          position: relative !important;
+        }
+
+        .ec-mobile-more-icon {
+          width: 32px !important;
+          height: 32px !important;
+
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+
+          border-radius: 50% !important;
+
+          background: #4f46e5 !important;
+          color: #ffffff !important;
+
+          font-size: 23px !important;
+          font-weight: 400 !important;
+          line-height: 1 !important;
+
+          box-shadow:
+            0 5px 14px
+            rgba(79, 70, 229, 0.30) !important;
+        }
+
+        .ec-mobile-more-button.ec-active
+        .ec-mobile-more-icon {
+          background: #4338ca !important;
+          color: #ffffff !important;
+        }
+
+        /* -------------------------------------------------
+           PANNEAU PLUS
+           ------------------------------------------------- */
 
         .ec-mobile-more-backdrop {
           position: fixed !important;
-
           inset: 0 !important;
 
           background:
-            rgba(15, 23, 42, 0.38) !important;
+            rgba(15, 23, 42, 0.40) !important;
 
-          z-index: 9996 !important;
+          z-index: 99997 !important;
 
           opacity: 0 !important;
-
           visibility: hidden !important;
-
           pointer-events: none !important;
 
           transition:
-            opacity 0.2s ease,
-            visibility 0.2s ease !important;
+            opacity 0.20s ease,
+            visibility 0.20s ease !important;
         }
 
         .ec-mobile-more-backdrop.ec-open {
           opacity: 1 !important;
-
           visibility: visible !important;
-
           pointer-events: auto !important;
         }
 
         .ec-mobile-more-panel {
           position: fixed !important;
 
-          left: 10px !important;
-          right: 10px !important;
-          bottom: 88px !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: 0 !important;
 
-          max-height:
-            calc(100dvh - 130px) !important;
-
-          overflow-y: auto !important;
+          width: 100% !important;
+          max-height: 78vh !important;
 
           box-sizing: border-box !important;
 
-          background:
-            #ffffff !important;
+          background: #ffffff !important;
 
-          border:
-            1px solid #e5e7eb !important;
-
-          border-radius: 22px !important;
+          border-radius:
+            22px 22px 0 0 !important;
 
           box-shadow:
-            0 18px 45px
-            rgba(15, 23, 42, 0.22) !important;
+            0 -10px 35px
+            rgba(15, 23, 42, 0.20) !important;
 
-          z-index: 9997 !important;
+          z-index: 99998 !important;
 
           padding:
+            14px 14px
+            calc(86px + env(safe-area-inset-bottom))
             14px !important;
 
-          opacity: 0 !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
 
-          visibility: hidden !important;
-
-          pointer-events: none !important;
-
-          transform:
-            translateY(12px) !important;
+          transform: translateY(105%) !important;
 
           transition:
-            opacity 0.2s ease,
-            visibility 0.2s ease,
-            transform 0.2s ease !important;
+            transform 0.25s ease !important;
         }
 
         .ec-mobile-more-panel.ec-open {
-          opacity: 1 !important;
-
-          visibility: visible !important;
-
-          pointer-events: auto !important;
-
-          transform:
-            translateY(0) !important;
+          transform: translateY(0) !important;
         }
 
-        .ec-mobile-more-title {
+        .ec-mobile-more-header {
           display: flex !important;
-
           align-items: center !important;
           justify-content: space-between !important;
 
-          padding:
-            4px 4px 12px 4px !important;
+          width: 100% !important;
 
-          color:
-            #111827 !important;
+          margin-bottom: 12px !important;
+        }
+
+        .ec-mobile-more-title {
+          margin: 0 !important;
+
+          color: #111827 !important;
 
           font-size: 18px !important;
-
-          font-weight: 800 !important;
+          font-weight: 700 !important;
         }
 
         .ec-mobile-more-close {
-          width: 34px !important;
-          height: 34px !important;
-
-          border: 0 !important;
-
-          border-radius: 10px !important;
-
-          background:
-            #f3f4f6 !important;
-
-          color:
-            #374151 !important;
+          width: 40px !important;
+          height: 40px !important;
 
           display: flex !important;
-
           align-items: center !important;
           justify-content: center !important;
 
-          font-size: 18px !important;
+          border: 0 !important;
+          border-radius: 10px !important;
+
+          background: #f3f4f6 !important;
+          color: #374151 !important;
+
+          font-size: 21px !important;
+          line-height: 1 !important;
 
           cursor: pointer !important;
-        }
-
-        .ec-mobile-more-list {
-          display: grid !important;
-
-          grid-template-columns:
-            repeat(2, minmax(0, 1fr)) !important;
-
-          gap: 9px !important;
-        }
-
-        .ec-mobile-more-item {
-          min-height: 66px !important;
-
-          box-sizing: border-box !important;
-
-          border:
-            1px solid #e5e7eb !important;
-
-          border-radius: 15px !important;
-
-          background:
-            #ffffff !important;
-
-          color:
-            #374151 !important;
-
-          display: flex !important;
-
-          align-items: center !important;
-
-          gap: 9px !important;
-
-          padding:
-            10px !important;
-
-          font-family:
-            inherit !important;
-
-          font-size: 13px !important;
-
-          font-weight: 700 !important;
-
-          text-align: left !important;
-
-          cursor: pointer !important;
-
-          touch-action:
-            manipulation !important;
 
           -webkit-tap-highlight-color:
             transparent !important;
         }
 
-        .ec-mobile-more-item:active {
-          background:
-            #eef2ff !important;
+        .ec-mobile-more-list {
+          display: flex !important;
+          flex-direction: column !important;
 
-          border-color:
-            #4f46e5 !important;
+          width: 100% !important;
 
-          transform:
-            scale(0.98) !important;
+          gap: 7px !important;
         }
 
-        .ec-mobile-more-icon {
-          width: 34px !important;
-          height: 34px !important;
-
-          min-width: 34px !important;
-
-          border-radius: 10px !important;
-
-          background:
-            #eef2ff !important;
+        .ec-mobile-more-item {
+          width: 100% !important;
+          min-height: 52px !important;
 
           display: flex !important;
+          align-items: center !important;
 
+          gap: 12px !important;
+
+          padding: 10px 13px !important;
+          margin: 0 !important;
+
+          border:
+            1px solid #e5e7eb !important;
+
+          border-radius: 13px !important;
+
+          background: #ffffff !important;
+          color: #374151 !important;
+
+          font-family: inherit !important;
+          font-size: 14px !important;
+          font-weight: 600 !important;
+
+          text-align: left !important;
+
+          cursor: pointer !important;
+
+          box-sizing: border-box !important;
+
+          -webkit-tap-highlight-color:
+            transparent !important;
+
+          touch-action: manipulation !important;
+        }
+
+        .ec-mobile-more-item:active {
+          background: #eef2ff !important;
+          border-color: #4f46e5 !important;
+        }
+
+        .ec-mobile-more-item-icon {
+          width: 32px !important;
+          height: 32px !important;
+
+          flex: 0 0 32px !important;
+
+          display: flex !important;
           align-items: center !important;
           justify-content: center !important;
 
-          font-size: 20px !important;
+          border-radius: 9px !important;
+
+          background: #f3f4f6 !important;
+
+          font-size: 18px !important;
         }
-
-        .ec-mobile-more-label {
-          min-width: 0 !important;
-
-          overflow: hidden !important;
-
-          text-overflow: ellipsis !important;
-        }
-
-        /*
-          Déconnexion dans le panneau Plus
-        */
 
         .ec-mobile-more-logout {
-          grid-column:
-            1 / -1 !important;
+          margin-top: 10px !important;
 
-          min-height: 52px !important;
-
-          border:
-            1px solid #fecaca !important;
-
-          background:
-            #fff7f7 !important;
-
-          color:
-            #dc2626 !important;
-
-          justify-content: center !important;
-
-          text-align: center !important;
+          border-color: #fecaca !important;
+          background: #fff7f7 !important;
+          color: #dc2626 !important;
         }
 
-        /*
-          =====================================================
-          PETITS TELEPHONES
-          =====================================================
-        */
-
-        @media (max-width: 420px) {
-
-          .ec-mobile-bottom-nav {
-            left: 7px !important;
-            right: 7px !important;
-            bottom: 7px !important;
-
-            border-radius: 20px !important;
-          }
-
-          .ec-mobile-bottom-item {
-            font-size: 9px !important;
-          }
-
-          .ec-mobile-bottom-item
-          .ec-mobile-bottom-icon {
-            font-size: 21px !important;
-          }
-
-          .ec-mobile-more-list {
-            grid-template-columns:
-              repeat(2, minmax(0, 1fr)) !important;
-          }
-        }
-
-        /*
-          =====================================================
-          TRES PETITS TELEPHONES
-          =====================================================
-        */
-
-        @media (max-width: 360px) {
-
-          .ec-mobile-bottom-item
-          .ec-mobile-bottom-icon {
-            font-size: 19px !important;
-          }
-
-          .ec-mobile-bottom-item {
-            font-size: 8px !important;
-          }
-
-          .ec-mobile-bottom-nav {
-            height: 64px !important;
-          }
+        .ec-mobile-more-logout
+        .ec-mobile-more-item-icon {
+          background: #fee2e2 !important;
         }
       }
 
-      /*
-        =====================================================
-        IMPRESSION
-        =====================================================
-      */
+      /* -----------------------------------------------------
+         TRES PETITS ECRANS
+         ----------------------------------------------------- */
 
-      @media print {
+      @media (max-width: 360px) {
+
+        .ec-mobile-bottom-nav {
+          height: 68px !important;
+          min-height: 68px !important;
+        }
+
+        .ec-mobile-bottom-item {
+          height: 56px !important;
+          font-size: 9px !important;
+        }
+
+        .ec-mobile-bottom-icon {
+          font-size: 19px !important;
+        }
+
+        .ec-mobile-more-icon {
+          width: 30px !important;
+          height: 30px !important;
+          font-size: 21px !important;
+        }
+      }
+
+      /* -----------------------------------------------------
+         DESKTOP : RIEN NE CHANGE
+         ----------------------------------------------------- */
+
+      @media (min-width: 769px) {
 
         .ec-mobile-bottom-nav,
         .ec-mobile-more-panel,
@@ -760,113 +591,95 @@
     document.head.appendChild(style);
   }
 
-  function markLogout(sidebar) {
+  function removeLegacyElements() {
+    const selectors = [
+      ".ec-mobile-menu-button",
+      ".ec-mobile-overlay",
+      ".ec-mobile-menu-close",
+    ];
+
+    selectors.forEach((selector) => {
+      document
+        .querySelectorAll(selector)
+        .forEach((element) => {
+          element.remove();
+        });
+    });
+  }
+
+  function getSidebarItems(sidebar) {
     if (!sidebar) {
-      return;
+      return [];
     }
 
-    const clickableItems =
-      Array.from(
-        sidebar.querySelectorAll(
-          "button, a"
+    return Array.from(
+      sidebar.querySelectorAll("button, a")
+    ).filter((item) => {
+      if (
+        item.classList.contains(
+          "ec-mobile-menu-close"
         )
+      ) {
+        return false;
+      }
+
+      const text = normalizeText(
+        item.textContent
       );
 
-    clickableItems.forEach(
-      (item) => {
-        if (
-          item.classList.contains(
-            "ec-mobile-menu-close"
-          )
-        ) {
-          return;
-        }
+      return text.length > 0;
+    });
+  }
 
-        if (isLogoutItem(item)) {
-          item.classList.add(
-            "ec-mobile-logout-item"
-          );
-        }
-      }
+  function findItem(sidebar, name) {
+    const wanted = normalizeText(name);
+
+    return (
+      getSidebarItems(sidebar).find(
+        (item) =>
+          normalizeText(item.textContent) ===
+          wanted
+      ) ||
+      getSidebarItems(sidebar).find(
+        (item) =>
+          normalizeText(item.textContent).includes(
+            wanted
+          )
+      ) ||
+      null
     );
   }
 
-  function closeMoreMenu(
-    morePanel,
-    moreBackdrop
-  ) {
-    if (morePanel) {
-      morePanel.classList.remove(
-        "ec-open"
-      );
+  function findLogoutItem(sidebar) {
+    if (!sidebar) {
+      return null;
     }
 
-    if (moreBackdrop) {
-      moreBackdrop.classList.remove(
-        "ec-open"
-      );
-    }
-  }
-
-  function openMoreMenu(
-    morePanel,
-    moreBackdrop
-  ) {
-    if (morePanel) {
-      morePanel.classList.add(
-        "ec-open"
-      );
-    }
-
-    if (moreBackdrop) {
-      moreBackdrop.classList.add(
-        "ec-open"
-      );
-    }
-  }
-
-  function getCommunicationUnreadCount() {
-    const possibleElements =
-      Array.from(
-        document.querySelectorAll(
-          "[class*='badge'], [aria-label]"
-        )
-      );
-
-    for (
-      const element of possibleElements
-    ) {
-      const text =
-        element.textContent?.trim();
-
-      if (
-        text &&
-        /^[0-9]+$/.test(text) &&
-        Number(text) > 0 &&
-        Number(text) < 1000
-      ) {
-        const parentText =
-          normalizeText(
-            element.parentElement
-              ?.textContent || ""
+    return (
+      getSidebarItems(sidebar).find(
+        (item) => {
+          const text = normalizeText(
+            item.textContent
           );
 
-        if (
-          parentText.includes(
-            "communication"
-          )
-        ) {
-          return text;
+          return (
+            text.includes("deconnexion") ||
+            text.includes("se deconnecter") ||
+            text === "logout"
+          );
         }
-      }
-    }
-
-    return "";
+      ) || null
+    );
   }
 
-  function getActiveSidebarItem(
-    sidebar
-  ) {
+  function findCommunicationItem(sidebar) {
+    return findItem(
+      sidebar,
+      "communication"
+    );
+  }
+
+  function getActiveSidebarItem(sidebar) {
     if (!sidebar) {
       return null;
     }
@@ -874,24 +687,224 @@
     const items =
       getSidebarItems(sidebar);
 
-    return (
-      items.find((item) => {
-        const className =
-          String(
-            item.className || ""
-          ).toLowerCase();
+    const active = items.find((item) => {
+      return (
+        item.getAttribute("aria-current") ===
+          "page" ||
+        item.getAttribute("aria-current") ===
+          "true" ||
+        item.classList.contains("active") ||
+        item.classList.contains("selected") ||
+        item.className
+          .toString()
+          .toLowerCase()
+          .includes("active")
+      );
+    });
 
-        return (
-          className.includes("active") ||
-          className.includes("selected")
-        );
-      }) || null
+    return active || null;
+  }
+
+  function clickSidebarItem(item) {
+    if (!item) {
+      return;
+    }
+
+    item.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        view: window,
+      })
     );
   }
 
-  function createBottomNavigation(
-    sidebar
-  ) {
+  function getIconForLabel(label) {
+    const text = normalizeText(label);
+
+    if (text.includes("accueil")) return "🏠";
+    if (text.includes("cours")) return "📚";
+    if (text.includes("exercice")) return "✏️";
+    if (text.includes("evaluation")) return "📝";
+    if (text.includes("note")) return "📊";
+    if (text.includes("presence")) return "🕘";
+    if (text.includes("bulletin")) return "📄";
+    if (text.includes("communication")) return "💬";
+    if (text.includes("carte")) return "🎫";
+    if (text.includes("profil")) return "👤";
+    if (text.includes("parametre")) return "⚙️";
+    if (text.includes("emploi")) return "📅";
+    if (text.includes("document")) return "📁";
+    if (text.includes("deconnexion")) return "🚪";
+
+    return "•";
+  }
+
+  function getCleanLabel(item) {
+    return String(item.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function isLogoutItem(item) {
+    if (!item) {
+      return false;
+    }
+
+    const text = normalizeText(
+      item.textContent
+    );
+
+    return (
+      text.includes("deconnexion") ||
+      text.includes("se deconnecter") ||
+      text === "logout"
+    );
+  }
+
+  function getCommunicationBadge(item) {
+    if (!item) {
+      return null;
+    }
+
+    const possible = Array.from(
+      item.querySelectorAll("*")
+    );
+
+    const badge = possible.find(
+      (element) => {
+        const className =
+          String(
+            element.className || ""
+          ).toLowerCase();
+
+        return (
+          className.includes("badge") ||
+          className.includes("notification")
+        );
+      }
+    );
+
+    if (badge) {
+      return (
+        badge.textContent || ""
+      ).trim();
+    }
+
+    const text =
+      item.textContent || "";
+
+    const match =
+      text.match(/\b\d{1,3}\b/);
+
+    return match
+      ? match[0]
+      : null;
+  }
+
+  function isCommunicationPage(sidebar) {
+    const communicationItem =
+      findCommunicationItem(sidebar);
+
+    const active =
+      getActiveSidebarItem(sidebar);
+
+    if (
+      active &&
+      normalizeText(
+        active.textContent
+      ).includes("communication")
+    ) {
+      return true;
+    }
+
+    if (
+      communicationItem &&
+      (
+        communicationItem.getAttribute(
+          "aria-current"
+        ) === "page" ||
+        communicationItem.className
+          .toString()
+          .toLowerCase()
+          .includes("active")
+      )
+    ) {
+      return true;
+    }
+
+    const main =
+      document.querySelector("main");
+
+    if (!main) {
+      return false;
+    }
+
+    const headings = Array.from(
+      main.querySelectorAll(
+        "h1, h2, h3, h4"
+      )
+    );
+
+    const headingIsCommunication =
+      headings.some((heading) =>
+        normalizeText(
+          heading.textContent
+        ).includes("communication")
+      );
+
+    if (headingIsCommunication) {
+      return true;
+    }
+
+    /*
+     * La page Communication contient normalement
+     * une zone de saisie textarea.
+     */
+    if (
+      main.querySelector("textarea")
+    ) {
+      const mainText = normalizeText(
+        main.textContent
+      );
+
+      if (
+        mainText.includes("communication") ||
+        mainText.includes("message")
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function markMain(sidebar) {
+    const main =
+      document.querySelector("main");
+
+    if (!main) {
+      return;
+    }
+
+    main.classList.add(
+      "ec-mobile-main"
+    );
+
+    if (
+      isCommunicationPage(sidebar)
+    ) {
+      main.classList.add(
+        "ec-mobile-communication-page"
+      );
+    } else {
+      main.classList.remove(
+        "ec-mobile-communication-page"
+      );
+    }
+  }
+
+  function createBottomNavigation(sidebar) {
     let nav =
       document.querySelector(
         ".ec-mobile-bottom-nav"
@@ -899,9 +912,7 @@
 
     if (!nav) {
       nav =
-        document.createElement(
-          "nav"
-        );
+        document.createElement("nav");
 
       nav.className =
         "ec-mobile-bottom-nav";
@@ -914,33 +925,33 @@
       document.body.appendChild(nav);
     }
 
+    nav.innerHTML = "";
+
     const primaryItems = [
       {
-        label: "Accueil",
+        name: "Accueil",
         icon: "🏠",
       },
       {
-        label: "Cours",
+        name: "Cours",
         icon: "📚",
       },
       {
-        label: "Notes",
+        name: "Notes",
         icon: "📊",
       },
       {
-        label: "Communication",
+        name: "Communication",
         icon: "💬",
       },
     ];
 
-    nav.innerHTML = "";
-
     primaryItems.forEach(
       (definition) => {
         const sidebarItem =
-          findItemByLabel(
+          findItem(
             sidebar,
-            definition.label
+            definition.name
           );
 
         if (!sidebarItem) {
@@ -948,68 +959,60 @@
         }
 
         const button =
-          document.createElement(
-            "button"
-          );
+          document.createElement("button");
 
         button.type = "button";
 
         button.className =
           "ec-mobile-bottom-item";
 
-        button.dataset.mobileLabel =
-          normalizeText(
-            definition.label
-          );
+        button.dataset.menuName =
+          definition.name;
 
         const icon =
-          document.createElement(
-            "span"
-          );
+          document.createElement("span");
 
         icon.className =
           "ec-mobile-bottom-icon";
 
         icon.textContent =
-          getItemIcon(
-            sidebarItem
-          ) || definition.icon;
+          definition.icon;
 
         const label =
-          document.createElement(
-            "span"
-          );
+          document.createElement("span");
 
         label.className =
           "ec-mobile-bottom-label";
 
         label.textContent =
-          definition.label;
+          definition.name;
 
         button.appendChild(icon);
         button.appendChild(label);
 
         if (
-          definition.label ===
+          definition.name ===
           "Communication"
         ) {
-          const badge =
-            getCommunicationUnreadCount();
+          const badgeText =
+            getCommunicationBadge(
+              sidebarItem
+            );
 
-          if (badge) {
-            const badgeElement =
+          if (badgeText) {
+            const badge =
               document.createElement(
                 "span"
               );
 
-            badgeElement.className =
+            badge.className =
               "ec-mobile-bottom-badge";
 
-            badgeElement.textContent =
-              badge;
+            badge.textContent =
+              badgeText;
 
             button.appendChild(
-              badgeElement
+              badge
             );
           }
         }
@@ -1017,24 +1020,17 @@
         button.addEventListener(
           "click",
           function () {
-            closeMoreMenu(
-              document.querySelector(
-                ".ec-mobile-more-panel"
-              ),
-              document.querySelector(
-                ".ec-mobile-more-backdrop"
-              )
+            closeMorePanel();
+            clickSidebarItem(
+              sidebarItem
             );
-
-            if (sidebarItem) {
-              sidebarItem.click();
-            }
 
             setTimeout(
               function () {
-                updateBottomNavigation(
+                updateActiveState(
                   sidebar
                 );
+                markMain(sidebar);
               },
               80
             );
@@ -1045,39 +1041,37 @@
       }
     );
 
+    /*
+     * Le bouton PLUS est toujours le dernier.
+     */
     const moreButton =
-      document.createElement(
-        "button"
-      );
+      document.createElement("button");
 
     moreButton.type = "button";
 
     moreButton.className =
-      "ec-mobile-bottom-item";
+      "ec-mobile-bottom-item ec-mobile-more-button";
 
-    moreButton.dataset.mobileMore =
-      "true";
+    moreButton.setAttribute(
+      "aria-label",
+      "Plus"
+    );
 
     const moreIcon =
-      document.createElement(
-        "span"
-      );
+      document.createElement("span");
 
     moreIcon.className =
-      "ec-mobile-bottom-icon";
+      "ec-mobile-more-icon";
 
-    moreIcon.textContent = "☰";
+    moreIcon.textContent = "+";
 
     const moreLabel =
-      document.createElement(
-        "span"
-      );
+      document.createElement("span");
 
     moreLabel.className =
       "ec-mobile-bottom-label";
 
-    moreLabel.textContent =
-      "Plus";
+    moreLabel.textContent = "Plus";
 
     moreButton.appendChild(
       moreIcon
@@ -1090,31 +1084,7 @@
     moreButton.addEventListener(
       "click",
       function () {
-        const panel =
-          document.querySelector(
-            ".ec-mobile-more-panel"
-          );
-
-        const backdrop =
-          document.querySelector(
-            ".ec-mobile-more-backdrop"
-          );
-
-        if (
-          panel?.classList.contains(
-            "ec-open"
-          )
-        ) {
-          closeMoreMenu(
-            panel,
-            backdrop
-          );
-        } else {
-          openMoreMenu(
-            panel,
-            backdrop
-          );
-        }
+        toggleMorePanel(sidebar);
       }
     );
 
@@ -1122,68 +1092,23 @@
       moreButton
     );
 
-    updateBottomNavigation(
-      sidebar
-    );
+    return nav;
   }
 
-  function updateBottomNavigation(
-    sidebar
-  ) {
-    const nav =
-      document.querySelector(
-        ".ec-mobile-bottom-nav"
-      );
-
-    if (!nav) {
-      return;
-    }
-
-    const activeItem =
-      getActiveSidebarItem(
-        sidebar
-      );
-
-    const activeText =
-      normalizeText(
-        activeItem?.textContent || ""
-      );
-
-    nav
-      .querySelectorAll(
-        ".ec-mobile-bottom-item"
-      )
-      .forEach((button) => {
-        const label =
-          normalizeText(
-            button.dataset.mobileLabel ||
-              ""
-          );
-
-        button.classList.toggle(
-          "ec-mobile-bottom-active",
-          Boolean(
-            label &&
-              activeText &&
-              label === activeText
-          )
-        );
-      });
-  }
-
-  function createMoreMenu(
-    sidebar
-  ) {
+  function createMorePanel(sidebar) {
     let backdrop =
       document.querySelector(
         ".ec-mobile-more-backdrop"
       );
 
+    let panel =
+      document.querySelector(
+        ".ec-mobile-more-panel"
+      );
+
     if (!backdrop) {
       backdrop =
-        document.createElement(
-          "div"
-        );
+        document.createElement("div");
 
       backdrop.className =
         "ec-mobile-more-backdrop";
@@ -1191,21 +1116,31 @@
       document.body.appendChild(
         backdrop
       );
-    }
 
-    let panel =
-      document.querySelector(
-        ".ec-mobile-more-panel"
+      backdrop.addEventListener(
+        "click",
+        function () {
+          closeMorePanel();
+        }
       );
+    }
 
     if (!panel) {
       panel =
-        document.createElement(
-          "div"
-        );
+        document.createElement("div");
 
       panel.className =
         "ec-mobile-more-panel";
+
+      panel.setAttribute(
+        "role",
+        "dialog"
+      );
+
+      panel.setAttribute(
+        "aria-label",
+        "Plus"
+      );
 
       document.body.appendChild(
         panel
@@ -1214,59 +1149,55 @@
 
     panel.innerHTML = "";
 
+    const header =
+      document.createElement("div");
+
+    header.className =
+      "ec-mobile-more-header";
+
     const title =
-      document.createElement(
-        "div"
-      );
+      document.createElement("h2");
 
     title.className =
       "ec-mobile-more-title";
 
-    const titleText =
-      document.createElement(
-        "span"
-      );
-
-    titleText.textContent =
+    title.textContent =
       "Plus";
 
-    const closeButton =
-      document.createElement(
-        "button"
-      );
+    const close =
+      document.createElement("button");
 
-    closeButton.type = "button";
+    close.type = "button";
 
-    closeButton.className =
+    close.className =
       "ec-mobile-more-close";
 
-    closeButton.setAttribute(
+    close.setAttribute(
       "aria-label",
       "Fermer"
     );
 
-    closeButton.textContent =
-      "✕";
+    close.textContent = "✕";
 
-    title.appendChild(
-      titleText
+    close.addEventListener(
+      "click",
+      function () {
+        closeMorePanel();
+      }
     );
 
-    title.appendChild(
-      closeButton
-    );
+    header.appendChild(title);
+    header.appendChild(close);
 
-    panel.appendChild(title);
+    panel.appendChild(header);
 
     const list =
-      document.createElement(
-        "div"
-      );
+      document.createElement("div");
 
     list.className =
       "ec-mobile-more-list";
 
-    const primaryLabels = [
+    const primaryNames = [
       "accueil",
       "cours",
       "notes",
@@ -1278,85 +1209,85 @@
 
     sidebarItems.forEach(
       (sidebarItem) => {
-        const rawLabel =
-          sidebarItem.textContent
-            ?.trim() || "";
-
-        const normalized =
-          normalizeText(
-            rawLabel
+        const label =
+          getCleanLabel(
+            sidebarItem
           );
 
+        const normalized =
+          normalizeText(label);
+
+        if (!label) {
+          return;
+        }
+
         if (
-          !normalized ||
-          primaryLabels.includes(
-            normalized
+          primaryNames.some(
+            (name) =>
+              normalized === name
           )
         ) {
           return;
         }
 
-        if (
-          normalized ===
-            "deconnexion" ||
-          normalized ===
-            "se deconnecter" ||
-          normalized ===
-            "logout"
-        ) {
-          return;
-        }
+        const button =
+          document.createElement("button");
 
-        const item =
-          document.createElement(
-            "button"
-          );
+        button.type = "button";
 
-        item.type = "button";
-
-        item.className =
+        button.className =
           "ec-mobile-more-item";
 
-        const icon =
-          document.createElement(
-            "span"
+        if (
+          isLogoutItem(
+            sidebarItem
+          )
+        ) {
+          button.classList.add(
+            "ec-mobile-more-logout"
           );
+        }
+
+        const icon =
+          document.createElement("span");
 
         icon.className =
-          "ec-mobile-more-icon";
+          "ec-mobile-more-item-icon";
 
         icon.textContent =
-          getItemIcon(
+          isLogoutItem(
             sidebarItem
-          ) || "•";
+          )
+            ? "🚪"
+            : getIconForLabel(
+                label
+              );
 
-        const label =
-          document.createElement(
-            "span"
-          );
+        const text =
+          document.createElement("span");
 
-        label.className =
-          "ec-mobile-more-label";
+        text.textContent =
+          label;
 
-        label.textContent =
-          rawLabel;
+        button.appendChild(icon);
+        button.appendChild(text);
 
-        item.appendChild(icon);
-        item.appendChild(label);
-
-        item.addEventListener(
+        button.addEventListener(
           "click",
           function () {
-            closeMoreMenu(
-              panel,
-              backdrop
-            );
+            closeMorePanel();
 
-            sidebarItem.click();
+            clickSidebarItem(
+              sidebarItem
+            );
 
             setTimeout(
               function () {
-                updateBottomNavigation(
+                updateActiveState(
+                  sidebar
+                );
+
+                markMain(
                   sidebar
                 );
               },
@@ -1365,148 +1296,82 @@
           }
         );
 
-        list.appendChild(item);
+        list.appendChild(
+          button
+        );
       }
     );
 
     /*
-      Déconnexion :
-      on récupère le vrai bouton React
-      afin de conserver son fonctionnement.
-    */
+     * Sécurité :
+     * si la déconnexion n'a pas été trouvée
+     * dans la boucle ci-dessus, on la cherche
+     * explicitement.
+     */
+    const logout =
+      findLogoutItem(sidebar);
 
-    const logoutItem =
-      getSidebarItems(
-        sidebar
-      ).find(
-        (item) =>
-          isLogoutItem(item)
-      );
+    if (
+      logout &&
+      !Array.from(
+        list.children
+      ).some((button) =>
+        button.classList.contains(
+          "ec-mobile-more-logout"
+        )
+      )
+    ) {
+      const button =
+        document.createElement("button");
 
-    if (logoutItem) {
-      const logoutButton =
-        document.createElement(
-          "button"
-        );
+      button.type = "button";
 
-      logoutButton.type = "button";
-
-      logoutButton.className =
+      button.className =
         "ec-mobile-more-item ec-mobile-more-logout";
 
-      const logoutIcon =
-        document.createElement(
-          "span"
-        );
+      const icon =
+        document.createElement("span");
 
-      logoutIcon.className =
-        "ec-mobile-more-icon";
+      icon.className =
+        "ec-mobile-more-item-icon";
 
-      logoutIcon.textContent =
-        "🚪";
+      icon.textContent = "🚪";
 
-      const logoutLabel =
-        document.createElement(
-          "span"
-        );
+      const text =
+        document.createElement("span");
 
-      logoutLabel.className =
-        "ec-mobile-more-label";
-
-      logoutLabel.textContent =
+      text.textContent =
+        getCleanLabel(logout) ||
         "Déconnexion";
 
-      logoutButton.appendChild(
-        logoutIcon
-      );
+      button.appendChild(icon);
+      button.appendChild(text);
 
-      logoutButton.appendChild(
-        logoutLabel
-      );
-
-      logoutButton.addEventListener(
+      button.addEventListener(
         "click",
         function () {
-          closeMoreMenu(
-            panel,
-            backdrop
-          );
+          closeMorePanel();
 
-          logoutItem.click();
+          clickSidebarItem(
+            logout
+          );
         }
       );
 
       list.appendChild(
-        logoutButton
+        button
       );
     }
 
     panel.appendChild(list);
 
-    closeButton.onclick =
-      function () {
-        closeMoreMenu(
-          panel,
-          backdrop
-        );
-      };
-
-    backdrop.onclick =
-      function () {
-        closeMoreMenu(
-          panel,
-          backdrop
-        );
-      };
+    return panel;
   }
 
-  function markMainContent(sidebar) {
-    if (!sidebar) {
-      return;
-    }
-
-    const layout =
-      sidebar.parentElement;
-
-    if (!layout) {
-      return;
-    }
-
-    layout.classList.add(
-      "ec-mobile-dashboard-layout"
-    );
-
-    Array.from(
-      layout.children
-    ).forEach((child) => {
-      if (child !== sidebar) {
-        child.classList.add(
-          "ec-mobile-content-area"
-        );
-      }
-    });
-
-    const main =
+  function openMorePanel() {
+    const backdrop =
       document.querySelector(
-        "main"
-      );
-
-    if (main) {
-      main.classList.add(
-        "ec-mobile-main"
-      );
-    }
-  }
-
-  function removeDesktopMobileArtifacts() {
-    /*
-      Si on revient en mode desktop,
-      on supprime les éléments mobiles.
-    */
-
-    const nav =
-      document.querySelector(
-        ".ec-mobile-bottom-nav"
+        ".ec-mobile-more-backdrop"
       );
 
     const panel =
@@ -1514,33 +1379,159 @@
         ".ec-mobile-more-panel"
       );
 
+    if (!backdrop || !panel) {
+      return;
+    }
+
+    backdrop.classList.add(
+      "ec-open"
+    );
+
+    panel.classList.add(
+      "ec-open"
+    );
+
+    document.body.dataset.ecMoreOpen =
+      "true";
+  }
+
+  function closeMorePanel() {
     const backdrop =
       document.querySelector(
         ".ec-mobile-more-backdrop"
       );
 
-    if (nav) {
-      nav.remove();
+    const panel =
+      document.querySelector(
+        ".ec-mobile-more-panel"
+      );
+
+    if (backdrop) {
+      backdrop.classList.remove(
+        "ec-open"
+      );
     }
 
     if (panel) {
-      panel.remove();
+      panel.classList.remove(
+        "ec-open"
+      );
     }
 
-    if (backdrop) {
-      backdrop.remove();
+    delete document.body.dataset
+      .ecMoreOpen;
+  }
+
+  function toggleMorePanel(sidebar) {
+    const panel =
+      document.querySelector(
+        ".ec-mobile-more-panel"
+      );
+
+    if (
+      panel &&
+      panel.classList.contains(
+        "ec-open"
+      )
+    ) {
+      closeMorePanel();
+      return;
     }
 
-    document.body.classList.remove(
-      "ec-mobile-menu-active"
-    );
+    createMorePanel(sidebar);
+    openMorePanel();
+  }
+
+  function updateActiveState(sidebar) {
+    const nav =
+      document.querySelector(
+        ".ec-mobile-bottom-nav"
+      );
+
+    if (!nav) {
+      return;
+    }
+
+    const active =
+      getActiveSidebarItem(
+        sidebar
+      );
+
+    const activeText =
+      active
+        ? normalizeText(
+            active.textContent
+          )
+        : "";
+
+    nav
+      .querySelectorAll(
+        ".ec-mobile-bottom-item"
+      )
+      .forEach((button) => {
+        const menuName =
+          normalizeText(
+            button.dataset.menuName
+          );
+
+        button.classList.toggle(
+          "ec-active",
+          !!activeText &&
+            activeText.includes(
+              menuName
+            )
+        );
+      });
+  }
+
+  function removeMobileNavigation() {
+    const selectors = [
+      ".ec-mobile-bottom-nav",
+      ".ec-mobile-more-panel",
+      ".ec-mobile-more-backdrop",
+    ];
+
+    selectors.forEach((selector) => {
+      document
+        .querySelectorAll(selector)
+        .forEach((element) => {
+          element.remove();
+        });
+    });
+
+    document
+      .querySelectorAll(
+        "aside.ec-mobile-sidebar"
+      )
+      .forEach((aside) => {
+        aside.classList.remove(
+          "ec-mobile-sidebar"
+        );
+      });
+
+    const main =
+      document.querySelector("main");
+
+    if (main) {
+      main.classList.remove(
+        "ec-mobile-main"
+      );
+
+      main.classList.remove(
+        "ec-mobile-communication-page"
+      );
+    }
   }
 
   function setupDashboard() {
+    injectStyles();
+
     if (!isMobile()) {
-      removeDesktopMobileArtifacts();
+      removeMobileNavigation();
       return;
     }
+
+    removeLegacyElements();
 
     const sidebar =
       findSidebar();
@@ -1553,77 +1544,119 @@
       "ec-mobile-sidebar"
     );
 
-    markMainContent(sidebar);
+    /*
+     * Le layout React reste intact.
+     * On ne modifie pas les calculs ni
+     * les composants existants.
+     */
+    const layout =
+      sidebar.parentElement;
 
-    markLogout(sidebar);
+    if (layout) {
+      Array.from(
+        layout.children
+      ).forEach((child) => {
+        if (
+          child !== sidebar
+        ) {
+          child.classList.add(
+            "ec-mobile-content-area"
+          );
+        }
+      });
+    }
 
-    createBottomNavigation(
-      sidebar
-    );
+    markMain(sidebar);
 
-    createMoreMenu(
-      sidebar
-    );
+    const existingNav =
+      document.querySelector(
+        ".ec-mobile-bottom-nav"
+      );
+
+    if (
+      !existingNav ||
+      existingNav.dataset
+        .ecSidebarText !==
+        sidebar.textContent
+    ) {
+      if (existingNav) {
+        existingNav.remove();
+      }
+
+      createBottomNavigation(
+        sidebar
+      );
+    }
+
+    /*
+     * Toujours reconstruire le panneau Plus
+     * afin de récupérer les éventuels changements
+     * de menu de React.
+     */
+    createMorePanel(sidebar);
+
+    const nav =
+      document.querySelector(
+        ".ec-mobile-bottom-nav"
+      );
+
+    if (nav) {
+      nav.dataset.ecSidebarText =
+        sidebar.textContent;
+    }
+
+    updateActiveState(sidebar);
+    markMain(sidebar);
   }
 
-  function run() {
-    injectStyles();
+  let setupTimer = null;
 
-    setupDashboard();
+  function scheduleSetup() {
+    if (setupTimer) {
+      clearTimeout(
+        setupTimer
+      );
+    }
+
+    setupTimer = setTimeout(
+      function () {
+        setupTimer = null;
+
+        if (isMobile()) {
+          setupDashboard();
+        }
+      },
+      80
+    );
   }
-
-  /*
-    Les éléments du dashboard React
-    peuvent être recréés après un changement
-    de page.
-
-    On utilise un petit délai pour éviter
-    de reconstruire plusieurs fois de suite.
-  */
-
-  let observerTimer = null;
 
   const observer =
     new MutationObserver(
       function () {
-        if (!isMobile()) {
-          return;
-        }
-
-        if (observerTimer) {
-          clearTimeout(
-            observerTimer
-          );
-        }
-
-        observerTimer =
-          setTimeout(
-            function () {
-              setupDashboard();
-            },
-            80
-          );
+        scheduleSetup();
       }
     );
 
-  function startObserver() {
-    if (!document.body) {
-      return;
+  function start() {
+    injectStyles();
+
+    setupDashboard();
+
+    if (document.body) {
+      observer.observe(
+        document.body,
+        {
+          childList: true,
+          subtree: true,
+        }
+      );
     }
-
-    observer.observe(
-      document.body,
-      {
-        childList: true,
-        subtree: true,
-      }
-    );
   }
 
   window.addEventListener(
     "resize",
     function () {
-      run();
+      scheduleSetup();
     }
   );
 
@@ -1631,9 +1664,16 @@
     "orientationchange",
     function () {
       setTimeout(
-        run,
-        100
+        scheduleSetup,
+        150
       );
+    }
+  );
+
+  window.addEventListener(
+    "pageshow",
+    function () {
+      scheduleSetup();
     }
   );
 
@@ -1643,13 +1683,12 @@
   ) {
     document.addEventListener(
       "DOMContentLoaded",
-      function () {
-        run();
-        startObserver();
+      start,
+      {
+        once: true,
       }
     );
   } else {
-    run();
-    startObserver();
+    start();
   }
 })();
