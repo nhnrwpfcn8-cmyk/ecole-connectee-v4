@@ -1443,11 +1443,12 @@ export default function AdminEcoleNotesBulletinsPage({
            * maintenant. Si elles existent, on considère
            * l'envoi comme déjà effectué.
            */
-          if (
-            String(notificationError.message || "").includes(
-              "parent_notifications_bulletin_unique"
-            )
-          ) {
+            if (
+  notificationError?.code === "23505" ||
+  String(notificationError.message || "").includes(
+    "duplicate key value violates unique constraint"
+  )
+) {
             const { data: confirmedNotifications } =
               await supabase
                 .from("parent_notifications")
