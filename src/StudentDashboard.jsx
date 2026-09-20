@@ -2055,7 +2055,24 @@ function CommunicationPage({
         String(message.conversation_id) ===
         String(selectedConversationId)
     );
+useEffect(() => {
+  if (!onMarkRead) return;
 
+  selectedMessages.forEach((message) => {
+    const isMine =
+      String(message.sender_profile_id) ===
+      String(currentUserId);
+
+    if (!message.read_at && !isMine) {
+      onMarkRead(message.id);
+    }
+  });
+}, [
+  selectedConversationId,
+  selectedMessages,
+  currentUserId,
+  onMarkRead,
+]);
   return (
     <div>
       <PageTitle
@@ -2337,19 +2354,6 @@ function CommunicationPage({
                         const unread =
                           !message.read_at &&
                           !isMine;
-
-                        if (
-                          unread &&
-                          onMarkRead
-                        ) {
-                          setTimeout(
-                            () =>
-                              onMarkRead(
-                                message.id
-                              ),
-                            0
-                          );
-                        }
 
                         return (
                           <div
