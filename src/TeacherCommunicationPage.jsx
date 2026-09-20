@@ -71,6 +71,15 @@ export default function TeacherCommunicationPage({
   const [errorMessage, setErrorMessage] = useState("");
 
   /* =========================================================
+     NOUVEAU : MODIFICATION / SUPPRESSION MESSAGE
+     ========================================================= */
+
+  const [editingMessageId, setEditingMessageId] = useState("");
+  const [editingMessageText, setEditingMessageText] = useState("");
+  const [savingMessageId, setSavingMessageId] = useState("");
+  const [deletingMessageId, setDeletingMessageId] = useState("");
+
+  /* =========================================================
      ÉLÈVES ACCESSIBLES
      ========================================================= */
 
@@ -340,6 +349,9 @@ export default function TeacherCommunicationPage({
   const openConversation = async (conversation) => {
     setErrorMessage("");
 
+    setEditingMessageId("");
+    setEditingMessageText("");
+
     setSelectedConversationId(conversation.id);
     setSelectedStudentId(conversation.student_id);
 
@@ -446,6 +458,9 @@ export default function TeacherCommunicationPage({
 
     setSelectedConversationId(data.id);
     setMessages([]);
+
+    setEditingMessageId("");
+    setEditingMessageText("");
 
     await loadMessages(data.id);
   };
@@ -566,6 +581,168 @@ export default function TeacherCommunicationPage({
     );
 
     setSending(false);
+  };
+
+  /* =========================================================
+     NOUVEAU : COMMENCER LA MODIFICATION
+     ========================================================= */
+
+  const startEditMessage = (item) => {
+    if (!item) return;
+
+    if (item.sender_profile_id !== teacherId) {
+      return;
+    }
+
+    setErrorMessage("");
+    setEditingMessageId(item.id);
+    setEditingMessageText(item.message || "");
+  };
+
+  /* =========================================================
+     NOUVEAU : ANNULER LA MODIFICATION
+     ========================================================= */
+
+  const cancelEditMessage = () => {
+    setEditingMessageId("");
+    setEditingMessageText("");
+  };
+
+  /* =========================================================
+     NOUVEAU : ENREGISTRER LA MODIFICATION
+     ========================================================= */
+
+  const saveEditedMessage = async (messageId) => {
+    const text = editingMessageText.trim();
+
+    if (!messageId || !text) {
+      setErrorMessage(
+        "Le message ne peut pas être vide."
+      );
+      return;
+    }
+
+    setErrorMessage("");
+    setSavingMessageId(messageId);
+
+    const { data, error } = await supabase
+      .from("communication_messages")
+      .update({
+        message: text,
+      })
+      .eq("id", messageId)
+      .eq("school_id", schoolId)
+      .eq("sender_profile_id", teacherId)
+      .select(
+        `
+          id,
+          conversation_id,
+          school_id,
+          sender_profile_id,
+          message,
+          read_at,
+          created_at,
+          updated_at
+        `
+      )
+      .single();
+
+    if (error) {
+      console.error(
+        "Erreur modification message :",
+        error
+      );
+
+      setErrorMessage(
+        "Impossible de modifier ce message."
+      );
+
+      setSavingMessageId("");
+      return;
+    }
+
+    setMessages((currentMessages) =>
+      currentMessages.map((item) =>
+        item.id === messageId
+          ? {
+              ...item,
+              ...data,
+            }
+          : item
+      )
+    );
+
+    setEditingMessageId("");
+    setEditingMessageText("");
+    setSavingMessageId("");
+  };
+
+  /* =========================================================
+     NOUVEAU : SUPPRIMER UN MESSAGE
+     ========================================================= */
+
+  const deleteMessage = async (messageId) => {
+    if (!messageId) return;
+
+    const messageToDelete = messages.find(
+      (item) => item.id === messageId
+    );
+
+    if (!messageToDelete) {
+      return;
+    }
+
+    if (
+      messageToDelete.sender_profile_id !==
+      teacherId
+    ) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer ce message ?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setErrorMessage("");
+    setDeletingMessageId(messageId);
+
+    const { error } = await supabase
+      .from("communication_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("school_id", schoolId)
+      .eq("sender_profile_id", teacherId);
+
+    if (error) {
+      console.error(
+        "Erreur suppression message :",
+        error
+      );
+
+      setErrorMessage(
+        "Impossible de supprimer ce message."
+      );
+
+      setDeletingMessageId("");
+      return;
+    }
+
+    setMessages((currentMessages) =>
+      currentMessages.filter(
+        (item) => item.id !== messageId
+      )
+    );
+
+    if (editingMessageId === messageId) {
+      setEditingMessageId("");
+      setEditingMessageText("");
+    }
+
+    setDeletingMessageId("");
   };
 
   /* =========================================================
@@ -1080,6 +1257,18 @@ export default function TeacherCommunicationPage({
                       item.sender_profile_id ===
                       teacherId;
 
+                    const isEditing =
+                      editingMessageId ===
+                      item.id;
+
+                    const isSaving =
+                      savingMessageId ===
+                      item.id;
+
+                    const isDeleting =
+                      deletingMessageId ===
+                      item.id;
+
                     return (
                       <div
                         key={item.id}
@@ -1090,46 +1279,256 @@ export default function TeacherCommunicationPage({
                           maxWidth: "78%",
                         }}
                       >
-                        <div
-                          style={{
-                            padding:
-                              "10px 13px",
-                            borderRadius: 14,
-                            background: mine
-                              ? "#2563eb"
-                              : "#f1f5f9",
-                            color: mine
-                              ? "#fff"
-                              : "#0f172a",
-                            whiteSpace:
-                              "pre-wrap",
-                            wordBreak:
-                              "break-word",
-                          }}
-                        >
-                          {item.message}
-                        </div>
+                        {/* =================================================
+                            MESSAGE EN MODE MODIFICATION
+                           ================================================= */}
 
-                        <div
-                          style={{
-                            marginTop: 4,
-                            fontSize: 11,
-                            color: "#94a3b8",
-                            textAlign:
-                              mine
-                                ? "right"
-                                : "left",
-                          }}
-                        >
-                          {formatDateTime(
-                            item.created_at
-                          )}
+                        {isEditing && mine ? (
+                          <div
+                            style={{
+                              minWidth: 260,
+                              padding: 10,
+                              borderRadius: 14,
+                              background: "#eff6ff",
+                              border:
+                                "1px solid #bfdbfe",
+                            }}
+                          >
+                            <textarea
+                              value={
+                                editingMessageText
+                              }
+                              onChange={(event) =>
+                                setEditingMessageText(
+                                  event.target.value
+                                )
+                              }
+                              rows={3}
+                              disabled={isSaving}
+                              autoFocus
+                              style={{
+                                width: "100%",
+                                boxSizing:
+                                  "border-box",
+                                resize: "vertical",
+                                border:
+                                  "1px solid #cbd5e1",
+                                borderRadius: 9,
+                                padding: 10,
+                                fontFamily:
+                                  "inherit",
+                                fontSize: 14,
+                                color: "#0f172a",
+                                background:
+                                  "#fff",
+                                outline: "none",
+                              }}
+                            />
 
-                          {mine &&
-                          item.read_at
-                            ? " · Lu"
-                            : ""}
-                        </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent:
+                                  "flex-end",
+                                gap: 8,
+                                marginTop: 8,
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={
+                                  cancelEditMessage
+                                }
+                                disabled={
+                                  isSaving
+                                }
+                                style={{
+                                  border:
+                                    "1px solid #cbd5e1",
+                                  borderRadius: 8,
+                                  background:
+                                    "#fff",
+                                  color:
+                                    "#334155",
+                                  padding:
+                                    "7px 11px",
+                                  fontWeight: 700,
+                                  cursor:
+                                    isSaving
+                                      ? "not-allowed"
+                                      : "pointer",
+                                }}
+                              >
+                                Annuler
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  saveEditedMessage(
+                                    item.id
+                                  )
+                                }
+                                disabled={
+                                  isSaving ||
+                                  !editingMessageText.trim()
+                                }
+                                style={{
+                                  border: "none",
+                                  borderRadius: 8,
+                                  background:
+                                    isSaving ||
+                                    !editingMessageText.trim()
+                                      ? "#cbd5e1"
+                                      : "#2563eb",
+                                  color:
+                                    "#fff",
+                                  padding:
+                                    "7px 11px",
+                                  fontWeight: 800,
+                                  cursor:
+                                    isSaving ||
+                                    !editingMessageText.trim()
+                                      ? "not-allowed"
+                                      : "pointer",
+                                }}
+                              >
+                                {isSaving
+                                  ? "Enregistrement…"
+                                  : "Enregistrer"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {/* BULLE DU MESSAGE */}
+
+                            <div
+                              style={{
+                                padding:
+                                  "10px 13px",
+                                borderRadius: 14,
+                                background:
+                                  mine
+                                    ? "#2563eb"
+                                    : "#f1f5f9",
+                                color:
+                                  mine
+                                    ? "#fff"
+                                    : "#0f172a",
+                                whiteSpace:
+                                  "pre-wrap",
+                                wordBreak:
+                                  "break-word",
+                              }}
+                            >
+                              {item.message}
+                            </div>
+
+                            {/* DATE */}
+
+                            <div
+                              style={{
+                                marginTop: 4,
+                                fontSize: 11,
+                                color: "#94a3b8",
+                                textAlign:
+                                  mine
+                                    ? "right"
+                                    : "left",
+                              }}
+                            >
+                              {formatDateTime(
+                                item.created_at
+                              )}
+
+                              {mine &&
+                              item.read_at
+                                ? " · Lu"
+                                : ""}
+                            </div>
+
+                            {/* =================================================
+                                BOUTONS UNIQUEMENT POUR MES MESSAGES
+                               ================================================= */}
+
+                            {mine && (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent:
+                                    "flex-end",
+                                  gap: 6,
+                                  marginTop: 6,
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    startEditMessage(
+                                      item
+                                    )
+                                  }
+                                  disabled={
+                                    isDeleting
+                                  }
+                                  style={{
+                                    border:
+                                      "1px solid #bfdbfe",
+                                    borderRadius: 7,
+                                    background:
+                                      "#eff6ff",
+                                    color:
+                                      "#1d4ed8",
+                                    padding:
+                                      "5px 8px",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor:
+                                      isDeleting
+                                        ? "not-allowed"
+                                        : "pointer",
+                                  }}
+                                >
+                                  ✏️ Modifier
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    deleteMessage(
+                                      item.id
+                                    )
+                                  }
+                                  disabled={
+                                    isDeleting
+                                  }
+                                  style={{
+                                    border:
+                                      "1px solid #fecaca",
+                                    borderRadius: 7,
+                                    background:
+                                      "#fef2f2",
+                                    color:
+                                      "#b91c1c",
+                                    padding:
+                                      "5px 8px",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    cursor:
+                                      isDeleting
+                                        ? "not-allowed"
+                                        : "pointer",
+                                  }}
+                                >
+                                  {isDeleting
+                                    ? "Suppression…"
+                                    : "🗑️ Supprimer"}
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
                       </div>
                     );
                   })
