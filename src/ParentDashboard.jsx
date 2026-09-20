@@ -1158,7 +1158,38 @@ export default function ParentDashboard({
       setReplyLoadingId(null);
     }
   }
+    async function editParentMessage(messageId, newText) {
+    const text = String(newText || "").trim();
 
+    if (!text) return;
+
+    if (!currentParentId || !schoolId) {
+      return;
+    }
+
+    try {
+      const { error: updateError } = await supabase
+        .from("secretary_parent_messages")
+        .update({
+          message: text,
+        })
+        .eq("id", messageId)
+        .eq("school_id", schoolId)
+        .eq("parent_id", currentParentId)
+        .eq("sender_type", "parent");
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      await loadParentData();
+    } catch (error) {
+      console.error(
+        "Erreur lors de la modification du message :",
+        error
+      );
+    }
+  }
   /*
    * =====================================================
    * OUVERTURE DU BULLETIN
