@@ -4576,6 +4576,12 @@ useState("");
 const [showModal, setShowModal] =
 useState(false);
 
+const [editingParent, setEditingParent] =
+useState(null);
+
+const [actionLoading, setActionLoading] =
+useState(null);
+
 const filtered =
 useMemo(() => {
 const query =
@@ -4596,6 +4602,96 @@ parent.phone
 ).includes(query)
 );
 }, [parents, search]);
+
+async function handleToggleActive(parent) {
+if (actionLoading) return;
+
+setActionLoading(parent.id);
+
+try {
+const { error } = await supabase
+.from("parents")
+.update({
+active: !parent.active,
+})
+.eq("id", parent.id)
+.eq("school_id", schoolId);
+
+if (error) throw error;
+
+await onRefresh();
+
+} catch (error) {
+console.error(
+"Erreur changement statut parent :",
+error
+);
+
+alert(
+error.message ||
+"Impossible de modifier le statut du parent."
+);
+
+} finally {
+setActionLoading(null);
+}
+}
+
+async function handleDelete(parent) {
+if (actionLoading) return;
+
+const confirmed =
+window.confirm(
+`Voulez-vous vraiment désactiver le parent "${parent.full_name}" ?`
+);
+
+if (!confirmed) return;
+
+setActionLoading(parent.id);
+
+try {
+const { error } = await supabase
+.from("parents")
+.update({
+active: false,
+})
+.eq("id", parent.id)
+.eq("school_id", schoolId);
+
+if (error) throw error;
+
+await onRefresh();
+
+} catch (error) {
+console.error(
+"Erreur désactivation parent :",
+error
+);
+
+alert(
+error.message ||
+"Impossible de supprimer ce parent."
+);
+
+} finally {
+setActionLoading(null);
+}
+}
+
+function handleEdit(parent) {
+setEditingParent(parent);
+setShowModal(true);
+}
+
+function handleAdd() {
+setEditingParent(null);
+setShowModal(true);
+}
+
+function handleCloseModal() {
+setShowModal(false);
+setEditingParent(null);
+}
 
 return (
 <div className="ec-page">
@@ -4618,9 +4714,7 @@ Gérez les parents et responsables des élèves.
 
 <button
 className="ec-btn ec-btn-primary"
-onClick={() =>
-setShowModal(true)
-}
+onClick={handleAdd}
 >
 + Ajouter un parent
 </button>
@@ -4674,9 +4768,7 @@ button={
 ? "Ajouter un parent"
 : null
 }
-onButton={() =>
-setShowModal(true)
-}
+onButton={handleAdd}
 />
 ) : (
 <div className="ec-table-wrapper">
@@ -4713,9 +4805,7 @@ parent.full_name,
 
 <div>
 <strong>
-{
-parent.full_name
-}
+{parent.full_name}
 </strong>
 
 <span>
@@ -4751,32 +4841,59 @@ parent.active
 </td>
 
 <td>
-  <div className="ec-actions">
-    <button
-      type="button"
-      className="ec-action-btn"
-      title="Modifier"
-    >
-      ✏️
-    </button>
+<div className="ec-actions">
 
-    <button
-      type="button"
-      className="ec-action-btn"
-      title={parent.active ? "Désactiver" : "Activer"}
-    >
-      {parent.active ? "⏸️" : "▶️"}
-    </button>
+<button
+type="button"
+className="ec-action-btn"
+title="Modifier"
+onClick={() =>
+handleEdit(parent)
+}
+disabled={
+actionLoading === parent.id
+}
+>
+✏️
+</button>
 
-    <button
-      type="button"
-      className="ec-action-btn danger"
-      title="Supprimer"
-    >
-      🗑️
-    </button>
-  </div>
-</td> 
+<button
+type="button"
+className="ec-action-btn"
+title={
+parent.active
+? "Désactiver"
+: "Activer"
+}
+onClick={() =>
+handleToggleActive(parent)
+}
+disabled={
+actionLoading === parent.id
+}
+>
+{parent.active
+? "⏸️"
+: "▶️"}
+</button>
+
+<button
+type="button"
+className="ec-action-btn danger"
+title="Supprimer"
+onClick={() =>
+handleDelete(parent)
+}
+disabled={
+actionLoading === parent.id
+}
+>
+🗑️
+</button>
+
+</div>
+</td>
+
 </tr>
 )
 )}
@@ -4794,11 +4911,10 @@ parent.active
 <ParentFormModal
 schoolId={schoolId}
 students={students}
-onClose={() =>
-setShowModal(false)
-}
+editingParent={editingParent}
+onClose={handleCloseModal}
 onSuccess={async () => {
-setShowModal(false);
+handleCloseModal();
 await onRefresh();
 }}
 />
