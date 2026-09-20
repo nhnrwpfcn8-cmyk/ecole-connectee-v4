@@ -2629,6 +2629,25 @@ export default function ParentDashboard({
     const lastMessage =
       adminMessages[adminMessages.length - 1];
 
+    const handleEditParentMessage = async (item) => {
+      const newText = window.prompt(
+        "Modifier votre message :",
+        item.message || ""
+      );
+
+      if (newText === null) {
+        return;
+      }
+
+      const text = String(newText).trim();
+
+      if (!text || text === item.message) {
+        return;
+      }
+
+      await editParentMessage(item.id, text);
+    };
+
     return (
       <>
         <PageTitle
@@ -2806,6 +2825,28 @@ export default function ParentDashboard({
                           {formatDate(item.created_at)}
                         </div>
                       </div>
+
+                      {/* ACTION MODIFIER UNIQUEMENT POUR LE PARENT */}
+                      {isParent && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleEditParentMessage(item)
+                          }
+                          style={{
+                            marginTop: "6px",
+                            border: "none",
+                            background: "transparent",
+                            color: "#4338ca",
+                            cursor: "pointer",
+                            fontSize: "11px",
+                            fontWeight: 800,
+                            padding: "2px 6px",
+                          }}
+                        >
+                          ✏️ Modifier
+                        </button>
+                      )}
 
                       {!isParent &&
                         !item.read_at && (
