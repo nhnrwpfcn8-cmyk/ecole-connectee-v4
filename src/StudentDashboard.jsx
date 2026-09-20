@@ -3401,22 +3401,6 @@ async function loadCommunication() {
 
 useEffect(() => {
   loadCommunication();
-
-  /*
-   * Actualisation automatique toutes les 5 secondes.
-   * Cela permet à l'élève de recevoir les nouveaux
-   * messages du professeur sans recharger la page.
-   */
-  const interval = setInterval(
-    () => {
-      loadCommunication();
-    },
-    5000
-  );
-
-  return () => {
-    clearInterval(interval);
-  };
 }, [
   profile?.id,
   profile?.school_id,
