@@ -1190,6 +1190,32 @@ export default function ParentDashboard({
       );
     }
   }
+  async function deleteParentMessage(messageId) {
+    if (!currentParentId || !schoolId) {
+      return;
+    }
+
+    try {
+      const { error: deleteError } = await supabase
+        .from("secretary_parent_messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("school_id", schoolId)
+        .eq("parent_id", currentParentId)
+        .eq("sender_type", "parent");
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      await loadParentData();
+    } catch (error) {
+      console.error(
+        "Erreur lors de la suppression du message :",
+        error
+      );
+    }
+  }
   /*
    * =====================================================
    * OUVERTURE DU BULLETIN
