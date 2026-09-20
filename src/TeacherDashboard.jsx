@@ -3715,13 +3715,30 @@ function DocumentsPage({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
+  const [editingContent, setEditingContent] =
+    useState(null);
+  const [editClass, setEditClass] =
+    useState("");
+  const [editSubject, setEditSubject] =
+    useState("");
+  const [editTitle, setEditTitle] =
+    useState("");
+  const [editDescription, setEditDescription] =
+    useState("");
+  const [editPublished, setEditPublished] =
+    useState(false);
+  const [savingEdit, setSavingEdit] =
+    useState(false);
+  const [deletingContentId, setDeletingContentId] =
+    useState(null);
+
   const mediaContents = contents.filter(
-  (item) =>
-    item.content_type === "course" ||
-    item.content_type === "document" ||
-    item.content_type === "video" ||
-    item.content_type === "link"
-);
+    (item) =>
+      item.content_type === "course" ||
+      item.content_type === "document" ||
+      item.content_type === "video" ||
+      item.content_type === "link"
+  );
 
   function resetForm() {
     setTitle("");
@@ -3781,22 +3798,22 @@ function DocumentsPage({
     }
 
     if (
-  (contentType === "course" ||
-    contentType === "document" ||
-    contentType === "video") &&
-  !selectedFile
-) {
-  setMessage({
-    type: "error",
-    text:
-      contentType === "video"
-        ? "Veuillez choisir une vidéo."
-        : contentType === "course"
-        ? "Veuillez choisir un fichier pour le cours."
-        : "Veuillez choisir un document.",
-  });
-  return;
-}
+      (contentType === "course" ||
+        contentType === "document" ||
+        contentType === "video") &&
+      !selectedFile
+    ) {
+      setMessage({
+        type: "error",
+        text:
+          contentType === "video"
+            ? "Veuillez choisir une vidéo."
+            : contentType === "course"
+            ? "Veuillez choisir un fichier pour le cours."
+            : "Veuillez choisir un document.",
+      });
+      return;
+    }
 
     if (
       contentType === "link" &&
@@ -3814,22 +3831,22 @@ function DocumentsPage({
 
     let uploadedPath = null;
 
-try {
-  if (
-    contentType === "course" ||
-    contentType === "document" ||
-    contentType === "video"
-  ) {
-    if (!selectedFile) {
-      throw new Error(
-        "Veuillez sélectionner un fichier."
-      );
-    }
+    try {
+      if (
+        contentType === "course" ||
+        contentType === "document" ||
+        contentType === "video"
+      ) {
+        if (!selectedFile) {
+          throw new Error(
+            "Veuillez sélectionner un fichier."
+          );
+        }
 
-    uploadedPath = await uploadFile(
-      selectedFile
-    );
-  }
+        uploadedPath = await uploadFile(
+          selectedFile
+        );
+      }
 
       const payload = {
         school_id: schoolId,
@@ -3893,6 +3910,173 @@ try {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  function startEditContent(content) {
+    setEditingContent(content);
+    setEditClass(content.class_id || "");
+    setEditSubject(
+      content.subject_id
+        ? String(content.subject_id)
+        : ""
+    );
+    setEditTitle(content.title || "");
+    setEditDescription(
+      content.description || ""
+    );
+    setEditPublished(
+      Boolean(content.published)
+    );
+    setMessage(null);
+  }
+
+  function cancelEditContent() {
+    setEditingContent(null);
+    setEditClass("");
+    setEditSubject("");
+    setEditTitle("");
+    setEditDescription("");
+    setEditPublished(false);
+    setSavingEdit(false);
+  }
+
+  async function saveEditedContent() {
+    if (!editingContent) {
+      return;
+    }
+
+    if (!editClass) {
+      setMessage({
+        type: "error",
+        text: "Veuillez choisir une classe.",
+      });
+      return;
+    }
+
+    if (!editTitle.trim()) {
+      setMessage({
+        type: "error",
+        text: "Veuillez saisir un titre.",
+      });
+      return;
+    }
+
+    setSavingEdit(true);
+    setMessage(null);
+
+    const { error } = await supabase
+      .from("learning_contents")
+      .update({
+        class_id: editClass,
+        subject_id: editSubject
+          ? Number(editSubject)
+          : null,
+        title: editTitle.trim(),
+        description:
+          editDescription.trim() || null,
+        published: editPublished,
+      })
+      .eq("id", editingContent.id)
+      .eq("school_id", schoolId)
+      .eq("teacher_id", teacherId);
+
+    if (error) {
+      console.error(
+        "Erreur modification contenu :",
+        error
+      );
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de modifier le contenu : " +
+          error.message,
+      });
+
+      setSavingEdit(false);
+      return;
+    }
+
+    cancelEditContent();
+
+    setMessage({
+      type: "success",
+      text: "Contenu modifié avec succès.",
+    });
+
+    await onRefresh();
+  }
+
+  async function deleteContent(content) {
+    const confirmed = window.confirm(
+      `Voulez-vous vraiment supprimer "${content.title}" ?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingContentId(content.id);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase
+        .from("learning_contents")
+        .delete()
+        .eq("id", content.id)
+        .eq("school_id", schoolId)
+        .eq("teacher_id", teacherId);
+
+      if (error) {
+        throw error;
+      }
+
+      const storagePath =
+        content.file_url ||
+        (
+          content.content_type === "course" ||
+          content.content_type === "document" ||
+          content.content_type === "video"
+        )
+          ? content.file_url ||
+            content.content_url
+          : null;
+
+      if (storagePath) {
+        const { error: storageError } =
+          await supabase.storage
+            .from("teacher-content")
+            .remove([storagePath]);
+
+        if (storageError) {
+          console.warn(
+            "Contenu supprimé mais fichier Storage non supprimé :",
+            storageError
+          );
+        }
+      }
+
+      setMessage({
+        type: "success",
+        text: "Contenu supprimé avec succès.",
+      });
+
+      await onRefresh();
+    } catch (error) {
+      console.error(
+        "Erreur suppression contenu :",
+        error
+      );
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de supprimer le contenu : " +
+          (error?.message || "Erreur inconnue"),
+      });
+    } finally {
+      setDeletingContentId(null);
     }
   }
 
@@ -4110,18 +4294,327 @@ try {
           {mediaContents.length === 0 ? (
             <EmptyState text="Aucun document, vidéo ou lien pour le moment." />
           ) : (
-            <ContentList
-              contents={mediaContents}
-              classes={classes}
-              subjects={subjects}
-            />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
+              {mediaContents.map((content) => {
+                const className =
+                  classes.find(
+                    (item) =>
+                      String(item.id) ===
+                      String(content.class_id)
+                  )?.name || "Classe";
+
+                const subjectName =
+                  subjects.find(
+                    (item) =>
+                      String(item.id) ===
+                      String(content.subject_id)
+                  )?.name || "";
+
+                const typeLabel =
+                  content.content_type ===
+                  "video"
+                    ? "🎥 Vidéo"
+                    : content.content_type ===
+                      "link"
+                    ? "🔗 Lien"
+                    : content.content_type ===
+                      "course"
+                    ? "📚 Cours"
+                    : "📄 Document";
+
+                return (
+                  <div
+                    key={content.id}
+                    style={{
+                      border:
+                        "1px solid #e2e8f0",
+                      borderRadius: 12,
+                      padding: 14,
+                      background: "#fff",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                        gap: 12,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          minWidth: 0,
+                          flex: 1,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 800,
+                            color: "#64748b",
+                            marginBottom: 5,
+                          }}
+                        >
+                          {typeLabel}
+                        </div>
+
+                        <div
+                          style={{
+                            fontSize: 16,
+                            fontWeight: 800,
+                            color: "#0f172a",
+                          }}
+                        >
+                          {content.title}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 5,
+                            fontSize: 13,
+                            color: "#64748b",
+                          }}
+                        >
+                          {className}
+                          {subjectName
+                            ? ` • ${subjectName}`
+                            : ""}
+                        </div>
+
+                        {content.description && (
+                          <div
+                            style={{
+                              marginTop: 8,
+                              fontSize: 13,
+                              color: "#475569",
+                            }}
+                          >
+                            {content.description}
+                          </div>
+                        )}
+
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color:
+                              content.published
+                                ? "#15803d"
+                                : "#b45309",
+                          }}
+                        >
+                          {content.published
+                            ? "✓ Publié"
+                            : "⏳ Brouillon"}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexWrap: "wrap",
+                          justifyContent:
+                            "flex-end",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="ec-btn"
+                          onClick={() =>
+                            startEditContent(
+                              content
+                            )
+                          }
+                          disabled={
+                            deletingContentId ===
+                            content.id
+                          }
+                        >
+                          ✏️ Modifier
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ec-btn"
+                          onClick={() =>
+                            deleteContent(content)
+                          }
+                          disabled={
+                            deletingContentId ===
+                            content.id
+                          }
+                          style={{
+                            color: "#b91c1c",
+                          }}
+                        >
+                          {deletingContentId ===
+                          content.id
+                            ? "Suppression..."
+                            : "🗑️ Supprimer"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
+
+      {editingContent && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background:
+              "rgba(15, 23, 42, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 9999,
+          }}
+        >
+          <div
+            className="ec-card"
+            style={{
+              width: "min(560px, 100%)",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              padding: 22,
+              background: "#fff",
+            }}
+          >
+            <h2
+              style={{
+                marginTop: 0,
+                color: "#0f172a",
+              }}
+            >
+              ✏️ Modifier le contenu
+            </h2>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <SelectInput
+                label="Classe"
+                value={editClass}
+                onChange={setEditClass}
+                options={classes.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                }))}
+                placeholder="Choisir une classe"
+              />
+
+              <SelectInput
+                label="Matière"
+                value={editSubject}
+                onChange={setEditSubject}
+                options={subjects.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                }))}
+                placeholder="Choisir une matière"
+              />
+
+              <TextInput
+                label="Titre"
+                value={editTitle}
+                onChange={setEditTitle}
+                required
+              />
+
+              <TextArea
+                label="Description"
+                value={editDescription}
+                onChange={setEditDescription}
+                placeholder="Description du contenu..."
+                rows={4}
+              />
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={editPublished}
+                  onChange={(event) =>
+                    setEditPublished(
+                      event.target.checked
+                    )
+                  }
+                />
+
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color: "#334155",
+                  }}
+                >
+                  Publier immédiatement
+                </span>
+              </label>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  justifyContent: "flex-end",
+                  marginTop: 5,
+                }}
+              >
+                <button
+                  type="button"
+                  className="ec-btn"
+                  onClick={
+                    cancelEditContent
+                  }
+                  disabled={savingEdit}
+                >
+                  Annuler
+                </button>
+
+                <button
+                  type="button"
+                  className="ec-btn ec-btn-primary"
+                  onClick={
+                    saveEditedContent
+                  }
+                  disabled={savingEdit}
+                >
+                  {savingEdit
+                    ? "Enregistrement..."
+                    : "💾 Enregistrer"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
-
 /* =========================================================
    LISTE DES CONTENUS
    ========================================================= */
