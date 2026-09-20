@@ -4639,7 +4639,10 @@ onRefresh,
 }) {
 const [showModal, setShowModal] =
 useState(false);
-
+ 
+const [editingClass, setEditingClass] =
+useState(null);
+ 
 const [search, setSearch] =
 useState("");
 
@@ -4802,16 +4805,29 @@ item.created_at
 </td>
 
 <td>
+<div style={{ display: "flex", gap: "8px" }}>
+
+<button
+className="ec-action-btn"
+title="Modifier"
+onClick={() =>
+setEditingClass(item)
+}
+>
+✏️
+</button>
+
 <button
 className="ec-action-btn danger"
+title="Supprimer"
 onClick={() =>
-deleteClass(
-item
-)
+deleteClass(item)
 }
 >
 🗑️
 </button>
+
+</div>
 </td>
 
 </tr>
@@ -4827,6 +4843,20 @@ item
 
 </div>
 
+ {editingClass && (
+<ClassEditModal
+schoolId={schoolId}
+item={editingClass}
+onClose={() =>
+setEditingClass(null)
+}
+onSuccess={async () => {
+setEditingClass(null);
+await onRefresh();
+}}
+/>
+)}
+ 
 {showModal && (
 <ClassFormModal
 schoolId={schoolId}
