@@ -3196,6 +3196,9 @@ useState("");
 const [showModal, setShowModal] =
 useState(false);
 
+const [editingStudent, setEditingStudent] =
+useState(null); 
+
 const [selectedClassId, setSelectedClassId] =
 useState(null);
 
