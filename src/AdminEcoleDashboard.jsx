@@ -3200,9 +3200,6 @@ const [editingStudent, setEditingStudent] =
 useState(null); 
 
 const [selectedClassId, setSelectedClassId] =
-useState(null);
-
-const [selectedClassId, setSelectedClassId] =
   useState(null);
 
 async function deleteStudent(student) {
@@ -3225,7 +3222,7 @@ async function deleteStudent(student) {
   }
 
   await onRefresh();
-} 
+}
 
 const safeStudents =
 Array.isArray(students) ? students : [];
