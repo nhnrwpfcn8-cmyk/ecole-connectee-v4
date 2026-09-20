@@ -3340,6 +3340,7 @@ return (
 <th>Classe</th>
 <th>Statut</th>
 <th>Création</th>
+<th>Actions</th>
 </tr>
 </thead>
 
