@@ -2854,25 +2854,59 @@ export default function ParentDashboard({
 
                       {/* ACTION MODIFIER UNIQUEMENT POUR LE PARENT */}
                       {isParent && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleEditParentMessage(item)
-                          }
-                          style={{
-                            marginTop: "6px",
-                            border: "none",
-                            background: "transparent",
-                            color: "#4338ca",
-                            cursor: "pointer",
-                            fontSize: "11px",
-                            fontWeight: 800,
-                            padding: "2px 6px",
-                          }}
-                        >
-                          ✏️ Modifier
-                        </button>
-                      )}
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "4px",
+      marginTop: "6px",
+    }}
+  >
+    <button
+      type="button"
+      onClick={() =>
+        handleEditParentMessage(item)
+      }
+      style={{
+        border: "none",
+        background: "transparent",
+        color: "#4338ca",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 800,
+        padding: "2px 6px",
+      }}
+    >
+      ✏️ Modifier
+    </button>
+
+    <button
+      type="button"
+      onClick={async () => {
+        const confirmed = window.confirm(
+          "Voulez-vous vraiment supprimer ce message ?"
+        );
+
+        if (!confirmed) {
+          return;
+        }
+
+        await deleteParentMessage(item.id);
+      }}
+      style={{
+        border: "none",
+        background: "transparent",
+        color: "#dc2626",
+        cursor: "pointer",
+        fontSize: "11px",
+        fontWeight: 800,
+        padding: "2px 6px",
+      }}
+    >
+      🗑️ Supprimer
+    </button>
+  </div>
+)}
 
                       {!isParent &&
                         !item.read_at && (
