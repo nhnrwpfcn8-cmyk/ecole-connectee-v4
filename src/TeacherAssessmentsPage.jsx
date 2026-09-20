@@ -31,6 +31,15 @@ export default function TeacherAssessmentsPage({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
+  // Modification d'une évaluation
+  const [editingAssessmentId, setEditingAssessmentId] =
+    useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editMaxScore, setEditMaxScore] = useState("");
+  const [editCoefficient, setEditCoefficient] = useState("");
+  const [editEvaluationDate, setEditEvaluationDate] =
+    useState("");
+
   useEffect(() => {
     if (!selectedClass && classes.length) {
       setSelectedClass(classes[0].id);
@@ -220,6 +229,203 @@ export default function TeacherAssessmentsPage({
     setMessage({
       type: "success",
       text: `${slot.label} créée en brouillon.`,
+    });
+  }
+
+  function startEditingAssessment(assessment) {
+    if (!assessment) return;
+
+    setMessage(null);
+
+    setEditingAssessmentId(assessment.id);
+    setEditTitle(assessment.title || "");
+    setEditMaxScore(
+      assessment.max_score != null
+        ? String(assessment.max_score)
+        : ""
+    );
+    setEditCoefficient(
+      assessment.coefficient != null
+        ? String(assessment.coefficient)
+        : ""
+    );
+    setEditEvaluationDate(
+      assessment.evaluation_date || today()
+    );
+  }
+
+  function cancelEditingAssessment() {
+    setEditingAssessmentId(null);
+    setEditTitle("");
+    setEditMaxScore("");
+    setEditCoefficient("");
+    setEditEvaluationDate("");
+  }
+
+  async function saveAssessmentModification(assessment) {
+    if (!assessment) return;
+
+    const title = editTitle.trim();
+    const maxScore = Number(editMaxScore);
+    const coefficient = Number(editCoefficient);
+    const evaluationDate =
+      editEvaluationDate || today();
+
+    if (!title) {
+      setMessage({
+        type: "error",
+        text: "Le nom de l'évaluation est obligatoire.",
+      });
+      return;
+    }
+
+    if (!maxScore || maxScore <= 0) {
+      setMessage({
+        type: "error",
+        text: "La note maximale doit être supérieure à 0.",
+      });
+      return;
+    }
+
+    if (!coefficient || coefficient <= 0) {
+      setMessage({
+        type: "error",
+        text: "Le coefficient doit être supérieur à 0.",
+      });
+      return;
+    }
+
+    setSaving(true);
+
+    const { data, error } = await supabase
+      .from("assessments")
+      .update({
+        title,
+        max_score: maxScore,
+        coefficient,
+        evaluation_date: evaluationDate,
+      })
+      .eq("id", assessment.id)
+      .eq("teacher_id", teacherId)
+      .eq("school_id", schoolId)
+      .select()
+      .single();
+
+    setSaving(false);
+
+    if (error) {
+      console.error(error);
+
+      setMessage({
+        type: "error",
+        text:
+          error.message ||
+          "Impossible de modifier l'évaluation.",
+      });
+
+      return;
+    }
+
+    setAssessments((current) =>
+      current.map((item) =>
+        item.id === data.id ? data : item
+      )
+    );
+
+    cancelEditingAssessment();
+
+    setMessage({
+      type: "success",
+      text: "Évaluation modifiée avec succès.",
+    });
+  }
+
+  async function deleteAssessment(assessment) {
+    if (!assessment) return;
+
+    if (
+      !window.confirm(
+        `Supprimer définitivement "${assessment.title}" ?`
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+
+    // Vérification supplémentaire avant suppression :
+    // une évaluation qui possède déjà des notes ne doit pas
+    // être supprimée.
+    const { count, error: gradesError } = await supabase
+      .from("grades")
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
+      .eq("assessment_id", assessment.id)
+      .eq("school_id", schoolId);
+
+    if (gradesError) {
+      console.error(gradesError);
+
+      setSaving(false);
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de vérifier les notes liées à cette évaluation.",
+      });
+
+      return;
+    }
+
+    if ((count || 0) > 0) {
+      setSaving(false);
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de supprimer cette évaluation car des notes sont déjà enregistrées.",
+      });
+
+      return;
+    }
+
+    const { error } = await supabase
+      .from("assessments")
+      .delete()
+      .eq("id", assessment.id)
+      .eq("teacher_id", teacherId)
+      .eq("school_id", schoolId);
+
+    setSaving(false);
+
+    if (error) {
+      console.error(error);
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de supprimer cette évaluation.",
+      });
+
+      return;
+    }
+
+    setAssessments((current) =>
+      current.filter(
+        (item) => item.id !== assessment.id
+      )
+    );
+
+    if (editingAssessmentId === assessment.id) {
+      cancelEditingAssessment();
+    }
+
+    setMessage({
+      type: "success",
+      text: "Évaluation supprimée avec succès.",
     });
   }
 
@@ -417,6 +623,10 @@ export default function TeacherAssessmentsPage({
             const assessment =
               slotAssessments[slot.value];
 
+            const isEditing =
+              assessment &&
+              editingAssessmentId === assessment.id;
+
             return (
               <div
                 key={slot.value}
@@ -455,6 +665,171 @@ export default function TeacherAssessmentsPage({
                   >
                     + Créer {slot.label}
                   </button>
+                ) : isEditing ? (
+                  <>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <strong>Nom</strong>
+
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) =>
+                          setEditTitle(e.target.value)
+                        }
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          marginTop: 5,
+                          padding: 10,
+                          borderRadius: 8,
+                          border:
+                            "1px solid #cbd5e1",
+                        }}
+                      />
+                    </label>
+
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <strong>Note maximale</strong>
+
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={editMaxScore}
+                        onChange={(e) =>
+                          setEditMaxScore(
+                            e.target.value
+                          )
+                        }
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          marginTop: 5,
+                          padding: 10,
+                          borderRadius: 8,
+                          border:
+                            "1px solid #cbd5e1",
+                        }}
+                      />
+                    </label>
+
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <strong>Coefficient</strong>
+
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={editCoefficient}
+                        onChange={(e) =>
+                          setEditCoefficient(
+                            e.target.value
+                          )
+                        }
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          marginTop: 5,
+                          padding: 10,
+                          borderRadius: 8,
+                          border:
+                            "1px solid #cbd5e1",
+                        }}
+                      />
+                    </label>
+
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: 14,
+                      }}
+                    >
+                      <strong>Date</strong>
+
+                      <input
+                        type="date"
+                        value={editEvaluationDate}
+                        onChange={(e) =>
+                          setEditEvaluationDate(
+                            e.target.value
+                          )
+                        }
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          marginTop: 5,
+                          padding: 10,
+                          borderRadius: 8,
+                          border:
+                            "1px solid #cbd5e1",
+                        }}
+                      />
+                    </label>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "1fr 1fr",
+                        gap: 8,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          saveAssessmentModification(
+                            assessment
+                          )
+                        }
+                        disabled={saving}
+                        style={{
+                          padding: 11,
+                          border: "none",
+                          borderRadius: 9,
+                          background: "#166534",
+                          color: "#fff",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {saving
+                          ? "Enregistrement..."
+                          : "Enregistrer"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={
+                          cancelEditingAssessment
+                        }
+                        disabled={saving}
+                        style={{
+                          padding: 11,
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 9,
+                          background: "#fff",
+                          color: "#334155",
+                          fontWeight: 700,
+                        }}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <>
                     <strong>
@@ -487,6 +862,59 @@ export default function TeacherAssessmentsPage({
                         ? "Soumise"
                         : "Brouillon"}
                     </p>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "1fr 1fr",
+                        gap: 8,
+                        marginBottom:
+                          assessment.published
+                            ? 0
+                            : 8,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startEditingAssessment(
+                            assessment
+                          )
+                        }
+                        disabled={saving}
+                        style={{
+                          padding: 10,
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 9,
+                          background: "#fff",
+                          color: "#0f172a",
+                          fontWeight: 700,
+                        }}
+                      >
+                        ✏️ Modifier
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteAssessment(
+                            assessment
+                          )
+                        }
+                        disabled={saving}
+                        style={{
+                          padding: 10,
+                          border: "none",
+                          borderRadius: 9,
+                          background: "#dc2626",
+                          color: "#fff",
+                          fontWeight: 700,
+                        }}
+                      >
+                        🗑️ Supprimer
+                      </button>
+                    </div>
 
                     {!assessment.published && (
                       <button
