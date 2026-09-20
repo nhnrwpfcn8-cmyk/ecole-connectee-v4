@@ -4996,6 +4996,124 @@ submitText="Créer la classe"
 );
 }
 
+function ClassEditModal({
+schoolId,
+item,
+onClose,
+onSuccess,
+}) {
+const [name, setName] =
+useState(item?.name || "");
+
+const [level, setLevel] =
+useState(item?.level || "");
+
+const [saving, setSaving] =
+useState(false);
+
+const [error, setError] =
+useState("");
+
+async function handleSubmit(
+event
+) {
+event.preventDefault();
+
+setError("");
+
+if (name.trim().length < 1) {
+setError(
+"Le nom de la classe est obligatoire."
+);
+return;
+}
+
+setSaving(true);
+
+try {
+const { error } =
+await supabase
+.from("classes")
+.update({
+name: name.trim(),
+level:
+level.trim() ||
+null,
+})
+.eq("id", item.id)
+.eq("school_id", schoolId);
+
+if (error) {
+throw error;
+}
+
+alert(
+"Classe modifiée avec succès !"
+);
+
+await onSuccess();
+
+} catch (error) {
+console.error(
+"Erreur modification classe:",
+error
+);
+
+setError(
+error.message ||
+"Impossible de modifier la classe."
+);
+} finally {
+setSaving(false);
+}
+}
+
+return (
+<Modal
+title="Modifier la classe"
+eyebrow="MODIFIER LA CLASSE"
+description="Modifiez les informations de cette classe."
+onClose={onClose}
+>
+
+<form
+className="ec-form"
+onSubmit={handleSubmit}
+>
+
+{error && (
+<div className="ec-form-error">
+⚠️ {error}
+</div>
+)}
+
+<FormInput
+label="Nom de la classe"
+placeholder="Ex : 6ème A"
+value={name}
+onChange={setName}
+disabled={saving}
+/>
+
+<FormInput
+label="Niveau"
+placeholder="Ex : Collège"
+value={level}
+onChange={setLevel}
+disabled={saving}
+/>
+
+<ModalActions
+onClose={onClose}
+saving={saving}
+submitText="Enregistrer les modifications"
+/>
+
+</form>
+
+</Modal>
+);
+}
 /* =========================================================
 MATIÈRES
 ========================================================= */
