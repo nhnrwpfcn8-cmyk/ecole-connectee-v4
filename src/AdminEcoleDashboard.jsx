@@ -3349,7 +3349,28 @@ unassignedStudents,
 /* ---------------------------------------------------------
 AFFICHAGE DU TABLEAU
 --------------------------------------------------------- */
+async function deleteStudent(student) {
+  const confirmed = window.confirm(
+    `Voulez-vous supprimer l'élève "${student.first_name || ""} ${student.last_name || ""}" ?`
+  );
 
+  if (!confirmed) return;
+
+  const { error } = await supabase
+    .from("students")
+    .update({ active: false })
+    .eq("id", student.id)
+    .eq("school_id", schoolId);
+
+  if (error) {
+    alert("Impossible de supprimer cet élève.");
+    console.error(error);
+    return;
+  }
+
+  await onRefresh();
+}
+ 
 function renderStudentTable(
 studentList
 ) {
