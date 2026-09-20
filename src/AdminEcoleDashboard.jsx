@@ -4931,20 +4931,29 @@ FORMULAIRE PARENT
 function ParentFormModal({
 schoolId,
 students,
+editingParent,
 onClose,
 onSuccess,
 }) {
 const [name, setName] =
-useState("");
+useState(
+editingParent?.full_name || ""
+);
 
 const [phone, setPhone] =
-useState("");
+useState(
+editingParent?.phone || ""
+);
 
 const [email, setEmail] =
-useState("");
+useState(
+editingParent?.email || ""
+);
 
 const [address, setAddress] =
-useState("");
+useState(
+editingParent?.address || ""
+);
 
 const [password, setPassword] =
 useState("");
@@ -4980,6 +4989,66 @@ setError(
 );
 return;
 }
+
+/* ---------------------------------------------------------
+MODIFICATION D'UN PARENT
+--------------------------------------------------------- */
+
+if (editingParent) {
+setSaving(true);
+
+try {
+const { error: updateError } =
+await supabase
+.from("parents")
+.update({
+full_name: name.trim(),
+phone: phone.trim() || null,
+email:
+email.trim().toLowerCase(),
+address:
+address.trim() || null,
+})
+.eq(
+"id",
+editingParent.id
+)
+.eq(
+"school_id",
+schoolId
+);
+
+if (updateError) {
+throw updateError;
+}
+
+alert(
+"Parent modifié avec succès !"
+);
+
+await onSuccess();
+
+} catch (error) {
+console.error(
+"Erreur modification parent :",
+error
+);
+
+setError(
+error.message ||
+"Impossible de modifier le parent."
+);
+
+} finally {
+setSaving(false);
+}
+
+return;
+}
+
+/* ---------------------------------------------------------
+CRÉATION D'UN PARENT
+--------------------------------------------------------- */
 
 if (password.length < 6) {
 setError(
@@ -5017,15 +5086,28 @@ await supabase.functions.invoke(
 "create-parent",
 {
 body: {
-fullName: name.trim(),
-phone: phone.trim(),
-email: email.trim().toLowerCase(),
-address: address.trim(),
+fullName:
+name.trim(),
+
+phone:
+phone.trim(),
+
+email:
+email.trim().toLowerCase(),
+
+address:
+address.trim(),
+
 password,
-studentIds: selectedStudent ? [selectedStudent] : [],
+
+studentIds:
+selectedStudent
+? [selectedStudent]
+: [],
 },
 headers: {
-Authorization: `Bearer ${session.access_token}`,
+Authorization:
+`Bearer ${session.access_token}`,
 },
 }
 );
@@ -5051,6 +5133,7 @@ setError(
 error.message ||
 "Impossible de créer le parent."
 );
+
 } finally {
 setSaving(false);
 }
@@ -5058,9 +5141,21 @@ setSaving(false);
 
 return (
 <Modal
-title="Ajouter un parent"
-eyebrow="NOUVEAU PARENT"
-description="Créez le compte et rattachez-le à un élève."
+title={
+editingParent
+? "Modifier le parent"
+: "Ajouter un parent"
+}
+eyebrow={
+editingParent
+? "MODIFICATION PARENT"
+: "NOUVEAU PARENT"
+}
+description={
+editingParent
+? "Modifiez les informations du parent."
+: "Créez le compte et rattachez-le à un élève."
+}
 onClose={onClose}
 >
 
@@ -5104,6 +5199,8 @@ onChange={setAddress}
 disabled={saving}
 />
 
+{!editingParent && (
+<>
 <FormInput
 label="Code / mot de passe"
 type="password"
@@ -5117,7 +5214,11 @@ label="Élève"
 value={selectedStudent}
 onChange={setSelectedStudent}
 options={students
-.filter((student) => student.school_id === schoolId)
+.filter(
+(student) =>
+student.school_id ===
+schoolId
+)
 .map((student) => ({
 value: student.id,
 label: `${student.first_name} ${student.last_name}`,
@@ -5125,11 +5226,17 @@ label: `${student.first_name} ${student.last_name}`,
 placeholder="Choisir un élève"
 disabled={saving}
 />
+</>
+)}
 
 <ModalActions
 onClose={onClose}
 saving={saving}
-submitText="Créer le parent"
+submitText={
+editingParent
+? "Enregistrer les modifications"
+: "Créer le parent"
+}
 />
 
 </form>
