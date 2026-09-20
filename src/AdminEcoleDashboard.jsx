@@ -4226,6 +4226,281 @@ submitText="Créer l'élève"
 );
 }
 
+function StudentEditModal({
+  schoolId,
+  classes,
+  item,
+  onClose,
+  onSuccess,
+}) {
+  const [firstName, setFirstName] =
+    useState(item?.first_name || "");
+
+  const [lastName, setLastName] =
+    useState(item?.last_name || "");
+
+  const [studentCode, setStudentCode] =
+    useState(item?.student_code || "");
+
+  const [classId, setClassId] =
+    useState(item?.class_id || "");
+
+  const [dateOfBirth, setDateOfBirth] =
+    useState(item?.date_of_birth || "");
+
+  const [birthPlace, setBirthPlace] =
+    useState(item?.birth_place || "");
+
+  const [familyIdentifier, setFamilyIdentifier] =
+    useState(item?.family_identifier || "");
+
+  const [photoUrl, setPhotoUrl] =
+    useState(item?.photo_url || "");
+
+  const [active, setActive] =
+    useState(
+      item?.active !== false
+    );
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    setError("");
+
+    if (firstName.trim().length < 1) {
+      setError(
+        "Le prénom est obligatoire."
+      );
+      return;
+    }
+
+    if (lastName.trim().length < 1) {
+      setError(
+        "Le nom est obligatoire."
+      );
+      return;
+    }
+
+    if (!classId) {
+      setError(
+        "Veuillez sélectionner une classe."
+      );
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const { error } =
+        await supabase
+          .from("students")
+          .update({
+            first_name:
+              firstName.trim(),
+
+            last_name:
+              lastName.trim(),
+
+            student_code:
+              studentCode.trim() ||
+              null,
+
+            class_id:
+              classId,
+
+            date_of_birth:
+              dateOfBirth ||
+              null,
+
+            birth_place:
+              birthPlace.trim() ||
+              null,
+
+            family_identifier:
+              familyIdentifier.trim() ||
+              null,
+
+            photo_url:
+              photoUrl.trim() ||
+              null,
+
+            active,
+          })
+          .eq("id", item.id)
+          .eq("school_id", schoolId);
+
+      if (error) {
+        throw error;
+      }
+
+      alert(
+        "Élève modifié avec succès !"
+      );
+
+      await onSuccess();
+
+    } catch (error) {
+      console.error(
+        "Erreur modification élève:",
+        error
+      );
+
+      setError(
+        error.message ||
+        "Impossible de modifier l'élève."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Modal
+      title="Modifier l'élève"
+      eyebrow="MODIFIER L'ÉLÈVE"
+      description="Modifiez les informations de cet élève."
+      onClose={onClose}
+    >
+
+      <form
+        className="ec-form"
+        onSubmit={handleSubmit}
+      >
+
+        {error && (
+          <div className="ec-form-error">
+            ⚠️ {error}
+          </div>
+        )}
+
+        <FormInput
+          label="Prénom"
+          placeholder="Ex : Moussa"
+          value={firstName}
+          onChange={setFirstName}
+          disabled={saving}
+        />
+
+        <FormInput
+          label="Nom"
+          placeholder="Ex : Diop"
+          value={lastName}
+          onChange={setLastName}
+          disabled={saving}
+        />
+
+        <FormInput
+          label="Matricule"
+          placeholder="Ex : ELEVE-001"
+          value={studentCode}
+          onChange={setStudentCode}
+          disabled={saving}
+        />
+
+        <div className="ec-form-group">
+          <label className="ec-form-label">
+            Classe
+          </label>
+
+          <select
+            className="ec-form-input"
+            value={classId}
+            onChange={(event) =>
+              setClassId(event.target.value)
+            }
+            disabled={saving}
+          >
+            <option value="">
+              Choisir une classe
+            </option>
+
+            {(classes || []).map((itemClass) => (
+              <option
+                key={itemClass.id}
+                value={itemClass.id}
+              >
+                {itemClass.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <FormInput
+          label="Date de naissance"
+          type="date"
+          value={dateOfBirth}
+          onChange={setDateOfBirth}
+          disabled={saving}
+        />
+
+        <FormInput
+          label="Lieu de naissance"
+          placeholder="Ex : Dakar"
+          value={birthPlace}
+          onChange={setBirthPlace}
+          disabled={saving}
+        />
+
+        <FormInput
+          label="Identifiant familial"
+          placeholder="Ex : FAM-001"
+          value={familyIdentifier}
+          onChange={setFamilyIdentifier}
+          disabled={saving}
+        />
+
+        <FormInput
+          label="Photo URL"
+          placeholder="URL de la photo"
+          value={photoUrl}
+          onChange={setPhotoUrl}
+          disabled={saving}
+        />
+
+        <div className="ec-form-group">
+          <label
+            className="ec-form-label"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              cursor: saving
+                ? "default"
+                : "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={active}
+              onChange={(event) =>
+                setActive(
+                  event.target.checked
+                )
+              }
+              disabled={saving}
+            />
+
+            Élève actif
+          </label>
+        </div>
+
+        <ModalActions
+          onClose={onClose}
+          saving={saving}
+          submitText="Enregistrer les modifications"
+        />
+
+      </form>
+
+    </Modal>
+  );
+}
 /* =========================================================
 PARENTS
 ========================================================= */
