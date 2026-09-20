@@ -3496,11 +3496,6 @@ async function markCommunicationMessageAsRead(
     (current) =>
       Math.max(0, current - 1)
   );
-
-  /*
-   * Actualiser la conversation.
-   */
-  await loadCommunication();
 }
 async function sendCommunicationMessage() {
   const connectedUserId =
