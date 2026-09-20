@@ -3911,7 +3911,20 @@ await onRefresh();
 }}
 />
 )}
-
+{editingStudent && (
+<StudentEditModal
+schoolId={schoolId}
+classes={classes}
+item={editingStudent}
+onClose={() =>
+setEditingStudent(null)
+}
+onSuccess={async () => {
+setEditingStudent(null);
+await onRefresh();
+}}
+/>
+)}
 </div>
 );
 }
