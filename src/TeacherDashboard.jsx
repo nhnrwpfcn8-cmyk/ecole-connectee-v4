@@ -1019,7 +1019,8 @@ function GradesPage({
 }) {
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedTrimester, setSelectedTrimester] = useState("trimestre_1");
+  const [selectedTrimester, setSelectedTrimester] =
+    useState("trimestre_1");
   const [assessmentId, setAssessmentId] = useState("");
   const [assessments, setAssessments] = useState([]);
   const [grades, setGrades] = useState({});
@@ -1207,59 +1208,101 @@ function GradesPage({
 
     const existing = grades[studentId];
 
-    const payload = {
-      assessment_id: selectedAssessment.id,
-      student_id: studentId,
-      teacher_id: teacherId,
-      school_id: schoolId,
-      score: numericScore,
-      appreciation:
-        existing?.appreciation || null,
-      stars: existing?.stars || null,
-      comment: existing?.comment || null,
-    };
-
-    let data = null;
-    let error = null;
-
     /*
      * Nouvelle note
      */
     if (!existing?.id) {
-      const result = await supabase
+      const payload = {
+        assessment_id: selectedAssessment.id,
+        student_id: studentId,
+        teacher_id: teacherId,
+        school_id: schoolId,
+        score: numericScore,
+        appreciation:
+          existing?.appreciation || null,
+        stars: existing?.stars || null,
+        comment:
+          existing?.comment || null,
+      };
+
+      const { data, error } = await supabase
         .from("grades")
         .insert(payload)
         .select()
         .single();
 
-      data = result.data;
-      error = result.error;
+      setSaving(false);
+
+      if (error) {
+        console.error(
+          "Erreur enregistrement note :",
+          error
+        );
+
+        setMessage({
+          type: "error",
+          text:
+            error.message ||
+            "Impossible d'enregistrer la note.",
+        });
+
+        return;
+      }
+
+      if (!data) {
+        setMessage({
+          type: "error",
+          text:
+            "La note n'a pas pu être enregistrée dans la base de données.",
+        });
+
+        return;
+      }
+
+      setGrades((current) => ({
+        ...current,
+        [studentId]: data,
+      }));
+
+      setMessage({
+        type: "success",
+        text:
+          "Note enregistrée et synchronisée avec l'Admin École.",
+      });
+
+      return;
     }
 
     /*
      * Note déjà existante : modification
+     *
+     * On enregistre ensemble :
+     * - la note
+     * - l'appréciation
+     * - le commentaire
+     *
+     * Les autres données de la note restent inchangées.
      */
-    else {
-      const result = await supabase
-        .from("grades")
-        .update({
-          score: numericScore,
-        })
-        .eq("id", existing.id)
-        .eq("teacher_id", teacherId)
-        .eq("school_id", schoolId)
-        .select()
-        .single();
-
-      data = result.data;
-      error = result.error;
-    }
+    const { data, error } = await supabase
+      .from("grades")
+      .update({
+        score: numericScore,
+        appreciation:
+          existing.appreciation || null,
+        comment:
+          existing.comment || null,
+      })
+      .eq("id", existing.id)
+      .eq("teacher_id", teacherId)
+      .eq("school_id", schoolId)
+      .select()
+      .single();
 
     setSaving(false);
 
     if (error) {
       console.error(
-        "Erreur enregistrement note :",
+        "Erreur modification note :",
         error
       );
 
@@ -1267,7 +1310,7 @@ function GradesPage({
         type: "error",
         text:
           error.message ||
-          "Impossible d'enregistrer la note.",
+          "Impossible de modifier la note.",
       });
 
       return;
@@ -1277,7 +1320,7 @@ function GradesPage({
       setMessage({
         type: "error",
         text:
-          "La note n'a pas pu être enregistrée dans la base de données.",
+          "La modification n'a pas pu être enregistrée dans la base de données.",
       });
 
       return;
@@ -1293,7 +1336,7 @@ function GradesPage({
     setMessage({
       type: "success",
       text:
-        "Note enregistrée et synchronisée avec l'Admin École.",
+        "Note modifiée et synchronisée avec l'Admin École.",
     });
   }
 
@@ -2208,9 +2251,18 @@ function GradesPage({
                               onBlur={(
                                 event
                               ) => {
+                                /*
+                                 * Une nouvelle note
+                                 * est enregistrée comme avant.
+                                 *
+                                 * Une note existante en mode
+                                 * modification est enregistrée
+                                 * uniquement avec le bouton
+                                 * "Enregistrer".
+                                 */
                                 if (
-                                  !grade?.id ||
-                                  isEditing
+                                  !grade?.id &&
+                                  !isEditing
                                 ) {
                                   saveGrade(
                                     student.id,
@@ -2287,22 +2339,6 @@ function GradesPage({
                                   })
                                 )
                               }
-                              onBlur={(
-                                event
-                              ) => {
-                                if (
-                                  !grade?.id ||
-                                  isEditing
-                                ) {
-                                  updateGrade(
-                                    student.id,
-                                    "appreciation",
-                                    event
-                                      .target
-                                      .value
-                                  );
-                                }
-                              }}
                               placeholder="Ex : Très bien"
                               style={{
                                 width: 170,
@@ -2358,22 +2394,6 @@ function GradesPage({
                                   })
                                 )
                               }
-                              onBlur={(
-                                event
-                              ) => {
-                                if (
-                                  !grade?.id ||
-                                  isEditing
-                                ) {
-                                  updateGrade(
-                                    student.id,
-                                    "comment",
-                                    event
-                                      .target
-                                      .value
-                                  );
-                                }
-                              }}
                               placeholder="Commentaire"
                               style={{
                                 width: 220,
