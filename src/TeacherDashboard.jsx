@@ -2939,6 +2939,23 @@ function CoursesPage({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
+  const [editingCourse, setEditingCourse] =
+    useState(null);
+  const [editClass, setEditClass] =
+    useState("");
+  const [editSubject, setEditSubject] =
+    useState("");
+  const [editTitle, setEditTitle] =
+    useState("");
+  const [editDescription, setEditDescription] =
+    useState("");
+  const [editPublished, setEditPublished] =
+    useState(false);
+  const [savingEdit, setSavingEdit] =
+    useState(false);
+  const [deletingCourseId, setDeletingCourseId] =
+    useState(null);
+
   const courses = contents.filter(
     (item) => item.content_type === "course"
   );
@@ -3014,6 +3031,163 @@ function CoursesPage({
 
     await onRefresh();
     setSaving(false);
+  }
+
+  function startEditCourse(course) {
+    setEditingCourse(course);
+
+    setEditClass(course.class_id || "");
+    setEditSubject(
+      course.subject_id
+        ? String(course.subject_id)
+        : ""
+    );
+    setEditTitle(course.title || "");
+    setEditDescription(
+      course.description || ""
+    );
+    setEditPublished(
+      Boolean(course.published)
+    );
+
+    setMessage(null);
+  }
+
+  function cancelEditCourse() {
+    setEditingCourse(null);
+    setEditClass("");
+    setEditSubject("");
+    setEditTitle("");
+    setEditDescription("");
+    setEditPublished(false);
+  }
+
+  async function saveEditedCourse(event) {
+    event.preventDefault();
+
+    if (!editingCourse) {
+      return;
+    }
+
+    if (!editClass) {
+      setMessage({
+        type: "error",
+        text: "Veuillez choisir une classe.",
+      });
+      return;
+    }
+
+    if (!editTitle.trim()) {
+      setMessage({
+        type: "error",
+        text: "Veuillez saisir le titre du cours.",
+      });
+      return;
+    }
+
+    setSavingEdit(true);
+    setMessage(null);
+
+    const { error } = await supabase
+      .from("learning_contents")
+      .update({
+        class_id: editClass,
+        subject_id: editSubject
+          ? Number(editSubject)
+          : null,
+        title: editTitle.trim(),
+        description:
+          editDescription.trim() || null,
+        published: editPublished,
+      })
+      .eq("id", editingCourse.id)
+      .eq("school_id", schoolId)
+      .eq("teacher_id", teacherId);
+
+    if (error) {
+      console.error(
+        "Erreur modification cours :",
+        error
+      );
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de modifier le cours : " +
+          error.message,
+      });
+
+      setSavingEdit(false);
+      return;
+    }
+
+    cancelEditCourse();
+
+    setMessage({
+      type: "success",
+      text: "Cours modifié avec succès.",
+    });
+
+    await onRefresh();
+
+    setSavingEdit(false);
+  }
+
+  async function deleteCourse(course) {
+    if (!course) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Voulez-vous vraiment supprimer le cours "${course.title}" ?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingCourseId(course.id);
+    setMessage(null);
+
+    const { error } = await supabase
+      .from("learning_contents")
+      .delete()
+      .eq("id", course.id)
+      .eq("school_id", schoolId)
+      .eq("teacher_id", teacherId);
+
+    if (error) {
+      console.error(
+        "Erreur suppression cours :",
+        error
+      );
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de supprimer le cours : " +
+          error.message,
+      });
+
+      setDeletingCourseId(null);
+      return;
+    }
+
+    if (
+      editingCourse &&
+      editingCourse.id === course.id
+    ) {
+      cancelEditCourse();
+    }
+
+    setMessage({
+      type: "success",
+      text: "Cours supprimé avec succès.",
+    });
+
+    await onRefresh();
+
+    setDeletingCourseId(null);
   }
 
   return (
@@ -3106,7 +3280,9 @@ function CoursesPage({
                 type="checkbox"
                 checked={published}
                 onChange={(event) =>
-                  setPublished(event.target.checked)
+                  setPublished(
+                    event.target.checked
+                  )
                 }
               />
 
@@ -3153,14 +3329,358 @@ function CoursesPage({
           {courses.length === 0 ? (
             <EmptyState text="Aucun cours créé pour le moment." />
           ) : (
-            <ContentList
-              contents={courses}
-              classes={classes}
-              subjects={subjects}
-            />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 11,
+              }}
+            >
+              {courses.map((content) => {
+                const className =
+                  classes.find(
+                    (item) =>
+                      item.id === content.class_id
+                  )?.name || "Classe";
+
+                const subjectName =
+                  subjects.find(
+                    (item) =>
+                      String(item.id) ===
+                      String(content.subject_id)
+                  )?.name || "";
+
+                return (
+                  <div
+                    key={content.id}
+                    style={{
+                      border:
+                        "1px solid #e2e8f0",
+                      borderRadius: 12,
+                      padding: 14,
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                        gap: 12,
+                        alignItems:
+                          "flex-start",
+                      }}
+                    >
+                      <div
+                        style={{
+                          minWidth: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 800,
+                            color: "#0f172a",
+                          }}
+                        >
+                          📚 {content.title}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 5,
+                            color: "#64748b",
+                            fontSize: 12,
+                          }}
+                        >
+                          {className}
+                          {subjectName
+                            ? ` • ${subjectName}`
+                            : ""}
+                        </div>
+                      </div>
+
+                      <span
+                        style={{
+                          padding:
+                            "4px 8px",
+                          borderRadius: 999,
+                          background:
+                            content.published
+                              ? "#dcfce7"
+                              : "#fef3c7",
+                          color:
+                            content.published
+                              ? "#166534"
+                              : "#92400e",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          whiteSpace:
+                            "nowrap",
+                        }}
+                      >
+                        {content.published
+                          ? "Publié"
+                          : "Brouillon"}
+                      </span>
+                    </div>
+
+                    {content.description && (
+                      <p
+                        style={{
+                          margin:
+                            "9px 0 0",
+                          fontSize: 13,
+                          color: "#475569",
+                        }}
+                      >
+                        {content.description}
+                      </p>
+                    )}
+
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: 11,
+                        color: "#94a3b8",
+                      }}
+                    >
+                      Créé le{" "}
+                      {formatDate(
+                        content.created_at
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        flexWrap: "wrap",
+                        marginTop: 12,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="ec-btn"
+                        onClick={() =>
+                          startEditCourse(
+                            content
+                          )
+                        }
+                        style={{
+                          padding:
+                            "8px 12px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                        }}
+                      >
+                        ✏️ Modifier
+                      </button>
+
+                      <button
+                        type="button"
+                        className="ec-btn"
+                        onClick={() =>
+                          deleteCourse(
+                            content
+                          )
+                        }
+                        disabled={
+                          deletingCourseId ===
+                          content.id
+                        }
+                        style={{
+                          padding:
+                            "8px 12px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {deletingCourseId ===
+                        content.id
+                          ? "Suppression..."
+                          : "🗑️ Supprimer"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
+
+      {editingCourse && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background:
+              "rgba(15, 23, 42, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 1000,
+          }}
+        >
+          <form
+            className="ec-card"
+            onSubmit={saveEditedCourse}
+            style={{
+              width: "100%",
+              maxWidth: 600,
+              padding: 22,
+              maxHeight: "90vh",
+              overflowY: "auto",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 18,
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  color: "#0f172a",
+                }}
+              >
+                ✏️ Modifier le cours
+              </h2>
+
+              <button
+                type="button"
+                className="ec-btn"
+                onClick={
+                  cancelEditCourse
+                }
+                disabled={savingEdit}
+                style={{
+                  padding: "7px 10px",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection:
+                  "column",
+                gap: 14,
+              }}
+            >
+              <SelectInput
+                label="Classe"
+                value={editClass}
+                onChange={setEditClass}
+                options={classes.map(
+                  (item) => ({
+                    value: item.id,
+                    label: item.name,
+                  })
+                )}
+                placeholder="Choisir une classe"
+              />
+
+              <SelectInput
+                label="Matière"
+                value={editSubject}
+                onChange={setEditSubject}
+                options={subjects.map(
+                  (item) => ({
+                    value: item.id,
+                    label: item.name,
+                  })
+                )}
+                placeholder="Choisir une matière"
+              />
+
+              <TextInput
+                label="Titre"
+                value={editTitle}
+                onChange={setEditTitle}
+                placeholder="Ex : Les fractions"
+                required
+              />
+
+              <TextArea
+                label="Description"
+                value={editDescription}
+                onChange={
+                  setEditDescription
+                }
+                placeholder="Décrivez le contenu du cours..."
+              />
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={editPublished}
+                  onChange={(event) =>
+                    setEditPublished(
+                      event.target.checked
+                    )
+                  }
+                />
+
+                <span
+                  style={{
+                    color: "#334155",
+                    fontWeight: 700,
+                  }}
+                >
+                  Publier immédiatement
+                </span>
+              </label>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  justifyContent:
+                    "flex-end",
+                  marginTop: 5,
+                }}
+              >
+                <button
+                  type="button"
+                  className="ec-btn"
+                  onClick={
+                    cancelEditCourse
+                  }
+                  disabled={savingEdit}
+                >
+                  Annuler
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="ec-btn ec-btn-primary"
+                >
+                  {savingEdit
+                    ? "Enregistrement..."
+                    : "💾 Enregistrer"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
     </>
   );
 }
