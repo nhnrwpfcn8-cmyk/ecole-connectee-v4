@@ -3045,8 +3045,7 @@ async function loadCommunication() {
     return;
   }
 
-  setCommunicationLoading(true);
-  setCommunicationError("");
+   setCommunicationError("");
 
   try {
     /*
