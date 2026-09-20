@@ -6922,6 +6922,25 @@ function CommunicationPage({
   const [success, setSuccess] = useState("");
 
   // =========================================================
+  // MODIFICATION / SUPPRESSION
+  // =========================================================
+
+  const [editingMessage, setEditingMessage] =
+    useState(null);
+
+  const [editSubject, setEditSubject] =
+    useState("");
+
+  const [editMessage, setEditMessage] =
+    useState("");
+
+  const [savingEdit, setSavingEdit] =
+    useState(false);
+
+  const [deletingMessageId, setDeletingMessageId] =
+    useState(null);
+
+  // =========================================================
   // CHARGER LES MESSAGES
   // =========================================================
 
@@ -7095,6 +7114,167 @@ function CommunicationPage({
     }
 
     await loadMessages();
+  }
+
+  // =========================================================
+  // COMMENCER LA MODIFICATION
+  // =========================================================
+
+  function startEditMessage(item) {
+    if (!item) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    setEditingMessage(item);
+    setEditSubject(item.subject || "");
+    setEditMessage(item.message || "");
+  }
+
+  // =========================================================
+  // ANNULER LA MODIFICATION
+  // =========================================================
+
+  function cancelEditMessage() {
+    setEditingMessage(null);
+    setEditSubject("");
+    setEditMessage("");
+    setError("");
+  }
+
+  // =========================================================
+  // ENREGISTRER LA MODIFICATION
+  // =========================================================
+
+  async function saveEditedMessage(event) {
+    event.preventDefault();
+
+    if (!editingMessage?.id || !schoolId) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    const cleanMessage = editMessage.trim();
+
+    const cleanSubject =
+      editSubject.trim() ||
+      "Conversation avec le secrétariat";
+
+    if (!cleanMessage) {
+      setError(
+        "Veuillez écrire un message avant d'enregistrer la modification."
+      );
+      return;
+    }
+
+    setSavingEdit(true);
+
+    try {
+      const {
+        error: updateError,
+      } = await supabase
+        .from("school_messages")
+        .update({
+          subject: cleanSubject,
+          message: cleanMessage,
+        })
+        .eq("id", editingMessage.id)
+        .eq("school_id", schoolId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setEditingMessage(null);
+      setEditSubject("");
+      setEditMessage("");
+
+      setSuccess(
+        "Message modifié avec succès."
+      );
+
+      await loadMessages();
+
+    } catch (updateError) {
+      console.error(
+        "Erreur modification message :",
+        updateError
+      );
+
+      setError(
+        updateError?.message ||
+          "Impossible de modifier le message."
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  // =========================================================
+  // SUPPRIMER UN MESSAGE
+  // =========================================================
+
+  async function deleteMessage(item) {
+    if (!item?.id || !schoolId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer ce message ?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setDeletingMessageId(item.id);
+
+    try {
+      const {
+        error: deleteError,
+      } = await supabase
+        .from("school_messages")
+        .delete()
+        .eq("id", item.id)
+        .eq("school_id", schoolId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      if (
+        editingMessage?.id === item.id
+      ) {
+        setEditingMessage(null);
+        setEditSubject("");
+        setEditMessage("");
+      }
+
+      setSuccess(
+        "Message supprimé avec succès."
+      );
+
+      await loadMessages();
+
+    } catch (deleteError) {
+      console.error(
+        "Erreur suppression message :",
+        deleteError
+      );
+
+      setError(
+        deleteError?.message ||
+          "Impossible de supprimer le message."
+      );
+    } finally {
+      setDeletingMessageId(null);
+    }
   }
 
   // =========================================================
@@ -7385,11 +7565,284 @@ function CommunicationPage({
                         ✓ Marquer comme lu
                       </button>
                     )}
+
+                    {/* =================================================
+                        MODIFIER / SUPPRIMER
+                    ================================================= */}
+
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        paddingTop: "8px",
+                        borderTop: isMine
+                          ? "1px solid rgba(255,255,255,0.22)"
+                          : "1px solid #e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startEditMessage(item)
+                        }
+                        disabled={
+                          savingEdit ||
+                          deletingMessageId ===
+                            item.id
+                        }
+                        style={{
+                          border: "none",
+                          background:
+                            "transparent",
+                          padding: "0",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                          cursor:
+                            savingEdit ||
+                            deletingMessageId ===
+                              item.id
+                              ? "not-allowed"
+                              : "pointer",
+                          color: isMine
+                            ? "#ffffff"
+                            : "#2563eb",
+                          opacity:
+                            savingEdit ||
+                            deletingMessageId ===
+                              item.id
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        ✏️ Modifier
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteMessage(item)
+                        }
+                        disabled={
+                          deletingMessageId ===
+                            item.id ||
+                          savingEdit
+                        }
+                        style={{
+                          border: "none",
+                          background:
+                            "transparent",
+                          padding: "0",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                          cursor:
+                            deletingMessageId ===
+                              item.id ||
+                            savingEdit
+                              ? "not-allowed"
+                              : "pointer",
+                          color: "#dc2626",
+                          opacity:
+                            deletingMessageId ===
+                              item.id ||
+                            savingEdit
+                              ? 0.6
+                              : 1,
+                        }}
+                      >
+                        {deletingMessageId ===
+                        item.id
+                          ? "Suppression…"
+                          : "🗑️ Supprimer"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
+        )}
+
+        {/* ===================================================
+            FORMULAIRE DE MODIFICATION
+        =================================================== */}
+
+        {editingMessage && (
+          <form
+            onSubmit={saveEditedMessage}
+            style={{
+              marginTop: "16px",
+              padding: "14px",
+              background: "#f8fafc",
+              border: "1px solid #cbd5e1",
+              borderRadius: "14px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                gap: "10px",
+                marginBottom: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <h4
+                style={{
+                  margin: 0,
+                  fontSize: "15px",
+                  color: "#0f172a",
+                }}
+              >
+                ✏️ Modifier le message
+              </h4>
+
+              <button
+                type="button"
+                onClick={cancelEditMessage}
+                disabled={savingEdit}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  padding: "4px 8px",
+                  cursor: savingEdit
+                    ? "not-allowed"
+                    : "pointer",
+                  fontSize: "12px",
+                  fontWeight: "700",
+                  color: "#64748b",
+                }}
+              >
+                ✕ Annuler
+              </button>
+            </div>
+
+            {/* SUJET */}
+
+            <div
+              style={{
+                marginBottom: "10px",
+              }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  color: "#334155",
+                  marginBottom: "6px",
+                }}
+              >
+                Sujet
+              </label>
+
+              <input
+                type="text"
+                value={editSubject}
+                onChange={(event) =>
+                  setEditSubject(
+                    event.target.value
+                  )
+                }
+                disabled={savingEdit}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "11px 12px",
+                  border:
+                    "1px solid #cbd5e1",
+                  borderRadius: "9px",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                  fontSize: "14px",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            {/* MESSAGE */}
+
+            <div
+              style={{
+                marginBottom: "10px",
+              }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  color: "#334155",
+                  marginBottom: "6px",
+                }}
+              >
+                Message
+              </label>
+
+              <textarea
+                value={editMessage}
+                onChange={(event) =>
+                  setEditMessage(
+                    event.target.value
+                  )
+                }
+                disabled={savingEdit}
+                rows={4}
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  resize: "vertical",
+                  minHeight: "90px",
+                  padding: "11px 12px",
+                  border:
+                    "1px solid #cbd5e1",
+                  borderRadius: "9px",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                  fontSize: "14px",
+                  lineHeight: "1.5",
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            {/* BOUTONS */}
+
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                type="button"
+                className="ec-btn ec-btn-secondary"
+                onClick={cancelEditMessage}
+                disabled={savingEdit}
+              >
+                Annuler
+              </button>
+
+              <button
+                type="submit"
+                className="ec-btn ec-btn-primary"
+                disabled={
+                  savingEdit ||
+                  !editMessage.trim()
+                }
+              >
+                {savingEdit
+                  ? "Enregistrement…"
+                  : "💾 Enregistrer"}
+              </button>
+            </div>
+          </form>
         )}
 
         {/* ===================================================
@@ -7543,7 +7996,7 @@ function CommunicationPage({
     </PageShell>
   );
 }
-
+     
 /* =========================================================
 DOCUMENTS ADMINISTRATIFS
 ========================================================= */
