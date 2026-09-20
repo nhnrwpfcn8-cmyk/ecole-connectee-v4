@@ -4689,6 +4689,7 @@ setShowModal(true)
 <th>Téléphone</th>
 <th>Email</th>
 <th>Statut</th>
+<th>Actions</th>
 </tr>
 </thead>
 
@@ -4749,6 +4750,33 @@ parent.active
 </span>
 </td>
 
+<td>
+  <div className="ec-actions">
+    <button
+      type="button"
+      className="ec-action-btn"
+      title="Modifier"
+    >
+      ✏️
+    </button>
+
+    <button
+      type="button"
+      className="ec-action-btn"
+      title={parent.active ? "Désactiver" : "Activer"}
+    >
+      {parent.active ? "⏸️" : "▶️"}
+    </button>
+
+    <button
+      type="button"
+      className="ec-action-btn danger"
+      title="Supprimer"
+    >
+      🗑️
+    </button>
+  </div>
+</td> 
 </tr>
 )
 )}
