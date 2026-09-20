@@ -183,10 +183,6 @@
           box-sizing: border-box !important;
         }
 
-        /*
-         * Les blocs en grille de Communication passent
-         * automatiquement en une seule colonne.
-         */
         main.ec-mobile-communication-page
         [style*="grid-template-columns"] {
           grid-template-columns: minmax(0, 1fr) !important;
@@ -208,7 +204,7 @@
 
           display: grid !important;
           grid-template-columns:
-            repeat(4, minmax(0, 1fr)) !important;
+            repeat(5, minmax(0, 1fr)) !important;
 
           align-items: stretch !important;
 
@@ -264,11 +260,21 @@
 
           touch-action: manipulation !important;
 
+          -webkit-user-select: none !important;
+          user-select: none !important;
+
+          will-change: transform !important;
+
+          transition:
+            transform 0.12s ease,
+            background-color 0.12s ease,
+            color 0.12s ease !important;
+
           box-sizing: border-box !important;
         }
 
         .ec-mobile-bottom-item:active {
-          transform: scale(0.95) !important;
+          transform: scale(0.97) !important;
         }
 
         .ec-mobile-bottom-item.ec-active {
@@ -347,6 +353,15 @@
           box-shadow:
             0 5px 14px
             rgba(79, 70, 229, 0.30) !important;
+
+          transition:
+            transform 0.12s ease,
+            background-color 0.12s ease !important;
+        }
+
+        .ec-mobile-more-button:active
+        .ec-mobile-more-icon {
+          transform: scale(0.94) !important;
         }
 
         .ec-mobile-more-button.ec-active
@@ -373,8 +388,8 @@
           pointer-events: none !important;
 
           transition:
-            opacity 0.20s ease,
-            visibility 0.20s ease !important;
+            opacity 0.18s ease,
+            visibility 0.18s ease !important;
         }
 
         .ec-mobile-more-backdrop.ec-open {
@@ -417,7 +432,10 @@
           transform: translateY(105%) !important;
 
           transition:
-            transform 0.25s ease !important;
+            transform 0.22s
+            cubic-bezier(0.22, 1, 0.36, 1) !important;
+
+          will-change: transform !important;
         }
 
         .ec-mobile-more-panel.ec-open {
@@ -464,6 +482,15 @@
 
           -webkit-tap-highlight-color:
             transparent !important;
+
+          transition:
+            transform 0.12s ease,
+            background-color 0.12s ease !important;
+        }
+
+        .ec-mobile-more-close:active {
+          transform: scale(0.94) !important;
+          background: #e5e7eb !important;
         }
 
         .ec-mobile-more-list {
@@ -509,9 +536,18 @@
             transparent !important;
 
           touch-action: manipulation !important;
+
+          -webkit-user-select: none !important;
+          user-select: none !important;
+
+          transition:
+            transform 0.12s ease,
+            background-color 0.12s ease,
+            border-color 0.12s ease !important;
         }
 
         .ec-mobile-more-item:active {
+          transform: scale(0.985) !important;
           background: #eef2ff !important;
           border-color: #4f46e5 !important;
         }
@@ -613,7 +649,9 @@
     }
 
     return Array.from(
-      sidebar.querySelectorAll("button, a")
+      sidebar.querySelectorAll(
+        "button, a, [role='button']"
+      )
     ).filter((item) => {
       if (
         item.classList.contains(
@@ -655,8 +693,15 @@
       return null;
     }
 
-    return (
-      getSidebarItems(sidebar).find(
+    const clickableCandidates =
+      Array.from(
+        sidebar.querySelectorAll(
+          "button, a, [role='button']"
+        )
+      );
+
+    const directMatch =
+      clickableCandidates.find(
         (item) => {
           const text = normalizeText(
             item.textContent
@@ -665,11 +710,54 @@
           return (
             text.includes("deconnexion") ||
             text.includes("se deconnecter") ||
+            text === "logout" ||
+            text.includes("logout")
+          );
+        }
+      );
+
+    if (directMatch) {
+      return directMatch;
+    }
+
+    /*
+     * Sécurité supplémentaire :
+     * si le texte "Déconnexion" est porté
+     * par un élément enfant, on remonte vers
+     * son vrai bouton / lien cliquable.
+     */
+    const textElements =
+      Array.from(
+        sidebar.querySelectorAll("*")
+      );
+
+    const textMatch =
+      textElements.find(
+        (element) => {
+          const text = normalizeText(
+            element.textContent
+          );
+
+          return (
+            text === "deconnexion" ||
+            text === "se deconnecter" ||
             text === "logout"
           );
         }
-      ) || null
-    );
+      );
+
+    if (textMatch) {
+      const clickable =
+        textMatch.closest(
+          "button, a, [role='button']"
+        );
+
+      if (clickable) {
+        return clickable;
+      }
+    }
+
+    return null;
   }
 
   function findCommunicationItem(sidebar) {
@@ -758,7 +846,8 @@
     return (
       text.includes("deconnexion") ||
       text.includes("se deconnecter") ||
-      text === "logout"
+      text === "logout" ||
+      text.includes("logout")
     );
   }
 
@@ -857,10 +946,6 @@
       return true;
     }
 
-    /*
-     * La page Communication contient normalement
-     * une zone de saisie textarea.
-     */
     if (
       main.querySelector("textarea")
     ) {
@@ -1021,6 +1106,7 @@
           "click",
           function () {
             closeMorePanel();
+
             clickSidebarItem(
               sidebarItem
             );
@@ -1030,6 +1116,7 @@
                 updateActiveState(
                   sidebar
                 );
+
                 markMain(sidebar);
               },
               80
@@ -1207,6 +1294,14 @@
     const sidebarItems =
       getSidebarItems(sidebar);
 
+    /*
+     * Tous les éléments du menu sauf :
+     * - les 4 éléments principaux
+     * - la déconnexion
+     *
+     * La déconnexion est ajoutée explicitement
+     * tout à la fin afin de garantir sa présence.
+     */
     sidebarItems.forEach(
       (sidebarItem) => {
         const label =
@@ -1230,6 +1325,18 @@
           return;
         }
 
+        /*
+         * La déconnexion sera ajoutée
+         * séparément à la fin.
+         */
+        if (
+          isLogoutItem(
+            sidebarItem
+          )
+        ) {
+          return;
+        }
+
         const button =
           document.createElement("button");
 
@@ -1238,16 +1345,6 @@
         button.className =
           "ec-mobile-more-item";
 
-        if (
-          isLogoutItem(
-            sidebarItem
-          )
-        ) {
-          button.classList.add(
-            "ec-mobile-more-logout"
-          );
-        }
-
         const icon =
           document.createElement("span");
 
@@ -1255,13 +1352,9 @@
           "ec-mobile-more-item-icon";
 
         icon.textContent =
-          isLogoutItem(
-            sidebarItem
-          )
-            ? "🚪"
-            : getIconForLabel(
-                label
-              );
+          getIconForLabel(
+            label
+          );
 
         const text =
           document.createElement("span");
@@ -1303,24 +1396,22 @@
     );
 
     /*
-     * Sécurité :
-     * si la déconnexion n'a pas été trouvée
-     * dans la boucle ci-dessus, on la cherche
-     * explicitement.
+     * =====================================================
+     * DECONNEXION
+     * =====================================================
+     *
+     * On récupère le VRAI élément de déconnexion
+     * déjà présent dans le sidebar React.
+     *
+     * On ne crée PAS une nouvelle logique de logout.
+     * Le clic est simplement transmis à l'élément
+     * existant afin de conserver le fonctionnement
+     * actuel de l'application.
      */
     const logout =
       findLogoutItem(sidebar);
 
-    if (
-      logout &&
-      !Array.from(
-        list.children
-      ).some((button) =>
-        button.classList.contains(
-          "ec-mobile-more-logout"
-        )
-      )
-    ) {
+    if (logout) {
       const button =
         document.createElement("button");
 
@@ -1341,7 +1432,6 @@
         document.createElement("span");
 
       text.textContent =
-        getCleanLabel(logout) ||
         "Déconnexion";
 
       button.appendChild(icon);
@@ -1352,6 +1442,11 @@
         function () {
           closeMorePanel();
 
+          /*
+           * IMPORTANT :
+           * on déclenche exactement le clic
+           * du bouton de déconnexion existant.
+           */
           clickSidebarItem(
             logout
           );
