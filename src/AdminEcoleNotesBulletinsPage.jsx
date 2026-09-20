@@ -421,20 +421,63 @@ export default function AdminEcoleNotesBulletinsPage({
      STORAGE : CACHET / SIGNATURE
   ========================================================= */
   async function createSignedBrandingUrl(path) {
-    if (!path) return "";
-    if (/^https?:\/\//i.test(path)) return path;
+  if (!path) return "";
 
-    const { data, error: storageError } = await supabase.storage
-      .from("school-branding")
-      .createSignedUrl(path, 60 * 60);
+  if (/^data:/i.test(path)) return path;
 
-    if (storageError) {
-      console.error("Erreur URL branding :", storageError);
-      return "";
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const { data, error: storageError } = await supabase.storage
+    .from("school-branding")
+    .createSignedUrl(path, 60 * 60);
+
+  if (storageError || !data?.signedUrl) {
+    console.error("Erreur URL branding :", storageError);
+    return "";
+  }
+
+  try {
+    /*
+     * On transforme le cachet/la signature en Data URL.
+     * Ainsi, lorsqu'un bulletin est enregistré dans pdf_url,
+     * l'image est intégrée directement dans le document.
+     * Elle ne dépend donc plus de l'expiration de l'URL signée Supabase.
+     */
+    const response = await fetch(data.signedUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        `Impossible de télécharger le fichier branding (${response.status}).`
+      );
     }
 
-    return data?.signedUrl || "";
+    const blob = await response.blob();
+
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        resolve(
+          typeof reader.result === "string" ? reader.result : ""
+        );
+      };
+
+      reader.onerror = () => {
+        console.error(
+          "Impossible de convertir le branding en Data URL."
+        );
+        resolve("");
+      };
+
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Erreur intégration branding :", error);
+    return "";
   }
+}
 
   /* =========================================================
      CHARGEMENT
