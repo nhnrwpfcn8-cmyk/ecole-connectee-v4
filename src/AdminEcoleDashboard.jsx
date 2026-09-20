@@ -3440,6 +3440,37 @@ student.created_at
 )}
 </td>
 
+<td>
+<div
+style={{
+display: "flex",
+gap: "8px",
+}}
+>
+
+<button
+className="ec-action-btn"
+title="Modifier"
+onClick={() =>
+setEditingStudent(student)
+}
+>
+✏️
+</button>
+
+<button
+className="ec-action-btn danger"
+title="Supprimer"
+onClick={() =>
+deleteStudent(student)
+}
+>
+🗑️
+</button>
+
+</div>
+</td>
+
 </tr>
 );
 }
