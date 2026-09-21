@@ -1745,12 +1745,12 @@ function AttendancePage({
   }, [attendance]);
 
   function statusLabel(status) {
-    if (status === "present") return "Présent";
-    if (status === "absent") return "Absent";
-    if (status === "late") return "Retard";
-    if (status === "excused") return "Justifié";
-    return status || "Non renseigné";
-  }
+  if (status === "present") return "🟢 Présent";
+  if (status === "absent") return "🔴 Absent";
+  if (status === "late") return "🟠 Retard";
+  if (status === "excluded") return "🚫 Exclusion";
+  return status || "Non renseigné";
+}
 
   function statusStyle(status) {
     if (status === "present") {
