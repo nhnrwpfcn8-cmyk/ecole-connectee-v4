@@ -730,8 +730,6 @@ export default function ParentDashboard({
     class_id,
     attendance_date,
     status,
-    entry_at,
-    exit_at,
     justification,
     justified,
     created_at
@@ -764,7 +762,7 @@ setAttendance(
       };
     }
   )
-); 
+);
           .in("student_id", studentIds)
           .order("attendance_date", {
             ascending: false,
