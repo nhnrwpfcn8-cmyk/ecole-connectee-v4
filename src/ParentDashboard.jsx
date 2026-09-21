@@ -1932,7 +1932,51 @@ export default function ParentDashboard({
     );
   }
 
-  function GradesPage() {
+ function GradesPage() {
+    const groupedGrades = grades.reduce(
+      (groups, grade) => {
+        const trimester =
+          grade.trimester ||
+          grade.assessment_trimester ||
+          "non_classe";
+
+        if (!groups[trimester]) {
+          groups[trimester] = [];
+        }
+
+        groups[trimester].push(grade);
+
+        return groups;
+      },
+      {}
+    );
+
+    const trimesterOrder = {
+      trimestre_1: 1,
+      trimestre_2: 2,
+      trimestre_3: 3,
+    };
+
+    const trimesterLabels = {
+      trimestre_1: "Trimestre 1",
+      trimestre_2: "Trimestre 2",
+      trimestre_3: "Trimestre 3",
+      non_classe: "Trimestre non précisé",
+    };
+
+    const groupedTrimesters =
+      Object.entries(groupedGrades).sort(
+        ([trimesterA], [trimesterB]) => {
+          const orderA =
+            trimesterOrder[trimesterA] || 99;
+
+          const orderB =
+            trimesterOrder[trimesterB] || 99;
+
+          return orderA - orderB;
+        }
+      );
+
     return (
       <>
         <PageTitle
@@ -1950,100 +1994,180 @@ export default function ParentDashboard({
           <div
             style={{
               display: "grid",
-              gap: "12px",
+              gap: "18px",
             }}
           >
-            {grades.map(
-              (grade) => (
-                <Card key={grade.id}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: "12px",
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          color: "#4f46e5",
-                          fontWeight: 800,
-                          fontSize: "13px",
-                        }}
-                      >
-                        📚{" "}
-                        {grade.subject_name}
-                      </div>
-
-                      <h3
-                        style={{
-                          margin: "7px 0 4px",
-                          color: "#0f172a",
-                          fontSize: "17px",
-                        }}
-                      >
-                        {grade.assessment_title}
-                      </h3>
-
-                      <div
-                        style={{
-                          color: "#64748b",
-                          fontSize: "13px",
-                        }}
-                      >
-                        {grade.child_name}{" "}
-                        ·{" "}
-                        {formatDate(
-                          grade.assessment_date
-                        )}
-                      </div>
-                    </div>
-
+            {groupedTrimesters.map(
+              ([trimester, trimesterGrades]) => (
+                <div
+                  key={trimester}
+                  style={{
+                    display: "grid",
+                    gap: "10px",
+                  }}
+                >
+                  <Card>
                     <div
                       style={{
-                        background: "#eef2ff",
-                        color: "#4338ca",
-                        borderRadius: "12px",
-                        padding: "9px 12px",
+                        fontSize: "18px",
                         fontWeight: 900,
-                        fontSize: "16px",
-                        whiteSpace: "nowrap",
+                        color: "#0f172a",
+                        marginBottom: "4px",
                       }}
                     >
-                      {formatScore(
-                        grade.score,
-                        grade.max_score
-                      )}
+                      📚{" "}
+                      {trimesterLabels[
+                        trimester
+                      ] ||
+                        trimester}
                     </div>
-                  </div>
 
-                  {grade.appreciation && (
                     <div
                       style={{
-                        marginTop: "13px",
-                        padding: "11px 13px",
-                        borderRadius: "10px",
-                        background: "#f8fafc",
-                        color: "#475569",
+                        color: "#64748b",
                         fontSize: "13px",
                       }}
                     >
-                      <strong>
-                        Appréciation :
-                      </strong>{" "}
-                      {grade.appreciation}
+                      {trimesterGrades.length}{" "}
+                      note
+                      {trimesterGrades.length >
+                      1
+                        ? "s"
+                        : ""}
                     </div>
-                  )}
-                </Card>
+                  </Card>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "12px",
+                    }}
+                  >
+                    {trimesterGrades.map(
+                      (grade) => (
+                        <Card key={grade.id}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent:
+                                "space-between",
+                              alignItems:
+                                "flex-start",
+                              gap: "12px",
+                            }}
+                          >
+                            <div>
+                              <div
+                                style={{
+                                  color:
+                                    "#4f46e5",
+                                  fontWeight:
+                                    800,
+                                  fontSize:
+                                    "13px",
+                                }}
+                              >
+                                📚{" "}
+                                {
+                                  grade.subject_name
+                                }
+                              </div>
+
+                              <h3
+                                style={{
+                                  margin:
+                                    "7px 0 4px",
+                                  color:
+                                    "#0f172a",
+                                  fontSize:
+                                    "17px",
+                                }}
+                              >
+                                {
+                                  grade.assessment_title
+                                }
+                              </h3>
+
+                              <div
+                                style={{
+                                  color:
+                                    "#64748b",
+                                  fontSize:
+                                    "13px",
+                                }}
+                              >
+                                {
+                                  grade.child_name
+                                }{" "}
+                                ·{" "}
+                                {formatDate(
+                                  grade.assessment_date
+                                )}
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                background:
+                                  "#eef2ff",
+                                color:
+                                  "#4338ca",
+                                borderRadius:
+                                  "12px",
+                                padding:
+                                  "9px 12px",
+                                fontWeight:
+                                  900,
+                                fontSize:
+                                  "16px",
+                                whiteSpace:
+                                  "nowrap",
+                              }}
+                            >
+                              {formatScore(
+                                grade.score,
+                                grade.max_score
+                              )}
+                            </div>
+                          </div>
+
+                          {grade.appreciation && (
+                            <div
+                              style={{
+                                marginTop:
+                                  "13px",
+                                padding:
+                                  "11px 13px",
+                                borderRadius:
+                                  "10px",
+                                background:
+                                  "#f8fafc",
+                                color:
+                                  "#475569",
+                                fontSize:
+                                  "13px",
+                              }}
+                            >
+                              <strong>
+                                Appréciation :
+                              </strong>{" "}
+                              {
+                                grade.appreciation
+                              }
+                            </div>
+                          )}
+                        </Card>
+                      )
+                    )}
+                  </div>
+                </div>
               )
             )}
           </div>
         )}
       </>
     );
-  }
-
+  } 
  function AttendancePage() {
     const groupedAttendance = attendance.reduce(
       (groups, item) => {
