@@ -2270,6 +2270,12 @@ export default function ParentDashboard({
                       item.status === "excused"
                   ).length;
 
+                const excludedCount =
+                  group.items.filter(
+                    (item) =>
+                      item.status === "excluded"
+                  ).length;
+
                 const monthLabel =
                   new Date(
                     group.year,
@@ -2396,6 +2402,27 @@ export default function ParentDashboard({
                             {excusedCount}
                           </div>
                         </div>
+
+                        <div
+                          style={{
+                            padding: "10px",
+                            borderRadius: "10px",
+                            background: "#f5f3ff",
+                            color: "#6d28d9",
+                            fontWeight: 800,
+                            fontSize: "13px",
+                          }}
+                        >
+                          🚫 Exclusions
+                          <div
+                            style={{
+                              fontSize: "20px",
+                              marginTop: "3px",
+                            }}
+                          >
+                            {excludedCount}
+                          </div>
+                        </div>
                       </div>
                     </Card>
 
@@ -2429,6 +2456,61 @@ export default function ParentDashboard({
                                   item.attendance_date
                                 );
 
+                          const formatTime = (
+                            value
+                          ) => {
+                            if (!value) {
+                              return null;
+                            }
+
+                            const timeDate =
+                              new Date(value);
+
+                            if (
+                              Number.isNaN(
+                                timeDate.getTime()
+                              )
+                            ) {
+                              return null;
+                            }
+
+                            return timeDate.toLocaleTimeString(
+                              "fr-FR",
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            );
+                          };
+
+                          const entryTime =
+                            formatTime(
+                              item.entry_at
+                            );
+
+                          const exitTime =
+                            formatTime(
+                              item.exit_at
+                            );
+
+                          const statusLabel =
+                            item.status ===
+                            "present"
+                              ? "🟢 Présent"
+                              : item.status ===
+                                "absent"
+                              ? "🔴 Absent"
+                              : item.status ===
+                                "late"
+                              ? "🟠 En retard"
+                              : item.status ===
+                                "excused"
+                              ? "🔵 Excusé"
+                              : item.status ===
+                                "excluded"
+                              ? "🚫 Exclusion"
+                              : item.status;
+
                           return (
                             <Card key={item.id}>
                               <div
@@ -2437,11 +2519,15 @@ export default function ParentDashboard({
                                   justifyContent:
                                     "space-between",
                                   alignItems:
-                                    "center",
+                                    "flex-start",
                                   gap: "12px",
                                 }}
                               >
-                                <div>
+                                <div
+                                  style={{
+                                    flex: 1,
+                                  }}
+                                >
                                   <strong
                                     style={{
                                       color:
@@ -2484,6 +2570,94 @@ export default function ParentDashboard({
                                       item.attendance_date
                                     )}
                                   </div>
+
+                                  {(entryTime ||
+                                    exitTime) && (
+                                    <div
+                                      style={{
+                                        display:
+                                          "grid",
+                                        gap:
+                                          "4px",
+                                        marginTop:
+                                          "10px",
+                                        padding:
+                                          "8px 10px",
+                                        borderRadius:
+                                          "10px",
+                                        background:
+                                          "#f8fafc",
+                                        fontSize:
+                                          "13px",
+                                      }}
+                                    >
+                                      {entryTime && (
+                                        <div
+                                          style={{
+                                            color:
+                                              "#166534",
+                                            fontWeight:
+                                              700,
+                                          }}
+                                        >
+                                          🕐 Entrée :{" "}
+                                          {
+                                            entryTime
+                                          }
+                                        </div>
+                                      )}
+
+                                      {exitTime && (
+                                        <div
+                                          style={{
+                                            color:
+                                              "#1e40af",
+                                            fontWeight:
+                                              700,
+                                          }}
+                                        >
+                                          🚪 Sortie :{" "}
+                                          {
+                                            exitTime
+                                          }
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {(item.status ===
+                                    "late" ||
+                                    item.status ===
+                                      "excluded" ||
+                                    item.status ===
+                                      "absent" ||
+                                    item.status ===
+                                      "excused") &&
+                                    item.justification && (
+                                      <div
+                                        style={{
+                                          marginTop:
+                                            "8px",
+                                          padding:
+                                            "8px 10px",
+                                          borderRadius:
+                                            "10px",
+                                          background:
+                                            "#fffbeb",
+                                          color:
+                                            "#92400e",
+                                          fontSize:
+                                            "13px",
+                                          fontWeight:
+                                            600,
+                                        }}
+                                      >
+                                        📝 Motif :{" "}
+                                        {
+                                          item.justification
+                                        }
+                                      </div>
+                                    )}
                                 </div>
 
                                 <div
@@ -2491,23 +2665,11 @@ export default function ParentDashboard({
                                     fontWeight: 800,
                                     fontSize:
                                       "13px",
+                                    whiteSpace:
+                                      "nowrap",
                                   }}
                                 >
-                                  {item.status ===
-                                    "present" &&
-                                    "🟢 Présent"}
-
-                                  {item.status ===
-                                    "absent" &&
-                                    "🔴 Absent"}
-
-                                  {item.status ===
-                                    "late" &&
-                                    "🟠 En retard"}
-
-                                  {item.status ===
-                                    "excused" &&
-                                    "🔵 Excusé"}
+                                  {statusLabel}
                                 </div>
                               </div>
                             </Card>
@@ -2523,8 +2685,7 @@ export default function ParentDashboard({
         )}
       </>
     );
-  } 
-
+  }
   function BulletinsPage() {
     return (
       <>
