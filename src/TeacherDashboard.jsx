@@ -2863,13 +2863,12 @@ function AttendancePage({
           : current?.exit_at || null,
     };
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("attendance")
       .upsert(payload, {
-        onConflict: "student_id,attendance_date",
-      })
-      .select()
-      .single();
+        onConflict:
+          "student_id,attendance_date",
+      });
 
     if (error) {
       console.error(
@@ -2888,9 +2887,14 @@ function AttendancePage({
       return;
     }
 
+    const updatedAttendance = {
+      ...(current || {}),
+      ...payload,
+    };
+
     setAttendance((previous) => ({
       ...previous,
-      [student.id]: data,
+      [student.id]: updatedAttendance,
     }));
 
     setMessage({
@@ -2905,7 +2909,6 @@ function AttendancePage({
 
     setSavingId(null);
   }
-
   async function deleteAttendance(student) {
     const current = attendance[student.id];
 
