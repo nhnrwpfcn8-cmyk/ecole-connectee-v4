@@ -2793,122 +2793,165 @@ function AttendancePage({
     saveAttendance(student, status);
   }
 
-  async function saveAttendance(student, status) {
-    if (!teacherId || !schoolId) return;
+  ```js
+async function saveAttendance(student, status) {
+  if (!teacherId || !schoolId) return;
 
-    setSavingId(student.id);
-    setMessage(null);
+  setSavingId(student.id);
+  setMessage(null);
 
-    const current = attendance[student.id];
-    const draft = detailDrafts[student.id] || {};
+  const current = attendance[student.id];
+  const draft = detailDrafts[student.id] || {};
 
-    const isLate = status === "late";
-    const isExcluded = status === "excluded";
+  const isLate = status === "late";
+  const isExcluded = status === "excluded";
 
-    if (
-      (isLate || isExcluded) &&
-      !draft.time
-    ) {
-      setMessage({
-        type: "error",
-        text:
-          isLate
-            ? "Veuillez indiquer l'heure du retard."
-            : "Veuillez indiquer l'heure de l'exclusion.",
-      });
-
-      setSavingId(null);
-      return;
-    }
-
-    if (
-      (isLate || isExcluded) &&
-      !String(draft.justification || "").trim()
-    ) {
-      setMessage({
-        type: "error",
-        text:
-          isLate
-            ? "Veuillez indiquer le motif du retard."
-            : "Veuillez indiquer le motif de l'exclusion.",
-      });
-
-      setSavingId(null);
-      return;
-    }
-
-    const selectedTime =
-      getLocalDateTimeIso(draft.time);
-
-    const payload = {
-      student_id: student.id,
-      class_id: selectedClass,
-      attendance_date: selectedDate,
-      status,
-      justification:
-        isLate || isExcluded
-          ? String(
-              draft.justification || ""
-            ).trim() || null
-          : current?.justification || null,
-      justified:
-        current?.justified || false,
-      entry_at:
-        isLate
-          ? selectedTime
-          : current?.entry_at || null,
-      exit_at:
-        isExcluded
-          ? selectedTime
-          : current?.exit_at || null,
-    };
-
-    const { error } = await supabase
-      .from("attendance")
-      .upsert(payload, {
-        onConflict:
-          "student_id,attendance_date",
-      });
-
-    if (error) {
-      console.error(
-        "Erreur sauvegarde présence :",
-        error
-      );
-
-      setMessage({
-        type: "error",
-        text:
-          "Impossible d'enregistrer la présence : " +
-          error.message,
-      });
-
-      setSavingId(null);
-      return;
-    }
-
-    const updatedAttendance = {
-      ...(current || {}),
-      ...payload,
-    };
-
-    setAttendance((previous) => ({
-      ...previous,
-      [student.id]: updatedAttendance,
-    }));
-
+  if (
+    (isLate || isExcluded) &&
+    !draft.time
+  ) {
     setMessage({
-      type: "success",
+      type: "error",
       text:
-        status === "excluded"
-          ? "Exclusion enregistrée."
-          : status === "late"
-          ? "Retard enregistré."
-          : "Présence enregistrée.",
+        isLate
+          ? "Veuillez indiquer l'heure du retard."
+          : "Veuillez indiquer l'heure de l'exclusion.",
     });
 
     setSavingId(null);
+    return;
   }
+
+  if (
+    (isLate || isExcluded) &&
+    !String(draft.justification || "").trim()
+  ) {
+    setMessage({
+      type: "error",
+      text:
+        isLate
+          ? "Veuillez indiquer le motif du retard."
+          : "Veuillez indiquer le motif de l'exclusion.",
+    });
+
+    setSavingId(null);
+    return;
+  }
+
+  const selectedTime =
+    getLocalDateTimeIso(draft.time);
+
+  const payload = {
+    student_id: student.id,
+    class_id: selectedClass,
+    attendance_date: selectedDate,
+    status,
+    justification:
+      isLate || isExcluded
+        ? String(
+            draft.justification || ""
+          ).trim() || null
+        : current?.justification || null,
+    justified:
+      current?.justified || false,
+    entry_at:
+      isLate
+        ? selectedTime
+        : current?.entry_at || null,
+    exit_at:
+      isExcluded
+        ? selectedTime
+        : current?.exit_at || null,
+  };
+
+  let error = null;
+
+  // Vérifie d'abord si une présence existe déjà
+  const { data: existingAttendance, error: findError } =
+    await supabase
+      .from("attendance")
+      .select("id")
+      .eq("student_id", student.id)
+      .eq("attendance_date", selectedDate)
+      .maybeSingle();
+
+  if (findError) {
+    console.error(
+      "Erreur recherche présence :",
+      findError
+    );
+
+    setMessage({
+      type: "error",
+      text:
+        "Impossible de vérifier la présence : " +
+        findError.message,
+    });
+
+    setSavingId(null);
+    return;
+  }
+
+  if (existingAttendance?.id) {
+    // Une ligne existe : mise à jour directe
+    const { error: updateError } =
+      await supabase
+        .from("attendance")
+        .update(payload)
+        .eq("id", existingAttendance.id);
+
+    error = updateError;
+  } else {
+    // Aucune ligne : création
+    const { error: insertError } =
+      await supabase
+        .from("attendance")
+        .insert(payload);
+
+    error = insertError;
+  }
+
+  if (error) {
+    console.error(
+      "Erreur sauvegarde présence :",
+      error
+    );
+
+    setMessage({
+      type: "error",
+      text:
+        "Impossible d'enregistrer la présence : " +
+        error.message,
+    });
+
+    setSavingId(null);
+    return;
+  }
+
+  const updatedAttendance = {
+    ...(current || {}),
+    ...payload,
+  };
+
+  setAttendance((previous) => ({
+    ...previous,
+    [student.id]: updatedAttendance,
+  }));
+
+  setMessage({
+    type: "success",
+    text:
+      status === "excluded"
+        ? "Exclusion enregistrée."
+        : status === "late"
+        ? "Retard enregistré."
+        : "Présence enregistrée.",
+  });
+
+  setSavingId(null);
+}
+```
+
   async function deleteAttendance(student) {
     const current = attendance[student.id];
 
