@@ -568,23 +568,24 @@ export default function ParentDashboard({
 
         if (assessmentIds.length) {
           const {
-            data,
-            error:
-              assessmentsError,
-          } = await supabase
-            .from("assessments")
-            .select(`
-              id,
-              school_id,
-              class_id,
-              subject_id,
-              title,
-              max_score,
-              evaluation_date,
-              coefficient
-            `)
-            .eq("school_id", resolvedSchoolId)
-            .in("id", assessmentIds);
+  data,
+  error:
+    assessmentsError,
+} = await supabase
+  .from("assessments")
+  .select(`
+    id,
+    school_id,
+    class_id,
+    subject_id,
+    title,
+    max_score,
+    evaluation_date,
+    coefficient,
+    trimester
+  `)
+  .eq("school_id", resolvedSchoolId)
+  .in("id", assessmentIds);
 
           if (assessmentsError) {
             throw assessmentsError;
