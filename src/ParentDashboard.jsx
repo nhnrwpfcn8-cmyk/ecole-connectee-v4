@@ -2044,7 +2044,57 @@ export default function ParentDashboard({
     );
   }
 
-  function AttendancePage() {
+ function AttendancePage() {
+    const groupedAttendance = attendance.reduce(
+      (groups, item) => {
+        const date = new Date(
+          item.attendance_date
+        );
+
+        if (Number.isNaN(date.getTime())) {
+          return groups;
+        }
+
+        const monthKey =
+          `${date.getFullYear()}-${String(
+            date.getMonth() + 1
+          ).padStart(2, "0")}`;
+
+        if (!groups[monthKey]) {
+          groups[monthKey] = {
+            year: date.getFullYear(),
+            month: date.getMonth(),
+            items: [],
+          };
+        }
+
+        groups[monthKey].items.push(item);
+
+        return groups;
+      },
+      {}
+    );
+
+    const groupedMonths = Object.entries(
+      groupedAttendance
+    ).sort(
+      ([, a], [, b]) => {
+        const dateA = new Date(
+          a.year,
+          a.month,
+          1
+        );
+
+        const dateB = new Date(
+          b.year,
+          b.month,
+          1
+        );
+
+        return dateB - dateA;
+      }
+    );
+
     return (
       <>
         <PageTitle
@@ -2062,73 +2112,289 @@ export default function ParentDashboard({
           <div
             style={{
               display: "grid",
-              gap: "10px",
+              gap: "16px",
             }}
           >
-            {attendance.map(
-              (item) => (
-                <Card key={item.id}>
+            {groupedMonths.map(
+              ([monthKey, group]) => {
+                const presentCount =
+                  group.items.filter(
+                    (item) =>
+                      item.status === "present"
+                  ).length;
+
+                const absentCount =
+                  group.items.filter(
+                    (item) =>
+                      item.status === "absent"
+                  ).length;
+
+                const lateCount =
+                  group.items.filter(
+                    (item) =>
+                      item.status === "late"
+                  ).length;
+
+                const excusedCount =
+                  group.items.filter(
+                    (item) =>
+                      item.status === "excused"
+                  ).length;
+
+                const monthLabel =
+                  new Date(
+                    group.year,
+                    group.month,
+                    1
+                  ).toLocaleDateString(
+                    "fr-FR",
+                    {
+                      month: "long",
+                      year: "numeric",
+                    }
+                  );
+
+                return (
                   <div
+                    key={monthKey}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "12px",
+                      display: "grid",
+                      gap: "10px",
                     }}
                   >
-                    <div>
-                      <strong
+                    <Card>
+                      <div
                         style={{
+                          fontSize: "18px",
+                          fontWeight: 900,
                           color: "#0f172a",
+                          textTransform:
+                            "capitalize",
+                          marginBottom: "12px",
                         }}
                       >
-                        {item.child_name}
-                      </strong>
+                        🗓️ {monthLabel}
+                      </div>
 
                       <div
                         style={{
-                          color: "#64748b",
-                          marginTop: "4px",
-                          fontSize: "13px",
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(120px, 1fr))",
+                          gap: "8px",
                         }}
                       >
-                        {formatDate(
-                          item.attendance_date
-                        )}
+                        <div
+                          style={{
+                            padding: "10px",
+                            borderRadius: "10px",
+                            background: "#f0fdf4",
+                            color: "#166534",
+                            fontWeight: 800,
+                            fontSize: "13px",
+                          }}
+                        >
+                          🟢 Présences
+                          <div
+                            style={{
+                              fontSize: "20px",
+                              marginTop: "3px",
+                            }}
+                          >
+                            {presentCount}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: "10px",
+                            borderRadius: "10px",
+                            background: "#fef2f2",
+                            color: "#991b1b",
+                            fontWeight: 800,
+                            fontSize: "13px",
+                          }}
+                        >
+                          🔴 Absences
+                          <div
+                            style={{
+                              fontSize: "20px",
+                              marginTop: "3px",
+                            }}
+                          >
+                            {absentCount}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: "10px",
+                            borderRadius: "10px",
+                            background: "#fff7ed",
+                            color: "#9a3412",
+                            fontWeight: 800,
+                            fontSize: "13px",
+                          }}
+                        >
+                          🟠 Retards
+                          <div
+                            style={{
+                              fontSize: "20px",
+                              marginTop: "3px",
+                            }}
+                          >
+                            {lateCount}
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            padding: "10px",
+                            borderRadius: "10px",
+                            background: "#eff6ff",
+                            color: "#1e40af",
+                            fontWeight: 800,
+                            fontSize: "13px",
+                          }}
+                        >
+                          🔵 Excusés
+                          <div
+                            style={{
+                              fontSize: "20px",
+                              marginTop: "3px",
+                            }}
+                          >
+                            {excusedCount}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </Card>
 
                     <div
                       style={{
-                        fontWeight: 800,
-                        fontSize: "13px",
+                        display: "grid",
+                        gap: "8px",
                       }}
                     >
-                      {item.status ===
-                        "present" &&
-                        "🟢 Présent"}
+                      {group.items.map(
+                        (item) => {
+                          const itemDate =
+                            new Date(
+                              item.attendance_date
+                            );
 
-                      {item.status ===
-                        "absent" &&
-                        "🔴 Absent"}
+                          const dayLabel =
+                            !Number.isNaN(
+                              itemDate.getTime()
+                            )
+                              ? itemDate.toLocaleDateString(
+                                  "fr-FR",
+                                  {
+                                    weekday: "long",
+                                    day: "numeric",
+                                    month: "long",
+                                    year: "numeric",
+                                  }
+                                )
+                              : formatDate(
+                                  item.attendance_date
+                                );
 
-                      {item.status ===
-                        "late" &&
-                        "🟠 En retard"}
+                          return (
+                            <Card key={item.id}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent:
+                                    "space-between",
+                                  alignItems:
+                                    "center",
+                                  gap: "12px",
+                                }}
+                              >
+                                <div>
+                                  <strong
+                                    style={{
+                                      color:
+                                        "#0f172a",
+                                    }}
+                                  >
+                                    {
+                                      item.child_name
+                                    }
+                                  </strong>
 
-                      {item.status ===
-                        "excused" &&
-                        "🔵 Excusé"}
+                                  <div
+                                    style={{
+                                      color:
+                                        "#0f172a",
+                                      marginTop:
+                                        "4px",
+                                      fontSize:
+                                        "13px",
+                                      fontWeight:
+                                        700,
+                                      textTransform:
+                                        "capitalize",
+                                    }}
+                                  >
+                                    📅 {dayLabel}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      color:
+                                        "#64748b",
+                                      marginTop:
+                                        "2px",
+                                      fontSize:
+                                        "12px",
+                                    }}
+                                  >
+                                    {formatDate(
+                                      item.attendance_date
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div
+                                  style={{
+                                    fontWeight: 800,
+                                    fontSize:
+                                      "13px",
+                                  }}
+                                >
+                                  {item.status ===
+                                    "present" &&
+                                    "🟢 Présent"}
+
+                                  {item.status ===
+                                    "absent" &&
+                                    "🔴 Absent"}
+
+                                  {item.status ===
+                                    "late" &&
+                                    "🟠 En retard"}
+
+                                  {item.status ===
+                                    "excused" &&
+                                    "🔵 Excusé"}
+                                </div>
+                              </div>
+                            </Card>
+                          );
+                        }
+                      )}
                     </div>
                   </div>
-                </Card>
-              )
+                );
+              }
             )}
           </div>
         )}
       </>
     );
-  }
+  } 
 
   function BulletinsPage() {
     return (
