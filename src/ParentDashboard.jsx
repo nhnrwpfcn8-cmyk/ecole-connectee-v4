@@ -930,107 +930,159 @@ export default function ParentDashboard({
   ]);
 
   useEffect(() => {
-    const connectedUserId =
-      session?.user?.id ||
-      profile?.id;
+  const connectedUserId =
+    session?.user?.id ||
+    profile?.id;
 
-    const currentSchoolId =
-      activeSchoolId ||
-      profile?.school_id;
+  const currentSchoolId =
+    activeSchoolId ||
+    profile?.school_id;
+
+  if (
+    !connectedUserId ||
+    !currentSchoolId
+  ) {
+    return;
+  }
+
+  let channel = null;
+  let active = true;
+
+  async function subscribeRealtime() {
+    const {
+      data: parent,
+    } = await supabase
+      .from("parents")
+      .select("id")
+      .eq("profile_id", connectedUserId)
+      .eq("school_id", currentSchoolId)
+      .maybeSingle();
 
     if (
-      !connectedUserId ||
-      !currentSchoolId
+      !active ||
+      !parent?.id
     ) {
       return;
     }
 
-    let channel = null;
-    let active = true;
-
-    async function subscribeRealtime() {
-      const {
-        data: parent,
-      } = await supabase
-        .from("parents")
-        .select("id")
-        .eq("profile_id", connectedUserId)
-        .eq("school_id", currentSchoolId)
-        .maybeSingle();
-
-      if (
-        !active ||
-        !parent?.id
-      ) {
-        return;
-      }
-
-      channel =
-        supabase
-          .channel(
-            `parent-dashboard-${currentSchoolId}-${parent.id}`
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table:
-                "secretary_parent_messages",
-              filter:
-                `parent_id=eq.${parent.id}`,
-            },
-            () => {
-              loadParentData();
+    channel =
+      supabase
+        .channel(
+          `parent-dashboard-${currentSchoolId}-${parent.id}`
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "secretary_parent_messages",
+            filter:
+              `parent_id=eq.${parent.id}`,
+          },
+          () => {
+            loadParentData();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "secretary_parent_announcements",
+            filter:
+              `school_id=eq.${currentSchoolId}`,
+          },
+          () => {
+            loadParentData();
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "parent_notifications",
+            filter:
+              `parent_id=eq.${parent.id}`,
+          },
+          (payload) => {
+            if (!active) {
+              return;
             }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table:
-                "secretary_parent_announcements",
-              filter:
-                `school_id=eq.${currentSchoolId}`,
-            },
-            () => {
-              loadParentData();
+
+            if (payload.eventType === "INSERT") {
+              setNotifications((current) => {
+                const exists = current.some(
+                  (notification) =>
+                    notification.id === payload.new?.id
+                );
+
+                if (exists) {
+                  return current;
+                }
+
+                return [
+                  payload.new,
+                  ...current,
+                ].sort(
+                  (a, b) =>
+                    new Date(b.created_at || 0) -
+                    new Date(a.created_at || 0)
+                );
+              });
+
+              return;
             }
-          )
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table:
-                "parent_notifications",
-              filter:
-                `parent_id=eq.${parent.id}`,
-            },
-            () => {
-              loadParentData();
+
+            if (payload.eventType === "UPDATE") {
+              setNotifications((current) =>
+                current
+                  .map((notification) =>
+                    notification.id === payload.new?.id
+                      ? payload.new
+                      : notification
+                  )
+                  .sort(
+                    (a, b) =>
+                      new Date(b.created_at || 0) -
+                      new Date(a.created_at || 0)
+                  )
+              );
+
+              return;
             }
-          )
-          .subscribe();
+
+            if (payload.eventType === "DELETE") {
+              setNotifications((current) =>
+                current.filter(
+                  (notification) =>
+                    notification.id !== payload.old?.id
+                )
+              );
+            }
+          }
+        )
+        .subscribe();
+  }
+
+  subscribeRealtime();
+
+  return () => {
+    active = false;
+
+    if (channel) {
+      supabase.removeChannel(channel);
     }
-
-    subscribeRealtime();
-
-    return () => {
-      active = false;
-
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [
-    profile?.id,
-    profile?.school_id,
-    session?.user?.id,
-    activeSchoolId,
-  ]);
-
+  };
+}, [
+  profile?.id,
+  profile?.school_id,
+  session?.user?.id,
+  activeSchoolId,
+]);
   async function markNotificationRead(
     notificationId
   ) {
