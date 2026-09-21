@@ -2620,6 +2620,8 @@ function AttendancePage({
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState(null);
 
+  const [detailDrafts, setDetailDrafts] = useState({});
+
   const classStudents = useMemo(
     () =>
       students.filter(
@@ -2639,6 +2641,7 @@ function AttendancePage({
   useEffect(() => {
     if (!selectedClass || !selectedDate) {
       setAttendance({});
+      setDetailDrafts({});
       return;
     }
 
@@ -2652,7 +2655,7 @@ function AttendancePage({
     const { data, error } = await supabase
       .from("attendance")
       .select(
-        "id, student_id, class_id, attendance_date, status, justification, justified"
+        "id, student_id, class_id, attendance_date, status, justification, justified, entry_at, exit_at"
       )
       .eq("class_id", selectedClass)
       .eq("attendance_date", selectedDate);
@@ -2678,7 +2681,116 @@ function AttendancePage({
     });
 
     setAttendance(mapped);
+
+    const drafts = {};
+
+    (data || []).forEach((item) => {
+      let time = "";
+
+      if (item.status === "late" && item.entry_at) {
+        const date = new Date(item.entry_at);
+
+        if (!Number.isNaN(date.getTime())) {
+          time = date.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+        }
+      }
+
+      if (item.status === "excluded" && item.exit_at) {
+        const date = new Date(item.exit_at);
+
+        if (!Number.isNaN(date.getTime())) {
+          time = date.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+        }
+      }
+
+      drafts[item.student_id] = {
+        time,
+        justification: item.justification || "",
+      };
+    });
+
+    setDetailDrafts(drafts);
     setLoading(false);
+  }
+
+  function getLocalDateTimeIso(time) {
+    if (!time) return null;
+
+    const value = new Date(
+      `${selectedDate}T${time}:00`
+    );
+
+    if (Number.isNaN(value.getTime())) {
+      return null;
+    }
+
+    return value.toISOString();
+  }
+
+  function handleStatusClick(student, status) {
+    if (
+      status === "late" ||
+      status === "excluded"
+    ) {
+      const current = attendance[student.id];
+      const existingDraft =
+        detailDrafts[student.id] || {};
+
+      let existingTime =
+        existingDraft.time || "";
+
+      if (!existingTime) {
+        const existingDate =
+          status === "late"
+            ? current?.entry_at
+            : current?.exit_at;
+
+        if (existingDate) {
+          const date = new Date(existingDate);
+
+          if (!Number.isNaN(date.getTime())) {
+            existingTime =
+              date.toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              });
+          }
+        }
+      }
+
+      setDetailDrafts((previous) => ({
+        ...previous,
+        [student.id]: {
+          time: existingTime,
+          justification:
+            existingDraft.justification ||
+            current?.justification ||
+            "",
+        },
+      }));
+
+      setAttendance((previous) => ({
+        ...previous,
+        [student.id]: {
+          ...(previous[student.id] || {}),
+          ...current,
+          status,
+        },
+      }));
+
+      return;
+    }
+
+    saveAttendance(student, status);
   }
 
   async function saveAttendance(student, status) {
@@ -2688,14 +2800,67 @@ function AttendancePage({
     setMessage(null);
 
     const current = attendance[student.id];
+    const draft = detailDrafts[student.id] || {};
+
+    const isLate = status === "late";
+    const isExcluded = status === "excluded";
+
+    if (
+      (isLate || isExcluded) &&
+      !draft.time
+    ) {
+      setMessage({
+        type: "error",
+        text:
+          isLate
+            ? "Veuillez indiquer l'heure du retard."
+            : "Veuillez indiquer l'heure de l'exclusion.",
+      });
+
+      setSavingId(null);
+      return;
+    }
+
+    if (
+      (isLate || isExcluded) &&
+      !String(draft.justification || "").trim()
+    ) {
+      setMessage({
+        type: "error",
+        text:
+          isLate
+            ? "Veuillez indiquer le motif du retard."
+            : "Veuillez indiquer le motif de l'exclusion.",
+      });
+
+      setSavingId(null);
+      return;
+    }
+
+    const selectedTime =
+      getLocalDateTimeIso(draft.time);
 
     const payload = {
       student_id: student.id,
       class_id: selectedClass,
       attendance_date: selectedDate,
       status,
-      justification: current?.justification || null,
-      justified: current?.justified || false,
+      justification:
+        isLate || isExcluded
+          ? String(
+              draft.justification || ""
+            ).trim() || null
+          : current?.justification || null,
+      justified:
+        current?.justified || false,
+      entry_at:
+        isLate
+          ? selectedTime
+          : current?.entry_at || null,
+      exit_at:
+        isExcluded
+          ? selectedTime
+          : current?.exit_at || null,
     };
 
     const { data, error } = await supabase
@@ -2722,58 +2887,7 @@ function AttendancePage({
       setSavingId(null);
       return;
     }
-async function deleteAttendance(student) {
-  const current = attendance[student.id];
 
-  if (!current?.id) {
-    setMessage({
-      type: "error",
-      text: "Aucune présence enregistrée à supprimer.",
-    });
-    return;
-  }
-
-  const confirmed = window.confirm(
-    `Supprimer la présence de ${student.first_name} ${student.last_name} pour le ${formatDate(selectedDate)} ?`
-  );
-
-  if (!confirmed) return;
-
-  setSavingId(student.id);
-  setMessage(null);
-
-  const { error } = await supabase
-    .from("attendance")
-    .delete()
-    .eq("id", current.id);
-
-  if (error) {
-    console.error("Erreur suppression présence :", error);
-
-    setMessage({
-      type: "error",
-      text:
-        "Impossible de supprimer la présence : " +
-        error.message,
-    });
-
-    setSavingId(null);
-    return;
-  }
-
-  setAttendance((previous) => {
-    const next = { ...previous };
-    delete next[student.id];
-    return next;
-  });
-
-  setMessage({
-    type: "success",
-    text: `Présence de ${student.first_name} ${student.last_name} supprimée.`,
-  });
-
-  setSavingId(null);
-}
     setAttendance((previous) => ({
       ...previous,
       [student.id]: data,
@@ -2781,15 +2895,92 @@ async function deleteAttendance(student) {
 
     setMessage({
       type: "success",
-      text: "Présence enregistrée.",
+      text:
+        status === "excluded"
+          ? "Exclusion enregistrée."
+          : status === "late"
+          ? "Retard enregistré."
+          : "Présence enregistrée.",
+    });
+
+    setSavingId(null);
+  }
+
+  async function deleteAttendance(student) {
+    const current = attendance[student.id];
+
+    if (!current?.id) {
+      setMessage({
+        type: "error",
+        text: "Aucune présence enregistrée à supprimer.",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Supprimer la présence de ${student.first_name} ${student.last_name} pour le ${formatDate(selectedDate)} ?`
+    );
+
+    if (!confirmed) return;
+
+    setSavingId(student.id);
+    setMessage(null);
+
+    const { error } = await supabase
+      .from("attendance")
+      .delete()
+      .eq("id", current.id);
+
+    if (error) {
+      console.error(
+        "Erreur suppression présence :",
+        error
+      );
+
+      setMessage({
+        type: "error",
+        text:
+          "Impossible de supprimer la présence : " +
+          error.message,
+      });
+
+      setSavingId(null);
+      return;
+    }
+
+    setAttendance((previous) => {
+      const next = { ...previous };
+      delete next[student.id];
+      return next;
+    });
+
+    setDetailDrafts((previous) => {
+      const next = { ...previous };
+      delete next[student.id];
+      return next;
+    });
+
+    setMessage({
+      type: "success",
+      text: `Présence de ${student.first_name} ${student.last_name} supprimée.`,
     });
 
     setSavingId(null);
   }
 
   const selectedClassName =
-    classes.find((item) => item.id === selectedClass)
-      ?.name || "";
+    classes.find(
+      (item) => item.id === selectedClass
+    )?.name || "";
+
+  const attendanceStatuses = [
+    ...ATTENDANCE_STATUS,
+    {
+      value: "excluded",
+      label: "Exclusion",
+      icon: "🚫",
+    },
+  ];
 
   return (
     <>
@@ -2857,7 +3048,7 @@ async function deleteAttendance(student) {
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                minWidth: 760,
+                minWidth: 900,
               }}
             >
               <thead>
@@ -2872,6 +3063,13 @@ async function deleteAttendance(student) {
                 {classStudents.map((student) => {
                   const current =
                     attendance[student.id];
+
+                  const draft =
+                    detailDrafts[student.id] || {};
+
+                  const needsDetails =
+                    current?.status === "late" ||
+                    current?.status === "excluded";
 
                   return (
                     <tr key={student.id}>
@@ -2902,7 +3100,7 @@ async function deleteAttendance(student) {
                             flexWrap: "wrap",
                           }}
                         >
-                          {ATTENDANCE_STATUS.map(
+                          {attendanceStatuses.map(
                             (status) => (
                               <button
                                 key={status.value}
@@ -2911,7 +3109,7 @@ async function deleteAttendance(student) {
                                   savingId === student.id
                                 }
                                 onClick={() =>
-                                  saveAttendance(
+                                  handleStatusClick(
                                     student,
                                     status.value
                                   )
@@ -2941,67 +3139,265 @@ async function deleteAttendance(student) {
                             )
                           )}
                         </div>
+
+                        {needsDetails && (
+                          <div
+                            style={{
+                              marginTop: 12,
+                              padding: 14,
+                              borderRadius: 12,
+                              background: "#f8fafc",
+                              border:
+                                "1px solid #e2e8f0",
+                              display: "grid",
+                              gridTemplateColumns:
+                                "minmax(150px, 220px) minmax(220px, 1fr)",
+                              gap: 12,
+                              alignItems: "end",
+                            }}
+                          >
+                            <TextInput
+                              label={
+                                current.status ===
+                                "late"
+                                  ? "⏰ Heure du retard"
+                                  : "🕐 Heure de l'exclusion"
+                              }
+                              type="time"
+                              value={
+                                draft.time || ""
+                              }
+                              onChange={(value) =>
+                                setDetailDrafts(
+                                  (previous) => ({
+                                    ...previous,
+                                    [student.id]: {
+                                      ...(
+                                        previous[
+                                          student.id
+                                        ] || {}
+                                      ),
+                                      time: value,
+                                    },
+                                  })
+                                )
+                              }
+                            />
+
+                            <TextInput
+                              label={
+                                current.status ===
+                                "late"
+                                  ? "📝 Motif du retard"
+                                  : "📝 Motif de l'exclusion"
+                              }
+                              value={
+                                draft.justification ||
+                                ""
+                              }
+                              placeholder={
+                                current.status ===
+                                "late"
+                                  ? "Ex : arrivée tardive..."
+                                  : "Ex : exclusion temporaire..."
+                              }
+                              onChange={(value) =>
+                                setDetailDrafts(
+                                  (previous) => ({
+                                    ...previous,
+                                    [student.id]: {
+                                      ...(
+                                        previous[
+                                          student.id
+                                        ] || {}
+                                      ),
+                                      justification:
+                                        value,
+                                    },
+                                  })
+                                )
+                              }
+                            />
+
+                            <button
+                              type="button"
+                              disabled={
+                                savingId ===
+                                student.id
+                              }
+                              onClick={() =>
+                                saveAttendance(
+                                  student,
+                                  current.status
+                                )
+                              }
+                              style={{
+                                gridColumn:
+                                  "1 / -1",
+                                border: "none",
+                                background:
+                                  "#0f172a",
+                                color: "#fff",
+                                borderRadius: 9,
+                                padding:
+                                  "9px 14px",
+                                cursor:
+                                  "pointer",
+                                fontWeight: 700,
+                                justifySelf:
+                                  "start",
+                              }}
+                            >
+                              💾 Enregistrer{" "}
+                              {current.status ===
+                              "late"
+                                ? "le retard"
+                                : "l'exclusion"}
+                            </button>
+                          </div>
+                        )}
                       </td>
 
                       <td style={tdStyle}>
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      flexWrap: "wrap",
-    }}
-  >
-    {savingId === student.id ? (
-      <span
-        style={{
-          color: "#64748b",
-          fontSize: 13,
-        }}
-      >
-        Enregistrement...
-      </span>
-    ) : current?.status ? (
-      <>
-        <span
-          style={{
-            fontWeight: 700,
-          }}
-        >
-          {
-            ATTENDANCE_STATUS.find(
-              (item) => item.value === current.status
-            )?.label
-          }
-        </span>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {savingId ===
+                          student.id ? (
+                            <span
+                              style={{
+                                color: "#64748b",
+                                fontSize: 13,
+                              }}
+                            >
+                              Enregistrement...
+                            </span>
+                          ) : current?.status ? (
+                            <>
+                              <span
+                                style={{
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {
+                                  attendanceStatuses.find(
+                                    (item) =>
+                                      item.value ===
+                                      current.status
+                                  )?.label
+                                }
+                              </span>
 
-        <button
-          type="button"
-          onClick={() => deleteAttendance(student)}
-          style={{
-            border: "1px solid #fecaca",
-            background: "#fef2f2",
-            color: "#b91c1c",
-            borderRadius: 8,
-            padding: "7px 10px",
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-        >
-          🗑️ Supprimer
-        </button>
-      </>
-    ) : (
-      <span
-        style={{
-          color: "#94a3b8",
-        }}
-      >
-        Non renseigné
-      </span>
-    )}
-  </div>
-</td>
+                              {current.status ===
+                                "late" &&
+                                current.entry_at && (
+                                  <span
+                                    style={{
+                                      fontSize: 13,
+                                      color:
+                                        "#64748b",
+                                    }}
+                                  >
+                                    ⏰{" "}
+                                    {new Date(
+                                      current.entry_at
+                                    ).toLocaleTimeString(
+                                      "fr-FR",
+                                      {
+                                        hour:
+                                          "2-digit",
+                                        minute:
+                                          "2-digit",
+                                      }
+                                    )}
+                                  </span>
+                                )}
+
+                              {current.status ===
+                                "excluded" &&
+                                current.exit_at && (
+                                  <span
+                                    style={{
+                                      fontSize: 13,
+                                      color:
+                                        "#64748b",
+                                    }}
+                                  >
+                                    🕐{" "}
+                                    {new Date(
+                                      current.exit_at
+                                    ).toLocaleTimeString(
+                                      "fr-FR",
+                                      {
+                                        hour:
+                                          "2-digit",
+                                        minute:
+                                          "2-digit",
+                                      }
+                                    )}
+                                  </span>
+                                )}
+
+                              {(current.status ===
+                                "late" ||
+                                current.status ===
+                                  "excluded") &&
+                                current.justification && (
+                                  <span
+                                    style={{
+                                      fontSize: 13,
+                                      color:
+                                        "#64748b",
+                                    }}
+                                  >
+                                    📝{" "}
+                                    {
+                                      current.justification
+                                    }
+                                  </span>
+                                )}
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  deleteAttendance(
+                                    student
+                                  )
+                                }
+                                style={{
+                                  border:
+                                    "1px solid #fecaca",
+                                  background:
+                                    "#fef2f2",
+                                  color:
+                                    "#b91c1c",
+                                  borderRadius: 8,
+                                  padding:
+                                    "7px 10px",
+                                  cursor:
+                                    "pointer",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                🗑️ Supprimer
+                              </button>
+                            </>
+                          ) : (
+                            <span
+                              style={{
+                                color: "#94a3b8",
+                              }}
+                            >
+                              Non renseigné
+                            </span>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -3013,7 +3409,6 @@ async function deleteAttendance(student) {
     </>
   );
 }
-
 /* =========================================================
    PAGE COMPORTEMENT
    ========================================================= */
