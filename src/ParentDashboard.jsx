@@ -719,21 +719,52 @@ export default function ParentDashboard({
 
         setGrades(normalizedGrades);
 
-        const {
-          data: attendanceRows,
-          error: attendanceError,
-        } = await supabase
-          .from("attendance")
-          .select(`
-            id,
-            student_id,
-            class_id,
-            attendance_date,
-            status,
-            justification,
-            justified,
-            created_at
-          `)
+       const {
+  data: attendanceRows,
+  error: attendanceError,
+} = await supabase
+  .from("attendance")
+  .select(`
+    id,
+    student_id,
+    class_id,
+    attendance_date,
+    status,
+    entry_at,
+    exit_at,
+    justification,
+    justified,
+    created_at
+  `)
+  .in("student_id", studentIds)
+  .order("attendance_date", {
+    ascending: false,
+  });
+
+if (attendanceError) {
+  throw attendanceError;
+}
+
+setAttendance(
+  (attendanceRows || []).map(
+    (item) => {
+      const child =
+        childMap.get(
+          String(
+            item.student_id
+          )
+        );
+
+      return {
+        ...item,
+
+        child_name: child
+          ? `${child.first_name} ${child.last_name}`
+          : "Élève",
+      };
+    }
+  )
+); 
           .in("student_id", studentIds)
           .order("attendance_date", {
             ascending: false,
