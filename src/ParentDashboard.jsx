@@ -2176,518 +2176,486 @@ export default function ParentDashboard({
     );
   } 
  function AttendancePage() {
-    const groupedAttendance = attendance.reduce(
-      (groups, item) => {
-        const date = new Date(
-          item.attendance_date
-        );
+  const groupedAttendance = attendance.reduce(
+    (groups, item) => {
+      const date = new Date(
+        item.attendance_date
+      );
 
-        if (Number.isNaN(date.getTime())) {
-          return groups;
-        }
-
-        const monthKey =
-          `${date.getFullYear()}-${String(
-            date.getMonth() + 1
-          ).padStart(2, "0")}`;
-
-        if (!groups[monthKey]) {
-          groups[monthKey] = {
-            year: date.getFullYear(),
-            month: date.getMonth(),
-            items: [],
-          };
-        }
-
-        groups[monthKey].items.push(item);
-
+      if (Number.isNaN(date.getTime())) {
         return groups;
-      },
-      {}
-    );
-
-    const groupedMonths = Object.entries(
-      groupedAttendance
-    ).sort(
-      ([, a], [, b]) => {
-        const dateA = new Date(
-          a.year,
-          a.month,
-          1
-        );
-
-        const dateB = new Date(
-          b.year,
-          b.month,
-          1
-        );
-
-        return dateB - dateA;
       }
-    );
 
-    return (
-      <>
-        <PageTitle
-          icon="🕐"
-          title="Présence"
-          description="Suivi des présences, absences et retards."
-          onBack={() => setPage("home")}
+      const monthKey =
+        `${date.getFullYear()}-${String(
+          date.getMonth() + 1
+        ).padStart(2, "0")}`;
+
+      if (!groups[monthKey]) {
+        groups[monthKey] = {
+          year: date.getFullYear(),
+          month: date.getMonth(),
+          items: [],
+        };
+      }
+
+      groups[monthKey].items.push(item);
+
+      return groups;
+    },
+    {}
+  );
+
+  const groupedMonths = Object.entries(
+    groupedAttendance
+  ).sort(
+    ([, a], [, b]) => {
+      const dateA = new Date(
+        a.year,
+        a.month,
+        1
+      );
+
+      const dateB = new Date(
+        b.year,
+        b.month,
+        1
+      );
+
+      return dateB - dateA;
+    }
+  );
+
+  return (
+    <>
+      <PageTitle
+        icon="🕐"
+        title="Présence"
+        description="Suivi des présences, absences et retards."
+        onBack={() => setPage("home")}
+      />
+
+      {!attendance.length ? (
+        <Empty
+          text="Aucune présence enregistrée."
         />
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gap: "16px",
+          }}
+        >
+          {groupedMonths.map(
+            ([monthKey, group]) => {
+              const presentCount =
+                group.items.filter(
+                  (item) =>
+                    item.status === "present"
+                ).length;
 
-        {!attendance.length ? (
-          <Empty
-            text="Aucune présence enregistrée."
-          />
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gap: "16px",
-            }}
-          >
-            {groupedMonths.map(
-              ([monthKey, group]) => {
-                const presentCount =
-                  group.items.filter(
-                    (item) =>
-                      item.status === "present"
-                  ).length;
+              const absentCount =
+                group.items.filter(
+                  (item) =>
+                    item.status === "absent"
+                ).length;
 
-                const absentCount =
-                  group.items.filter(
-                    (item) =>
-                      item.status === "absent"
-                  ).length;
+              const lateCount =
+                group.items.filter(
+                  (item) =>
+                    item.status === "late"
+                ).length;
 
-                const lateCount =
-                  group.items.filter(
-                    (item) =>
-                      item.status === "late"
-                  ).length;
+              const excludedCount =
+                group.items.filter(
+                  (item) =>
+                    item.status === "excluded"
+                ).length;
 
-                const excusedCount =
-                  group.items.filter(
-                    (item) =>
-                      item.status === "excused"
-                  ).length;
+              const monthLabel =
+                new Date(
+                  group.year,
+                  group.month,
+                  1
+                ).toLocaleDateString(
+                  "fr-FR",
+                  {
+                    month: "long",
+                    year: "numeric",
+                  }
+                );
 
-                const excludedCount =
-                  group.items.filter(
-                    (item) =>
-                      item.status === "excluded"
-                  ).length;
-
-                const monthLabel =
-                  new Date(
-                    group.year,
-                    group.month,
-                    1
-                  ).toLocaleDateString(
-                    "fr-FR",
-                    {
-                      month: "long",
-                      year: "numeric",
-                    }
-                  );
-
-                return (
-                  <div
-                    key={monthKey}
-                    style={{
-                      display: "grid",
-                      gap: "10px",
-                    }}
-                  >
-                    <Card>
-                      <div
-                        style={{
-                          fontSize: "18px",
-                          fontWeight: 900,
-                          color: "#0f172a",
-                          textTransform:
-                            "capitalize",
-                          marginBottom: "12px",
-                        }}
-                      >
-                        🗓️ {monthLabel}
-                      </div>
-
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns:
-                            "repeat(auto-fit, minmax(120px, 1fr))",
-                          gap: "8px",
-                        }}
-                      >
-                        <div
-                          style={{
-                            padding: "10px",
-                            borderRadius: "10px",
-                            background: "#f0fdf4",
-                            color: "#166534",
-                            fontWeight: 800,
-                            fontSize: "13px",
-                          }}
-                        >
-                          🟢 Présences
-                          <div
-                            style={{
-                              fontSize: "20px",
-                              marginTop: "3px",
-                            }}
-                          >
-                            {presentCount}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            padding: "10px",
-                            borderRadius: "10px",
-                            background: "#fef2f2",
-                            color: "#991b1b",
-                            fontWeight: 800,
-                            fontSize: "13px",
-                          }}
-                        >
-                          🔴 Absences
-                          <div
-                            style={{
-                              fontSize: "20px",
-                              marginTop: "3px",
-                            }}
-                          >
-                            {absentCount}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            padding: "10px",
-                            borderRadius: "10px",
-                            background: "#fff7ed",
-                            color: "#9a3412",
-                            fontWeight: 800,
-                            fontSize: "13px",
-                          }}
-                        >
-                          🟠 Retards
-                          <div
-                            style={{
-                              fontSize: "20px",
-                              marginTop: "3px",
-                            }}
-                          >
-                            {lateCount}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            padding: "10px",
-                            borderRadius: "10px",
-                            background: "#eff6ff",
-                            color: "#1e40af",
-                            fontWeight: 800,
-                            fontSize: "13px",
-                          }}
-                        >
-                          🔵 Excusés
-                          <div
-                            style={{
-                              fontSize: "20px",
-                              marginTop: "3px",
-                            }}
-                          >
-                            {excusedCount}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            padding: "10px",
-                            borderRadius: "10px",
-                            background: "#f5f3ff",
-                            color: "#6d28d9",
-                            fontWeight: 800,
-                            fontSize: "13px",
-                          }}
-                        >
-                          🚫 Exclusions
-                          <div
-                            style={{
-                              fontSize: "20px",
-                              marginTop: "3px",
-                            }}
-                          >
-                            {excludedCount}
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
+              return (
+                <div
+                  key={monthKey}
+                  style={{
+                    display: "grid",
+                    gap: "10px",
+                  }}
+                >
+                  <Card>
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        textTransform:
+                          "capitalize",
+                        marginBottom: "12px",
+                      }}
+                    >
+                      🗓️ {monthLabel}
+                    </div>
 
                     <div
                       style={{
                         display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(120px, 1fr))",
                         gap: "8px",
                       }}
                     >
-                      {group.items.map(
-                        (item) => {
-                          const itemDate =
-                            new Date(
-                              item.attendance_date
-                            );
+                      <div
+                        style={{
+                          padding: "10px",
+                          borderRadius: "10px",
+                          background: "#f0fdf4",
+                          color: "#166534",
+                          fontWeight: 800,
+                          fontSize: "13px",
+                        }}
+                      >
+                        🟢 Présences
+                        <div
+                          style={{
+                            fontSize: "20px",
+                            marginTop: "3px",
+                          }}
+                        >
+                          {presentCount}
+                        </div>
+                      </div>
 
-                          const dayLabel =
-                            !Number.isNaN(
-                              itemDate.getTime()
-                            )
-                              ? itemDate.toLocaleDateString(
-                                  "fr-FR",
-                                  {
-                                    weekday: "long",
-                                    day: "numeric",
-                                    month: "long",
-                                    year: "numeric",
-                                  }
-                                )
-                              : formatDate(
-                                  item.attendance_date
-                                );
+                      <div
+                        style={{
+                          padding: "10px",
+                          borderRadius: "10px",
+                          background: "#fef2f2",
+                          color: "#991b1b",
+                          fontWeight: 800,
+                          fontSize: "13px",
+                        }}
+                      >
+                        🔴 Absences
+                        <div
+                          style={{
+                            fontSize: "20px",
+                            marginTop: "3px",
+                          }}
+                        >
+                          {absentCount}
+                        </div>
+                      </div>
 
-                          const formatTime = (
-                            value
-                          ) => {
-                            if (!value) {
-                              return null;
-                            }
+                      <div
+                        style={{
+                          padding: "10px",
+                          borderRadius: "10px",
+                          background: "#fff7ed",
+                          color: "#9a3412",
+                          fontWeight: 800,
+                          fontSize: "13px",
+                        }}
+                      >
+                        🟠 Retards
+                        <div
+                          style={{
+                            fontSize: "20px",
+                            marginTop: "3px",
+                          }}
+                        >
+                          {lateCount}
+                        </div>
+                      </div>
 
-                            const timeDate =
-                              new Date(value);
+                      <div
+                        style={{
+                          padding: "10px",
+                          borderRadius: "10px",
+                          background: "#f5f3ff",
+                          color: "#6d28d9",
+                          fontWeight: 800,
+                          fontSize: "13px",
+                        }}
+                      >
+                        🚫 Exclusions
+                        <div
+                          style={{
+                            fontSize: "20px",
+                            marginTop: "3px",
+                          }}
+                        >
+                          {excludedCount}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
 
-                            if (
-                              Number.isNaN(
-                                timeDate.getTime()
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: "8px",
+                    }}
+                  >
+                    {group.items.map(
+                      (item) => {
+                        const itemDate =
+                          new Date(
+                            item.attendance_date
+                          );
+
+                        const dayLabel =
+                          !Number.isNaN(
+                            itemDate.getTime()
+                          )
+                            ? itemDate.toLocaleDateString(
+                                "fr-FR",
+                                {
+                                  weekday: "long",
+                                  day: "numeric",
+                                  month: "long",
+                                  year: "numeric",
+                                }
                               )
-                            ) {
-                              return null;
+                            : formatDate(
+                                item.attendance_date
+                              );
+
+                        const formatTime = (
+                          value
+                        ) => {
+                          if (!value) {
+                            return null;
+                          }
+
+                          const timeDate =
+                            new Date(value);
+
+                          if (
+                            Number.isNaN(
+                              timeDate.getTime()
+                            )
+                          ) {
+                            return null;
+                          }
+
+                          return timeDate.toLocaleTimeString(
+                            "fr-FR",
+                            {
+                              hour: "2-digit",
+                              minute: "2-digit",
                             }
+                          );
+                        };
 
-                            return timeDate.toLocaleTimeString(
-                              "fr-FR",
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            );
-                          };
+                        const entryTime =
+                          formatTime(
+                            item.entry_at
+                          );
 
-                          const entryTime =
-                            formatTime(
-                              item.entry_at
-                            );
+                        const exitTime =
+                          formatTime(
+                            item.exit_at
+                          );
 
-                          const exitTime =
-                            formatTime(
-                              item.exit_at
-                            );
-
-                          const statusLabel =
-                            item.status ===
+                        const statusLabel =
+                          item.status ===
                             "present"
-                              ? "🟢 Présent"
-                              : item.status ===
-                                "absent"
-                              ? "🔴 Absent"
-                              : item.status ===
-                                "late"
-                              ? "🟠 En retard"
-                              : item.status ===
-                                "excused"
-                              ? "🔵 Excusé"
-                              : item.status ===
-                                "excluded"
-                              ? "🚫 Exclusion"
-                              : item.status;
+                            ? "🟢 Présent"
+                            : item.status ===
+                              "absent"
+                            ? "🔴 Absent"
+                            : item.status ===
+                              "late"
+                            ? "🟠 En retard"
+                            : item.status ===
+                              "excluded"
+                            ? "🚫 Exclusion"
+                            : item.status;
 
-                          return (
-                            <Card key={item.id}>
+                        return (
+                          <Card key={item.id}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent:
+                                  "space-between",
+                                alignItems:
+                                  "flex-start",
+                                gap: "12px",
+                              }}
+                            >
                               <div
                                 style={{
-                                  display: "flex",
-                                  justifyContent:
-                                    "space-between",
-                                  alignItems:
-                                    "flex-start",
-                                  gap: "12px",
+                                  flex: 1,
                                 }}
                               >
-                                <div
+                                <strong
                                   style={{
-                                    flex: 1,
+                                    color:
+                                      "#0f172a",
                                   }}
                                 >
-                                  <strong
-                                    style={{
-                                      color:
-                                        "#0f172a",
-                                    }}
-                                  >
-                                    {
-                                      item.child_name
-                                    }
-                                  </strong>
+                                  {
+                                    item.child_name
+                                  }
+                                </strong>
 
+                                <div
+                                  style={{
+                                    color:
+                                      "#0f172a",
+                                    marginTop:
+                                      "4px",
+                                    fontSize:
+                                      "13px",
+                                    fontWeight:
+                                      700,
+                                    textTransform:
+                                      "capitalize",
+                                  }}
+                                >
+                                  📅 {dayLabel}
+                                </div>
+
+                                <div
+                                  style={{
+                                    color:
+                                      "#64748b",
+                                    marginTop:
+                                      "2px",
+                                    fontSize:
+                                      "12px",
+                                  }}
+                                >
+                                  {formatDate(
+                                    item.attendance_date
+                                  )}
+                                </div>
+
+                                {(entryTime ||
+                                  exitTime) && (
                                   <div
                                     style={{
-                                      color:
-                                        "#0f172a",
-                                      marginTop:
+                                      display:
+                                        "grid",
+                                      gap:
                                         "4px",
+                                      marginTop:
+                                        "10px",
+                                      padding:
+                                        "8px 10px",
+                                      borderRadius:
+                                        "10px",
+                                      background:
+                                        "#f8fafc",
                                       fontSize:
                                         "13px",
-                                      fontWeight:
-                                        700,
-                                      textTransform:
-                                        "capitalize",
                                     }}
                                   >
-                                    📅 {dayLabel}
-                                  </div>
+                                    {entryTime && (
+                                      <div
+                                        style={{
+                                          color:
+                                            "#166534",
+                                          fontWeight:
+                                            700,
+                                        }}
+                                      >
+                                        🕐 Entrée :{" "}
+                                        {
+                                          entryTime
+                                        }
+                                      </div>
+                                    )}
 
-                                  <div
-                                    style={{
-                                      color:
-                                        "#64748b",
-                                      marginTop:
-                                        "2px",
-                                      fontSize:
-                                        "12px",
-                                    }}
-                                  >
-                                    {formatDate(
-                                      item.attendance_date
+                                    {exitTime && (
+                                      <div
+                                        style={{
+                                          color:
+                                            "#1e40af",
+                                          fontWeight:
+                                            700,
+                                        }}
+                                      >
+                                        🚪 Sortie :{" "}
+                                        {
+                                          exitTime
+                                        }
+                                      </div>
                                     )}
                                   </div>
+                                )}
 
-                                  {(entryTime ||
-                                    exitTime) && (
+                                {(item.status ===
+                                  "late" ||
+                                  item.status ===
+                                    "excluded" ||
+                                  item.status ===
+                                    "absent") &&
+                                  item.justification && (
                                     <div
                                       style={{
-                                        display:
-                                          "grid",
-                                        gap:
-                                          "4px",
                                         marginTop:
-                                          "10px",
+                                          "8px",
                                         padding:
                                           "8px 10px",
                                         borderRadius:
                                           "10px",
                                         background:
-                                          "#f8fafc",
+                                          "#fffbeb",
+                                        color:
+                                          "#92400e",
                                         fontSize:
                                           "13px",
+                                        fontWeight:
+                                          600,
                                       }}
                                     >
-                                      {entryTime && (
-                                        <div
-                                          style={{
-                                            color:
-                                              "#166534",
-                                            fontWeight:
-                                              700,
-                                          }}
-                                        >
-                                          🕐 Entrée :{" "}
-                                          {
-                                            entryTime
-                                          }
-                                        </div>
-                                      )}
-
-                                      {exitTime && (
-                                        <div
-                                          style={{
-                                            color:
-                                              "#1e40af",
-                                            fontWeight:
-                                              700,
-                                          }}
-                                        >
-                                          🚪 Sortie :{" "}
-                                          {
-                                            exitTime
-                                          }
-                                        </div>
-                                      )}
+                                      📝 Motif :{" "}
+                                      {
+                                        item.justification
+                                      }
                                     </div>
                                   )}
-
-                                  {(item.status ===
-                                    "late" ||
-                                    item.status ===
-                                      "excluded" ||
-                                    item.status ===
-                                      "absent" ||
-                                    item.status ===
-                                      "excused") &&
-                                    item.justification && (
-                                      <div
-                                        style={{
-                                          marginTop:
-                                            "8px",
-                                          padding:
-                                            "8px 10px",
-                                          borderRadius:
-                                            "10px",
-                                          background:
-                                            "#fffbeb",
-                                          color:
-                                            "#92400e",
-                                          fontSize:
-                                            "13px",
-                                          fontWeight:
-                                            600,
-                                        }}
-                                      >
-                                        📝 Motif :{" "}
-                                        {
-                                          item.justification
-                                        }
-                                      </div>
-                                    )}
-                                </div>
-
-                                <div
-                                  style={{
-                                    fontWeight: 800,
-                                    fontSize:
-                                      "13px",
-                                    whiteSpace:
-                                      "nowrap",
-                                  }}
-                                >
-                                  {statusLabel}
-                                </div>
                               </div>
-                            </Card>
-                          );
-                        }
-                      )}
-                    </div>
+
+                              <div
+                                style={{
+                                  fontWeight: 800,
+                                  fontSize:
+                                    "13px",
+                                  whiteSpace:
+                                    "nowrap",
+                                }}
+                              >
+                                {statusLabel}
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      }
+                    )}
                   </div>
-                );
-              }
-            )}
-          </div>
-        )}
-      </>
-    );
-  }
+                </div>
+              );
+            }
+          )}
+        </div>
+      )}
+    </>
+  );
+}
   function BulletinsPage() {
     return (
       <>
