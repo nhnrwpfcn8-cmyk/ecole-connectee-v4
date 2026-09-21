@@ -2949,7 +2949,6 @@ async function saveAttendance(student, status) {
 
   setSavingId(null);
 }
-```
 
   async function deleteAttendance(student) {
     const current = attendance[student.id];
