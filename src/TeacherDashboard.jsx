@@ -2793,7 +2793,6 @@ function AttendancePage({
     saveAttendance(student, status);
   }
 
-  ```js
 async function saveAttendance(student, status) {
   if (!teacherId || !schoolId) return;
 
