@@ -702,6 +702,10 @@ export default function ParentDashboard({
                   assessment?.evaluation_date ||
                   null,
 
+                trimester:
+  assessment?.trimester ||
+  null,
+                
                 max_score:
                   assessment?.max_score ||
                   20,
