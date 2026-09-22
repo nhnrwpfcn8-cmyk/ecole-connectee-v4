@@ -264,6 +264,7 @@ export default function SecretaryTeacherCommunicationPage({
   );
 }
 
+   } 
     setSuccess("Message envoyé.");
   } catch (err) {
     console.error(err);
