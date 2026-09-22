@@ -1132,22 +1132,27 @@ export default function SecretaryDashboard({
     );
   }
 }
-  async function validateAttendance(record) {
+ async function validateAttendance(record) {
   if (!record?.id || !profile?.school_id) return;
 
   try {
-    const { data, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from("attendance")
-      .update({ share_status: "validated" })
-      .eq("id", record.id)
-      .select()
-      .single();
+      .update({
+        share_status: "validated",
+      })
+      .eq("id", record.id);
 
     if (updateError) throw updateError;
 
     setAttendance((current) =>
       current.map((item) =>
-        item.id === record.id ? data : item
+        item.id === record.id
+          ? {
+              ...item,
+              share_status: "validated",
+            }
+          : item
       )
     );
 
@@ -1170,8 +1175,7 @@ export default function SecretaryDashboard({
         "Impossible de valider la présence."
     );
   }
-}
-
+} 
 async function shareAttendance(record) {
   if (!record?.id || !profile?.school_id) return;
 
