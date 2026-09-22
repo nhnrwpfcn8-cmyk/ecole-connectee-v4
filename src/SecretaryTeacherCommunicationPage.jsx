@@ -177,63 +177,97 @@ export default function SecretaryTeacherCommunicationPage({
   }
 
   async function sendMessage(event) {
-    event.preventDefault();
+  event.preventDefault();
 
-    const text = message.trim();
+  const text = message.trim();
 
-    if (!text || sending) return;
+  if (!text || sending) return;
 
-    if (!selectedTeacherId) {
-      setError("Veuillez sélectionner un professeur.");
-      return;
-    }
-
-    setSending(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const currentConversation =
-        await ensureConversation();
-
-      const { data, error } = await supabase
-        .from("teacher_secretary_messages")
-        .insert({
-          conversation_id:
-            currentConversation.id,
-          school_id: schoolId,
-          sender_profile_id: secretaryId,
-          message: text,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setMessages((current) => {
-        if (
-          current.some(
-            (item) => item.id === data.id
-          )
-        ) {
-          return current;
-        }
-
-        return [...current, data];
-      });
-
-      setMessage("");
-      setSuccess("Message envoyé.");
-    } catch (err) {
-      console.error(err);
-      setError(
-        err?.message ||
-          "Impossible d'envoyer le message."
-      );
-    } finally {
-      setSending(false);
-    }
+  if (!selectedTeacherId) {
+    setError("Veuillez sélectionner un professeur.");
+    return;
   }
+
+  setSending(true);
+  setError("");
+  setSuccess("");
+
+  try {
+    const currentConversation =
+      await ensureConversation();
+
+    const { data, error } = await supabase
+      .from("teacher_secretary_messages")
+      .insert({
+        conversation_id:
+          currentConversation.id,
+        school_id: schoolId,
+        sender_profile_id: secretaryId,
+        message: text,
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    setMessages((current) => {
+      if (
+        current.some(
+          (item) => item.id === data.id
+        )
+      ) {
+        return current;
+      }
+
+      return [...current, data];
+    });
+
+    setMessage("");
+
+    /*
+     * Notification globale du professeur.
+     *
+     * Important :
+     * si la notification échoue, le message
+     * reste quand même envoyé.
+     */
+    if (selectedTeacherId) {
+      const {
+        error: notificationError,
+      } = await supabase
+        .from("global_notifications")
+        .insert({
+          school_id: schoolId,
+          recipient_id: selectedTeacherId,
+          sender_id: secretaryId,
+          type: "message",
+          title: "Nouveau message du secrétariat",
+          message:
+            "Le secrétariat vous a envoyé un nouveau message.",
+          target: "communication",
+          target_id: currentConversation.id,
+        });
+
+      if (notificationError) {
+        console.error(
+          "Erreur création notification globale :",
+          notificationError
+        );
+      }
+    }
+
+    setSuccess("Message envoyé.");
+  } catch (err) {
+    console.error(err);
+    setError(
+      err?.message ||
+        "Impossible d'envoyer le message."
+    );
+  } finally {
+    setSending(false);
+  }
+}
+  
   async function editMessage(messageId, currentText) {
   if (!messageId || !schoolId || !secretaryId) {
     return;
