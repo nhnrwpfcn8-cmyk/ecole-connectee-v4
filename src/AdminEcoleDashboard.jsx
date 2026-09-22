@@ -730,7 +730,8 @@ return;
 setGrades(data || []);
 }
 async function loadNotifications(schoolId) {
-  const adminId = currentProfile?.id;
+ const adminId =
+  currentProfile?.id || profile?.id; 
 
   if (!adminId || !schoolId) {
     setNotifications([]);
