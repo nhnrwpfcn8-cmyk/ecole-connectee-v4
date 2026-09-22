@@ -293,7 +293,7 @@ export default function SecretaryTeacherCommunicationPage({
     );
   }
 }
- async function deleteMessage(messageId) {
+async function deleteMessage(messageId) {
   if (!messageId || !schoolId || !secretaryId) {
     return;
   }
@@ -310,15 +310,26 @@ export default function SecretaryTeacherCommunicationPage({
   setSuccess("");
 
   try {
-    const { error: deleteError } = await supabase
+    const { data, error: deleteError } = await supabase
       .from("teacher_secretary_messages")
       .delete()
       .eq("id", messageId)
       .eq("school_id", schoolId)
-      .eq("sender_profile_id", secretaryId);
+      .eq("sender_profile_id", secretaryId)
+      .select("id");
 
     if (deleteError) {
+      console.error(
+        "Erreur suppression message professeur :",
+        deleteError
+      );
       throw deleteError;
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error(
+        "Le message n'a pas pu être supprimé. Vérifiez que vous êtes bien l'auteur du message."
+      );
     }
 
     setMessages((current) =>
