@@ -1276,6 +1276,14 @@ async function shareAttendance(record) {
       ]);
       const adminProfileId =
   messageForm.recipient_id;
+      console.log(
+  "DEBUG notification Admin École",
+  {
+    recipient_id: messageForm.recipient_id,
+    school_id: profile.school_id,
+    sender_id: session.user.id,
+  }
+);
 
 if (adminProfileId) {
   const {
