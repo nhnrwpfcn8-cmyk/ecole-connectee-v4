@@ -16,6 +16,7 @@ function SecretaryParentCommunicationPage({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [unreadByParent, setUnreadByParent] = useState({});
 
   const selectedParent = useMemo(
     () =>
@@ -28,12 +29,10 @@ function SecretaryParentCommunicationPage({
   const filteredParents = useMemo(() => {
     const search = searchParent.trim().toLowerCase();
 
-    // Ne rien afficher tant qu'aucune recherche n'est saisie
     if (!search) {
       return [];
     }
 
-    // Rechercher uniquement par nom du parent
     return parents.filter((parent) => {
       const name = String(
         parent.full_name || ""
@@ -98,6 +97,36 @@ function SecretaryParentCommunicationPage({
 
     setParents(formattedParents);
 
+    const {
+      data: unreadRows,
+      error: unreadError,
+    } = await supabase
+      .from("secretary_parent_messages")
+      .select("parent_id")
+      .eq("school_id", schoolId)
+      .eq("sender_type", "parent")
+      .is("read_at", null);
+
+    if (unreadError) {
+      console.error(
+        "Erreur chargement messages non lus :",
+        unreadError
+      );
+    } else {
+      const counts = {};
+
+      (unreadRows || []).forEach((row) => {
+        if (!row.parent_id) {
+          return;
+        }
+
+        counts[row.parent_id] =
+          (counts[row.parent_id] || 0) + 1;
+      });
+
+      setUnreadByParent(counts);
+    }
+
     setLoading(false);
   }
 
@@ -110,14 +139,16 @@ function SecretaryParentCommunicationPage({
 
     setError("");
 
-    const { data: existingConversation, error: conversationError } =
-      await supabase
-        .from("secretary_parent_conversations")
-        .select("*")
-        .eq("school_id", schoolId)
-        .eq("secretary_id", secretaryId)
-        .eq("parent_id", parentId)
-        .maybeSingle();
+    const {
+      data: existingConversation,
+      error: conversationError,
+    } = await supabase
+      .from("secretary_parent_conversations")
+      .select("*")
+      .eq("school_id", schoolId)
+      .eq("secretary_id", secretaryId)
+      .eq("parent_id", parentId)
+      .maybeSingle();
 
     if (conversationError) {
       console.error(
@@ -138,29 +169,31 @@ function SecretaryParentCommunicationPage({
 
     setConversation(existingConversation);
 
-    const { data: conversationMessages, error: messagesError } =
-      await supabase
-        .from("secretary_parent_messages")
-        .select(`
-          id,
-          school_id,
-          secretary_id,
-          parent_id,
-          subject,
-          message,
-          sender_type,
-          read_at,
-          created_at,
-          conversation_id
-        `)
-        .eq("school_id", schoolId)
-        .eq(
-          "conversation_id",
-          existingConversation.id
-        )
-        .order("created_at", {
-          ascending: true,
-        });
+    const {
+      data: conversationMessages,
+      error: messagesError,
+    } = await supabase
+      .from("secretary_parent_messages")
+      .select(`
+        id,
+        school_id,
+        secretary_id,
+        parent_id,
+        subject,
+        message,
+        sender_type,
+        read_at,
+        created_at,
+        conversation_id
+      `)
+      .eq("school_id", schoolId)
+      .eq(
+        "conversation_id",
+        existingConversation.id
+      )
+      .order("created_at", {
+        ascending: true,
+      });
 
     if (messagesError) {
       console.error(
@@ -185,14 +218,16 @@ function SecretaryParentCommunicationPage({
       return conversation;
     }
 
-    const { data: existingConversation, error: findError } =
-      await supabase
-        .from("secretary_parent_conversations")
-        .select("*")
-        .eq("school_id", schoolId)
-        .eq("secretary_id", secretaryId)
-        .eq("parent_id", parentId)
-        .maybeSingle();
+    const {
+      data: existingConversation,
+      error: findError,
+    } = await supabase
+      .from("secretary_parent_conversations")
+      .select("*")
+      .eq("school_id", schoolId)
+      .eq("secretary_id", secretaryId)
+      .eq("parent_id", parentId)
+      .maybeSingle();
 
     if (findError) {
       console.error(
@@ -207,16 +242,18 @@ function SecretaryParentCommunicationPage({
       return existingConversation;
     }
 
-    const { data: newConversation, error: createError } =
-      await supabase
-        .from("secretary_parent_conversations")
-        .insert({
-          school_id: schoolId,
-          secretary_id: secretaryId,
-          parent_id: parentId,
-        })
-        .select("*")
-        .single();
+    const {
+      data: newConversation,
+      error: createError,
+    } = await supabase
+      .from("secretary_parent_conversations")
+      .insert({
+        school_id: schoolId,
+        secretary_id: secretaryId,
+        parent_id: parentId,
+      })
+      .select("*")
+      .single();
 
     if (createError) {
       console.error(
@@ -245,7 +282,9 @@ function SecretaryParentCommunicationPage({
     }
 
     if (!schoolId || !secretaryId) {
-      setError("Informations de connexion manquantes.");
+      setError(
+        "Informations de connexion manquantes."
+      );
       return;
     }
 
@@ -263,31 +302,33 @@ function SecretaryParentCommunicationPage({
         );
       }
 
-      const { data: newMessage, error: insertError } =
-        await supabase
-          .from("secretary_parent_messages")
-          .insert({
-            school_id: schoolId,
-            secretary_id: secretaryId,
-            parent_id: selectedParentId,
-            conversation_id: currentConversation.id,
-            subject: "Communication",
-            message: text,
-            sender_type: "secretary",
-          })
-          .select(`
-            id,
-            school_id,
-            secretary_id,
-            parent_id,
-            subject,
-            message,
-            sender_type,
-            read_at,
-            created_at,
-            conversation_id
-          `)
-          .single();
+      const {
+        data: newMessage,
+        error: insertError,
+      } = await supabase
+        .from("secretary_parent_messages")
+        .insert({
+          school_id: schoolId,
+          secretary_id: secretaryId,
+          parent_id: selectedParentId,
+          conversation_id: currentConversation.id,
+          subject: "Communication",
+          message: text,
+          sender_type: "secretary",
+        })
+        .select(`
+          id,
+          school_id,
+          secretary_id,
+          parent_id,
+          subject,
+          message,
+          sender_type,
+          read_at,
+          created_at,
+          conversation_id
+        `)
+        .single();
 
       if (insertError) {
         console.error(
@@ -323,133 +364,150 @@ function SecretaryParentCommunicationPage({
       setSending(false);
     }
   }
-  async function editMessage(messageId, currentText) {
-  if (!messageId || !schoolId || !secretaryId) {
-    return;
-  }
 
-  const newText = window.prompt(
-    "Modifier le message :",
+  async function editMessage(
+    messageId,
     currentText
-  );
-
-  if (newText === null) {
-    return;
-  }
-
-  const trimmedText = newText.trim();
-
-  if (!trimmedText) {
-    setError("Le message ne peut pas être vide.");
-    return;
-  }
-
-  setError("");
-  setSuccess("");
-
-  try {
-    const { data, error: updateError } = await supabase
-      .from("secretary_parent_messages")
-      .update({
-        message: trimmedText,
-      })
-      .eq("id", messageId)
-      .eq("school_id", schoolId)
-      .eq("secretary_id", secretaryId)
-      .eq("sender_type", "secretary")
-      .select(`
-        id,
-        school_id,
-        secretary_id,
-        parent_id,
-        subject,
-        message,
-        sender_type,
-        read_at,
-        created_at,
-        conversation_id
-      `)
-      .single();
-
-    if (updateError) {
-      console.error(
-        "Erreur modification message :",
-        updateError
-      );
-      throw updateError;
+  ) {
+    if (!messageId || !schoolId || !secretaryId) {
+      return;
     }
 
-    setMessages((current) =>
-      current.map((item) =>
-        item.id === messageId ? data : item
-      )
+    const newText = window.prompt(
+      "Modifier le message :",
+      currentText
     );
 
-    setSuccess("Message modifié avec succès.");
-  } catch (editError) {
-    console.error(
-      "Erreur modification communication parent :",
-      editError
-    );
+    if (newText === null) {
+      return;
+    }
 
-    setError(
-      editError?.message ||
-        "Impossible de modifier le message."
-    );
-  }
-}
-async function deleteMessage(messageId) {
-  if (!messageId || !schoolId || !secretaryId) {
-    return;
-  }
+    const trimmedText = newText.trim();
 
-  const confirmed = window.confirm(
-    "Voulez-vous vraiment supprimer ce message ?"
-  );
+    if (!trimmedText) {
+      setError(
+        "Le message ne peut pas être vide."
+      );
+      return;
+    }
 
-  if (!confirmed) {
-    return;
-  }
+    setError("");
+    setSuccess("");
 
-  setError("");
-  setSuccess("");
+    try {
+      const {
+        data,
+        error: updateError,
+      } = await supabase
+        .from("secretary_parent_messages")
+        .update({
+          message: trimmedText,
+        })
+        .eq("id", messageId)
+        .eq("school_id", schoolId)
+        .eq("secretary_id", secretaryId)
+        .eq("sender_type", "secretary")
+        .select(`
+          id,
+          school_id,
+          secretary_id,
+          parent_id,
+          subject,
+          message,
+          sender_type,
+          read_at,
+          created_at,
+          conversation_id
+        `)
+        .single();
 
-  try {
-    const { error: deleteError } = await supabase
-      .from("secretary_parent_messages")
-      .delete()
-      .eq("id", messageId)
-      .eq("school_id", schoolId)
-      .eq("secretary_id", secretaryId)
-      .eq("sender_type", "secretary");
+      if (updateError) {
+        console.error(
+          "Erreur modification message :",
+          updateError
+        );
+        throw updateError;
+      }
 
-    if (deleteError) {
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === messageId ? data : item
+        )
+      );
+
+      setSuccess(
+        "Message modifié avec succès."
+      );
+    } catch (editError) {
       console.error(
-        "Erreur suppression message :",
+        "Erreur modification communication parent :",
+        editError
+      );
+
+      setError(
+        editError?.message ||
+          "Impossible de modifier le message."
+      );
+    }
+  }
+
+  async function deleteMessage(messageId) {
+    if (!messageId || !schoolId || !secretaryId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Voulez-vous vraiment supprimer ce message ?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+
+    try {
+      const {
+        error: deleteError,
+      } = await supabase
+        .from("secretary_parent_messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("school_id", schoolId)
+        .eq("secretary_id", secretaryId)
+        .eq("sender_type", "secretary");
+
+      if (deleteError) {
+        console.error(
+          "Erreur suppression message :",
+          deleteError
+        );
+        throw deleteError;
+      }
+
+      setMessages((current) =>
+        current.filter(
+          (item) => item.id !== messageId
+        )
+      );
+
+      setSuccess(
+        "Message supprimé avec succès."
+      );
+    } catch (deleteError) {
+      console.error(
+        "Erreur suppression communication parent :",
         deleteError
       );
-      throw deleteError;
+
+      setError(
+        deleteError?.message ||
+          "Impossible de supprimer le message."
+      );
     }
-
-    setMessages((current) =>
-      current.filter(
-        (item) => item.id !== messageId
-      )
-    );
-
-    setSuccess("Message supprimé avec succès.");
-  } catch (deleteError) {
-    console.error(
-      "Erreur suppression communication parent :",
-      deleteError
-    );
-
-    setError(
-      deleteError?.message ||
-        "Impossible de supprimer le message."
-    );
   }
-}  
+
   async function markAsRead(messageId) {
     if (!schoolId || !messageId) {
       return;
@@ -457,7 +515,9 @@ async function deleteMessage(messageId) {
 
     const now = new Date().toISOString();
 
-    const { error: updateError } = await supabase
+    const {
+      error: updateError,
+    } = await supabase
       .from("secretary_parent_messages")
       .update({
         read_at: now,
@@ -473,6 +533,10 @@ async function deleteMessage(messageId) {
       return;
     }
 
+    const readMessage = messages.find(
+      (item) => item.id === messageId
+    );
+
     setMessages((current) =>
       current.map((item) =>
         item.id === messageId
@@ -483,6 +547,29 @@ async function deleteMessage(messageId) {
           : item
       )
     );
+
+    if (
+      readMessage?.sender_type === "parent" &&
+      !readMessage.read_at
+    ) {
+      setUnreadByParent((current) => {
+        const nextCount = Math.max(
+          (current[readMessage.parent_id] || 0) - 1,
+          0
+        );
+
+        const next = {
+          ...current,
+          [readMessage.parent_id]: nextCount,
+        };
+
+        if (nextCount === 0) {
+          delete next[readMessage.parent_id];
+        }
+
+        return next;
+      });
+    }
   }
 
   useEffect(() => {
@@ -498,6 +585,79 @@ async function deleteMessage(messageId) {
     }
   }, [selectedParentId]);
 
+  /*
+   * Nouveau système :
+   * écoute les nouveaux messages des parents
+   * dans toute l'école, même lorsqu'aucune
+   * conversation n'est ouverte.
+   */
+  useEffect(() => {
+    if (!schoolId) {
+      return;
+    }
+
+    const unreadChannel = supabase
+      .channel(
+        `secretary-parent-unread-${schoolId}`
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "secretary_parent_messages",
+          filter: `school_id=eq.${schoolId}`,
+        },
+        (payload) => {
+          const newMessage = payload.new;
+
+          if (
+            newMessage.sender_type !== "parent" ||
+            newMessage.read_at
+          ) {
+            return;
+          }
+
+          setUnreadByParent((current) => ({
+            ...current,
+            [newMessage.parent_id]:
+              (current[newMessage.parent_id] || 0) + 1,
+          }));
+
+          if (
+            newMessage.conversation_id ===
+            conversation?.id
+          ) {
+            setMessages((current) => {
+              const exists = current.some(
+                (item) =>
+                  item.id === newMessage.id
+              );
+
+              if (exists) {
+                return current;
+              }
+
+              return [
+                ...current,
+                newMessage,
+              ];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(unreadChannel);
+    };
+  }, [schoolId, conversation?.id]);
+
+  /*
+   * Système existant :
+   * écoute les messages de la conversation
+   * actuellement ouverte.
+   */
   useEffect(() => {
     if (!conversation?.id) {
       return;
@@ -518,7 +678,8 @@ async function deleteMessage(messageId) {
         (payload) => {
           setMessages((current) => {
             const exists = current.some(
-              (item) => item.id === payload.new.id
+              (item) =>
+                item.id === payload.new.id
             );
 
             if (exists) {
@@ -627,6 +788,35 @@ async function deleteMessage(messageId) {
                     </div>
                   )}
 
+                  {(unreadByParent[parent.id] || 0) >
+                    0 && (
+                    <div
+                      style={{
+                        marginTop: "7px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                        background: "#dc2626",
+                        color: "#ffffff",
+                        borderRadius: "999px",
+                        padding: "3px 8px",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                      }}
+                    >
+                      🔴{" "}
+                      {unreadByParent[parent.id]}{" "}
+                      nouveau
+                      {unreadByParent[parent.id] > 1
+                        ? "x"
+                        : ""}{" "}
+                      message
+                      {unreadByParent[parent.id] > 1
+                        ? "s"
+                        : ""}
+                    </div>
+                  )}
+
                   {parent.email && (
                     <div style={styles.parentInfo}>
                       ✉️ {parent.email}
@@ -673,7 +863,9 @@ async function deleteMessage(messageId) {
               <div style={styles.messages}>
                 {messages.length === 0 ? (
                   <div style={styles.emptyConversation}>
-                    <div style={styles.emptyConversationIcon}>
+                    <div
+                      style={styles.emptyConversationIcon}
+                    >
                       💬
                     </div>
 
@@ -721,57 +913,58 @@ async function deleteMessage(messageId) {
                           >
                             {item.message}
                           </div>
-                          {isSecretary && (
-  <div
-    style={{
-      display: "flex",
-      gap: "8px",
-      marginTop: "8px",
-    }}
-  >
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        editMessage(
-          item.id,
-          item.message
-        );
-      }}
-      style={{
-        border: "none",
-        background: "transparent",
-        color: "#000000",
-        padding: "2px 0",
-        cursor: "pointer",
-        fontSize: "12px",
-        fontWeight: "600",
-      }}
-    >
-      ✏️ Modifier
-    </button>
 
-    <button
-      type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        deleteMessage(item.id);
-      }}
-      style={{
-        border: "none",
-        background: "transparent",
-        color: "#000000",
-        padding: "2px 0",
-        cursor: "pointer",
-        fontSize: "12px",
-        fontWeight: "600",
-      }}
-    >
-      🗑️ Supprimer
-    </button>
-  </div>
-)}
-                          
+                          {isSecretary && (
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "8px",
+                                marginTop: "8px",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  editMessage(
+                                    item.id,
+                                    item.message
+                                  );
+                                }}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#000000",
+                                  padding: "2px 0",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                ✏️ Modifier
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  deleteMessage(item.id);
+                                }}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  color: "#000000",
+                                  padding: "2px 0",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                🗑️ Supprimer
+                              </button>
+                            </div>
+                          )}
+
                           <div
                             style={styles.messageDate}
                           >
