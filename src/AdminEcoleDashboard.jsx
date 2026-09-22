@@ -744,12 +744,13 @@ console.log("DEBUG ADMIN NOTIFICATIONS", {
   profileSchoolId: profile?.school_id,
 });
  
-async function loadNotifications(
- console.log("LOAD NOTIFICATIONS ADMIN APPELEE", {
-  schoolId,
-});
- 
-  const adminId = adminProfile?.id;
+async function loadNotifications(schoolId) {
+  console.log("LOAD NOTIFICATIONS ADMIN APPELEE", {
+    schoolId,
+  });
+
+  const adminId =
+    currentProfile?.id || profile?.id;
 
   if (!adminId || !schoolId) {
     setNotifications([]);
