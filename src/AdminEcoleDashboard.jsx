@@ -26,6 +26,7 @@ const MENU = [
 { id: "grades", label: "Notes", icon: "📝" },
 { id: "bulletins", label: "Bulletins", icon: "📄" },
 { id: "communication", label: "Communication", icon: "📢" },
+{ id: "notifications", label: "Notifications", icon: "🔔" },
 { id: "documents", label: "Documents administratifs", icon: "📁" },
   { id: "certificats", label: "Certificats & attestations", icon: "📜" },
   { id: "ape", label: "APE", icon: "🤝" },
@@ -170,6 +171,7 @@ const [students, setStudents] = useState([]);
 const [parents, setParents] = useState([]);
 const [assessments, setAssessments] = useState([]);
 const [grades, setGrades] = useState([]);
+const [notifications, setNotifications] = useState([]); 
 
 /* ---------------------------------------------------------
 PROFIL
