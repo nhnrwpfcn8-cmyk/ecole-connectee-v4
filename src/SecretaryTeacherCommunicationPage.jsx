@@ -323,13 +323,25 @@ async function deleteMessage(messageId) {
         "Erreur suppression message professeur :",
         deleteError
       );
-      throw deleteError;
+
+      setError(
+        `Erreur suppression : ${
+          deleteError.message ||
+          deleteError.details ||
+          deleteError.hint ||
+          "Erreur inconnue"
+        }`
+      );
+
+      return;
     }
 
     if (!data || data.length === 0) {
-      throw new Error(
+      setError(
         "Le message n'a pas pu être supprimé. Vérifiez que vous êtes bien l'auteur du message."
       );
+
+      return;
     }
 
     setMessages((current) =>
@@ -350,7 +362,7 @@ async function deleteMessage(messageId) {
         "Impossible de supprimer le message."
     );
   }
-} 
+}
   async function markAsRead(item) {
     if (!item?.id || item.read_at) return;
 
