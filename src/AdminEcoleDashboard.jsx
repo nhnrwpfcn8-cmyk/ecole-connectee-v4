@@ -745,6 +745,9 @@ console.log("DEBUG ADMIN NOTIFICATIONS", {
 });
  
 async function loadNotifications(
+ console.log("LOAD NOTIFICATIONS ADMIN APPELEE", {
+  schoolId,
+});
   schoolId,
   adminProfile = currentProfile || profile
 ) {
