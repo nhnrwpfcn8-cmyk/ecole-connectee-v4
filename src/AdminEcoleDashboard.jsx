@@ -748,9 +748,7 @@ async function loadNotifications(
  console.log("LOAD NOTIFICATIONS ADMIN APPELEE", {
   schoolId,
 });
-  schoolId,
-  adminProfile = currentProfile || profile
-) {
+ 
   const adminId = adminProfile?.id;
 
   if (!adminId || !schoolId) {
