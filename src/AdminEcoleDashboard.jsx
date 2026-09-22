@@ -777,6 +777,7 @@ loadStudents(schoolId),
 loadParents(schoolId),
 loadAssessments(schoolId),
 loadGrades(schoolId),
+loadNotifications(schoolId), 
 loadDashboardStats(schoolId),
 ]);
 }
