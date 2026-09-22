@@ -994,11 +994,10 @@ export default function SecretaryDashboard({
     let query = supabase
       .from("attendance")
       .select(
-  "id, student_id, class_id, attendance_date, status, justification, justified, entry_at, exit_at, created_at"
-)
-        
-
+         "id, student_id, class_id, attendance_date, status, justification, justified, entry_at, exit_at, created_at"
       )
+        
+      
       .eq("attendance_date", date)
       .in("student_id", studentIds)
       .order("created_at", { ascending: false });
