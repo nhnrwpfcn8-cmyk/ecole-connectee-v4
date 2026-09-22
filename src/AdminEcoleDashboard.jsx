@@ -729,7 +729,36 @@ return;
 }
 setGrades(data || []);
 }
+async function loadNotifications(schoolId) {
+  const adminId = currentProfile?.id;
 
+  if (!adminId || !schoolId) {
+    setNotifications([]);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("global_notifications")
+    .select(
+      "id, school_id, recipient_id, sender_id, type, title, message, target, target_id, read_at, created_at"
+    )
+    .eq("recipient_id", adminId)
+    .eq("school_id", schoolId)
+    .order("created_at", {
+      ascending: false,
+    })
+    .limit(50);
+
+  if (error) {
+    console.error(
+      "Erreur chargement notifications Admin École :",
+      error
+    );
+    return;
+  }
+
+  setNotifications(data || []);
+}
 /* ---------------------------------------------------------
 REFRESH
 --------------------------------------------------------- */
