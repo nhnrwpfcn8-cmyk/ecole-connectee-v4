@@ -766,6 +766,15 @@ async function loadNotifications(
       ascending: false,
     })
     .limit(50);
+ console.log(
+  "DEBUG NOTIFICATIONS ADMIN",
+  {
+    adminId,
+    schoolId,
+    data,
+    error,
+  }
+);
 
   if (error) {
     console.error(
