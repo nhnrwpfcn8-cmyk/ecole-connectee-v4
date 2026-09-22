@@ -768,6 +768,49 @@ async function loadNotifications(schoolId) {
 
   setNotifications(data || []);
 }
+
+ async function markNotificationRead(notificationId) {
+  const adminId =
+    currentProfile?.id || profile?.id;
+
+  const schoolId =
+    currentProfile?.school_id ||
+    profile?.school_id;
+
+  if (!notificationId || !adminId || !schoolId) {
+    return;
+  }
+
+  const readAt = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("global_notifications")
+    .update({
+      read_at: readAt,
+    })
+    .eq("id", notificationId)
+    .eq("recipient_id", adminId)
+    .eq("school_id", schoolId);
+
+  if (error) {
+    console.error(
+      "Erreur marquage notification Admin École :",
+      error
+    );
+    return;
+  }
+
+  setNotifications((current) =>
+    current.map((item) =>
+      item.id === notificationId
+        ? {
+            ...item,
+            read_at: item.read_at || readAt,
+          }
+        : item
+    )
+  );
+}
 /* ---------------------------------------------------------
 REFRESH
 --------------------------------------------------------- */
