@@ -2864,6 +2864,45 @@ function renderAttendance() {
 
                   {record && (
                     <div style={styles.attendanceCurrent}>
+                      <div style={{ marginTop: 8 }}>
+  État de transmission :{" "}
+  <strong>
+    {record.share_status === "shared"
+      ? "🔵 Partagée aux parents"
+      : record.share_status === "validated"
+      ? "🟢 Validée par secrétaire"
+      : "🟡 À vérifier"}
+  </strong>
+</div>
+
+<div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 7,
+    marginTop: 10,
+  }}
+>
+  {record.share_status === "pending" && (
+    <button
+      type="button"
+      onClick={() => validateAttendance(record)}
+      style={styles.smallButton}
+    >
+      ✅ Valider par le secrétaire
+    </button>
+  )}
+
+  {record.share_status === "validated" && (
+    <button
+      type="button"
+      onClick={() => shareAttendance(record)}
+      style={styles.smallButton}
+    >
+      📤 Partager aux parents
+    </button>
+  )}
+</div>
                       <div>
                         Statut actuel :{" "}
                         <strong>
