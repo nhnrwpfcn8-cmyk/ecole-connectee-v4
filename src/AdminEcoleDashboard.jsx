@@ -744,9 +744,11 @@ console.log("DEBUG ADMIN NOTIFICATIONS", {
   profileSchoolId: profile?.school_id,
 });
  
-async function loadNotifications(schoolId) {
- const adminId =
-  currentProfile?.id || profile?.id; 
+async function loadNotifications(
+  schoolId,
+  adminProfile = currentProfile || profile
+) {
+  const adminId = adminProfile?.id;
 
   if (!adminId || !schoolId) {
     setNotifications([]);
