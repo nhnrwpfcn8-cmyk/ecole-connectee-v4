@@ -48,6 +48,7 @@ const STATUS_LABELS = {
   present: "Présent",
   absent: "Absent",
   late: "En retard",
+  excluded: "Exclusion",
   excused: "Justifié",
 };
 
@@ -55,6 +56,7 @@ const STATUS_ICONS = {
   present: "✅",
   absent: "❌",
   late: "⏰",
+  excluded: "🚫",
   excused: "📄",
 };
 
