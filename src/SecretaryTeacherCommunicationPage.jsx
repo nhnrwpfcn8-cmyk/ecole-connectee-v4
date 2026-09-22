@@ -249,12 +249,20 @@ export default function SecretaryTeacherCommunicationPage({
         });
 
       if (notificationError) {
-        console.error(
-          "Erreur création notification globale :",
-          notificationError
-        );
-      }
-    }
+  console.error(
+    "Erreur création notification globale :",
+    notificationError
+  );
+
+  setError(
+    `Notification impossible : ${
+      notificationError?.message ||
+      notificationError?.details ||
+      notificationError?.hint ||
+      "Erreur inconnue"
+    }`
+  );
+}
 
     setSuccess("Message envoyé.");
   } catch (err) {
