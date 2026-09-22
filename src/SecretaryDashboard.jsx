@@ -1035,80 +1035,101 @@ export default function SecretaryDashboard({
   }
 
   async function saveAttendance(student, status) {
-    if (!student?.id || !profile?.school_id) return;
+  if (!student?.id || !profile?.school_id) return;
 
-    try {
-      const existing = attendanceForStudent(student.id);
+  try {
+    const existing = attendanceForStudent(student.id);
 
-      if (existing) {
-        const { data, error: updateError } = await supabase
-          .from("attendance")
-          .update({
-            status,
-            justified: status === "excused",
-          })
-          .eq("id", existing.id)
-          .select()
-          .single();
+    const now = new Date().toISOString();
 
-        if (updateError) throw updateError;
+    const attendanceData = {
+      status,
+      justified: status === "excused",
+      ...(status === "present" && {
+        entry_at: existing?.entry_at || now,
+      }),
+      ...(status === "late" && {
+        entry_at: existing?.entry_at || now,
+      }),
+      ...(status === "excluded" && {
+        exit_at: existing?.exit_at || now,
+      }),
+    };
 
-        setAttendance((current) =>
-          current.map((item) =>
-            item.id === existing.id ? data : item
-          )
+    if (existing) {
+      const { data, error: updateError } = await supabase
+        .from("attendance")
+        .update(attendanceData)
+        .eq("id", existing.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      setAttendance((current) =>
+        current.map((item) =>
+          item.id === existing.id ? data : item
+        )
+      );
+    } else {
+      if (!student.class_id) {
+        throw new Error(
+          "Cet élève n'est affecté à aucune classe."
         );
-      } else {
-        if (!student.class_id) {
-          throw new Error(
-            "Cet élève n'est affecté à aucune classe."
-          );
-        }
-
-        const { data, error: insertError } = await supabase
-          .from("attendance")
-          .insert({
-            student_id: student.id,
-            class_id: student.class_id,
-            attendance_date: attendanceDate,
-            status,
-            justified: status === "excused",
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        setAttendance((current) => [
-          data,
-          ...current,
-        ]);
       }
 
-      await logActivity(
-        "attendance",
-        "update",
-        `${studentName(student)} : ${
-          STATUS_LABELS[status] || status
-        }`,
-        "student",
-        student.id,
-        {
-          date: attendanceDate,
+      const { data, error: insertError } = await supabase
+        .from("attendance")
+        .insert({
+          student_id: student.id,
+          class_id: student.class_id,
+          attendance_date: attendanceDate,
           status,
-        }
-      );
+          justified: status === "excused",
+          ...(status === "present" && {
+            entry_at: now,
+          }),
+          ...(status === "late" && {
+            entry_at: now,
+          }),
+          ...(status === "excluded" && {
+            exit_at: now,
+          }),
+        })
+        .select()
+        .single();
 
-      setSuccess("Présence enregistrée.");
-    } catch (err) {
-      console.error(err);
-      setError(
-        err?.message ||
-          "Impossible d'enregistrer la présence."
-      );
+      if (insertError) throw insertError;
+
+      setAttendance((current) => [
+        data,
+        ...current,
+      ]);
     }
-  }
 
+    await logActivity(
+      "attendance",
+      "update",
+      `${studentName(student)} : ${
+        STATUS_LABELS[status] || status
+      }`,
+      "student",
+      student.id,
+      {
+        date: attendanceDate,
+        status,
+      }
+    );
+
+    setSuccess("Présence enregistrée.");
+  } catch (err) {
+    console.error(err);
+    setError(
+      err?.message ||
+        "Impossible d'enregistrer la présence."
+    );
+  }
+}
   /* ============================================================
      COMMUNICATION ADMIN ÉCOLE
      ============================================================ */
