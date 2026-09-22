@@ -1206,6 +1206,24 @@ return (
             >
               {item.message}
             </p>
+           {!item.read_at && (
+  <button
+    type="button"
+    onClick={() =>
+      markNotificationRead(item.id)
+    }
+    style={{
+      marginTop: "12px",
+      padding: "8px 12px",
+      border: "none",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: 700,
+    }}
+  >
+    ✓ Marquer comme lue
+  </button>
+)}
           </div>
         ))}
       </div>
