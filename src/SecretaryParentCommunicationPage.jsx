@@ -269,101 +269,137 @@ function SecretaryParentCommunicationPage({
   }
 
   async function sendMessage() {
-    const text = message.trim();
+  const text = message.trim();
 
-    if (!selectedParentId) {
-      setError("Sélectionnez un parent.");
-      return;
-    }
+  if (!selectedParentId) {
+    setError("Sélectionnez un parent.");
+    return;
+  }
 
-    if (!text) {
-      setError("Écrivez un message.");
-      return;
-    }
+  if (!text) {
+    setError("Écrivez un message.");
+    return;
+  }
 
-    if (!schoolId || !secretaryId) {
-      setError(
-        "Informations de connexion manquantes."
+  if (!schoolId || !secretaryId) {
+    setError(
+      "Informations de connexion manquantes."
+    );
+    return;
+  }
+
+  setSending(true);
+  setError("");
+  setSuccess("");
+
+  try {
+    const currentConversation =
+      await ensureConversation(selectedParentId);
+
+    if (!currentConversation?.id) {
+      throw new Error(
+        "Conversation introuvable."
       );
-      return;
     }
 
-    setSending(true);
-    setError("");
-    setSuccess("");
+    const {
+      data: newMessage,
+      error: insertError,
+    } = await supabase
+      .from("secretary_parent_messages")
+      .insert({
+        school_id: schoolId,
+        secretary_id: secretaryId,
+        parent_id: selectedParentId,
+        conversation_id: currentConversation.id,
+        subject: "Communication",
+        message: text,
+        sender_type: "secretary",
+      })
+      .select(`
+        id,
+        school_id,
+        secretary_id,
+        parent_id,
+        subject,
+        message,
+        sender_type,
+        read_at,
+        created_at,
+        conversation_id
+      `)
+      .single();
 
-    try {
-      const currentConversation =
-        await ensureConversation(selectedParentId);
+    if (insertError) {
+      console.error(
+        "Erreur envoi message :",
+        insertError
+      );
+      throw insertError;
+    }
 
-      if (!currentConversation?.id) {
-        throw new Error(
-          "Conversation introuvable."
-        );
-      }
+    /*
+     * Le message est déjà enregistré avec succès.
+     * On conserve exactement ce fonctionnement.
+     */
+    setMessages((current) => [
+      ...current,
+      newMessage,
+    ]);
 
+    setMessage("");
+
+    /*
+     * Nouveau système de notification global.
+     *
+     * Important :
+     * Si la notification échoue, le message reste
+     * quand même envoyé au parent.
+     */
+    if (selectedParent?.profile_id) {
       const {
-        data: newMessage,
-        error: insertError,
+        error: notificationError,
       } = await supabase
-        .from("secretary_parent_messages")
+        .from("global_notifications")
         .insert({
           school_id: schoolId,
-          secretary_id: secretaryId,
-          parent_id: selectedParentId,
-          conversation_id: currentConversation.id,
-          subject: "Communication",
-          message: text,
-          sender_type: "secretary",
-        })
-        .select(`
-          id,
-          school_id,
-          secretary_id,
-          parent_id,
-          subject,
-          message,
-          sender_type,
-          read_at,
-          created_at,
-          conversation_id
-        `)
-        .single();
+          recipient_id: selectedParent.profile_id,
+          sender_id: secretaryId,
+          type: "message",
+          title: "Nouveau message du secrétariat",
+          message:
+            "Le secrétariat vous a envoyé un nouveau message.",
+          target: "communication",
+          target_id: currentConversation.id,
+        });
 
-      if (insertError) {
+      if (notificationError) {
         console.error(
-          "Erreur envoi message :",
-          insertError
+          "Erreur création notification globale :",
+          notificationError
         );
-        throw insertError;
       }
-
-      setMessages((current) => [
-        ...current,
-        newMessage,
-      ]);
-
-      setMessage("");
-
-      setSuccess(
-        `Message envoyé à ${
-          selectedParent?.full_name ||
-          "ce parent"
-        } avec succès`
-      );
-    } catch (sendError) {
-      console.error(
-        "Erreur communication parent :",
-        sendError
-      );
-
-      setError(
-        "Impossible d'envoyer le message."
-      );
-    } finally {
-      setSending(false);
     }
+
+    setSuccess(
+      `Message envoyé à ${
+        selectedParent?.full_name ||
+        "ce parent"
+      } avec succès`
+    );
+  } catch (sendError) {
+    console.error(
+      "Erreur communication parent :",
+      sendError
+    );
+
+    setError(
+      "Impossible d'envoyer le message."
+    );
+  } finally {
+    setSending(false);
   }
+}
 
   async function editMessage(
     messageId,
