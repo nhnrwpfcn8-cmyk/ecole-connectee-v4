@@ -595,7 +595,37 @@ function SecretaryParentCommunicationPage({
                           >
                             {item.message}
                           </div>
-
+                          {isSecretary && (
+  <div
+    style={{
+      display: "flex",
+      gap: "8px",
+      marginTop: "8px",
+    }}
+  >
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        editMessage(
+          item.id,
+          item.message
+        );
+      }}
+      style={{
+        border: "none",
+        background: "transparent",
+        color: "#000000",
+        padding: "2px 0",
+        cursor: "pointer",
+        fontSize: "12px",
+        fontWeight: "600",
+      }}
+    >
+      ✏️ Modifier
+    </button>
+  </div>
+)}
                           <div
                             style={styles.messageDate}
                           >
