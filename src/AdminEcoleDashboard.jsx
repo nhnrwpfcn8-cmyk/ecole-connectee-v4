@@ -173,6 +173,14 @@ const [assessments, setAssessments] = useState([]);
 const [grades, setGrades] = useState([]);
 const [notifications, setNotifications] = useState([]); 
 
+ const unreadNotifications = useMemo(
+  () =>
+    notifications.filter(
+      (item) => !item.read_at
+    ).length,
+  [notifications]
+);
+
 /* ---------------------------------------------------------
 PROFIL
 --------------------------------------------------------- */
@@ -807,6 +815,65 @@ setLoading(false);
 initialize();
 }, []);
 
+useEffect(() => {
+  const adminId =
+    currentProfile?.id || profile?.id;
+
+  const schoolId =
+    currentProfile?.school_id ||
+    profile?.school_id;
+
+  if (!adminId || !schoolId) {
+    return undefined;
+  }
+
+  const channel = supabase
+    .channel(
+      `admin-ecole-global-notifications-${adminId}`
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "global_notifications",
+        filter: `recipient_id=eq.${adminId}`,
+      },
+      (payload) => {
+        const item = payload.new;
+
+        if (
+          item?.school_id !== schoolId ||
+          item?.recipient_id !== adminId
+        ) {
+          return;
+        }
+
+        setNotifications((current) => {
+          if (
+            current.some(
+              (notification) =>
+                notification.id === item.id
+            )
+          ) {
+            return current;
+          }
+
+          return [item, ...current];
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [
+  currentProfile?.id,
+  currentProfile?.school_id,
+  profile?.id,
+  profile?.school_id,
+]); 
 /* =========================================================
 LOADING
 ========================================================= */
