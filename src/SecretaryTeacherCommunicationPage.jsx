@@ -234,6 +234,112 @@ export default function SecretaryTeacherCommunicationPage({
       setSending(false);
     }
   }
+  async function editMessage(messageId, currentText) {
+  if (!messageId || !schoolId || !secretaryId) {
+    return;
+  }
+
+  const newText = window.prompt(
+    "Modifier le message :",
+    currentText
+  );
+
+  if (newText === null) {
+    return;
+  }
+
+  const trimmedText = newText.trim();
+
+  if (!trimmedText) {
+    setError("Le message ne peut pas être vide.");
+    return;
+  }
+
+  setError("");
+  setSuccess("");
+
+  try {
+    const { data, error: updateError } = await supabase
+      .from("teacher_secretary_messages")
+      .update({
+        message: trimmedText,
+      })
+      .eq("id", messageId)
+      .eq("school_id", schoolId)
+      .eq("sender_profile_id", secretaryId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === messageId ? data : item
+      )
+    );
+
+    setSuccess("Message modifié avec succès.");
+  } catch (err) {
+    console.error(
+      "Erreur modification message professeur :",
+      err
+    );
+
+    setError(
+      err?.message ||
+        "Impossible de modifier le message."
+    );
+  }
+}
+ async function deleteMessage(messageId) {
+  if (!messageId || !schoolId || !secretaryId) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Voulez-vous vraiment supprimer ce message ?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setError("");
+  setSuccess("");
+
+  try {
+    const { error: deleteError } = await supabase
+      .from("teacher_secretary_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("school_id", schoolId)
+      .eq("sender_profile_id", secretaryId);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    setMessages((current) =>
+      current.filter(
+        (item) => item.id !== messageId
+      )
+    );
+
+    setSuccess("Message supprimé avec succès.");
+  } catch (err) {
+    console.error(
+      "Erreur suppression message professeur :",
+      err
+    );
+
+    setError(
+      err?.message ||
+        "Impossible de supprimer le message."
+    );
+  }
+} 
   async function markAsRead(item) {
     if (!item?.id || item.read_at) return;
 
@@ -518,6 +624,58 @@ export default function SecretaryTeacherCommunicationPage({
                             "fr-FR"
                           )}
                         </div>
+                        {mine && (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: 10,
+      marginTop: 8,
+    }}
+  >
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        editMessage(item.id, item.message);
+      }}
+      style={{
+        border: "none",
+        background: "transparent",
+        color: mine
+          ? "#ffffff"
+          : "#2563eb",
+        padding: "2px 0",
+        cursor: "pointer",
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
+      ✏️ Modifier
+    </button>
+
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        deleteMessage(item.id);
+      }}
+      style={{
+        border: "none",
+        background: "transparent",
+        color: mine
+          ? "#ffffff"
+          : "#dc2626",
+        padding: "2px 0",
+        cursor: "pointer",
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
+      🗑️ Supprimer
+    </button>
+  </div>
+)}
                       </div>
                     </div>
                   );
