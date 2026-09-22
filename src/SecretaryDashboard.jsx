@@ -1132,6 +1132,92 @@ export default function SecretaryDashboard({
     );
   }
 }
+  async function validateAttendance(record) {
+  if (!record?.id || !profile?.school_id) return;
+
+  try {
+    const { data, error: updateError } = await supabase
+      .from("attendance")
+      .update({ share_status: "validated" })
+      .eq("id", record.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    setAttendance((current) =>
+      current.map((item) =>
+        item.id === record.id ? data : item
+      )
+    );
+
+    await logActivity(
+      "attendance",
+      "validate",
+      "Présence validée par le secrétaire",
+      "student",
+      record.student_id,
+      {
+        date: record.attendance_date,
+      }
+    );
+
+    setSuccess("Présence validée par le secrétaire.");
+  } catch (err) {
+    console.error(err);
+    setError(
+      err?.message ||
+        "Impossible de valider la présence."
+    );
+  }
+}
+
+async function shareAttendance(record) {
+  if (!record?.id || !profile?.school_id) return;
+
+  if (record.share_status !== "validated") {
+    setError(
+      "La présence doit d'abord être validée par le secrétaire."
+    );
+    return;
+  }
+
+  try {
+    const { data, error: updateError } = await supabase
+      .from("attendance")
+      .update({ share_status: "shared" })
+      .eq("id", record.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    setAttendance((current) =>
+      current.map((item) =>
+        item.id === record.id ? data : item
+      )
+    );
+
+    await logActivity(
+      "attendance",
+      "share",
+      "Présence partagée avec les parents",
+      "student",
+      record.student_id,
+      {
+        date: record.attendance_date,
+      }
+    );
+
+    setSuccess("Présence partagée avec les parents.");
+  } catch (err) {
+    console.error(err);
+    setError(
+      err?.message ||
+        "Impossible de partager la présence."
+    );
+  }
+}
   /* ============================================================
      COMMUNICATION ADMIN ÉCOLE
      ============================================================ */
