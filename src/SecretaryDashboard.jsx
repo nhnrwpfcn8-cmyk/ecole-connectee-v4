@@ -1274,6 +1274,33 @@ async function shareAttendance(record) {
         data,
         ...current,
       ]);
+      const adminProfileId =
+  messageForm.recipient_id;
+
+if (adminProfileId) {
+  const {
+    error: notificationError,
+  } = await supabase
+    .from("global_notifications")
+    .insert({
+      school_id: profile.school_id,
+      recipient_id: adminProfileId,
+      sender_id: session.user.id,
+      type: "message",
+      title: "Nouveau message du secrétariat",
+      message:
+        "Le secrétariat vous a envoyé un nouveau message.",
+      target: "communication",
+      target_id: data.id,
+    });
+
+  if (notificationError) {
+    console.error(
+      "Erreur création notification Admin École :",
+      notificationError
+    );
+  }
+}
 
       await logActivity(
         "communication",
