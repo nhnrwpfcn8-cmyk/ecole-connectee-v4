@@ -2652,10 +2652,10 @@ function renderAttendance() {
                 );
               }}
               style={{
-  ...styles.input,
-  color: "#0f172a",
-  colorScheme: "light",
-}}
+                ...styles.input,
+                color: "#0f172a",
+                colorScheme: "light",
+              }}
             />
           </Field>
 
@@ -2675,10 +2675,10 @@ function renderAttendance() {
                 );
               }}
               style={{
-  ...styles.input,
-  color: "#0f172a",
-  colorScheme: "light",
-}}
+                ...styles.input,
+                color: "#0f172a",
+                colorScheme: "light",
+              }}
             >
               <option value="">
                 Toutes les classes
@@ -2746,6 +2746,7 @@ function renderAttendance() {
                       "present",
                       "absent",
                       "late",
+                      "excluded",
                       "excused",
                     ].map((status) => (
                       <button
@@ -2775,15 +2776,65 @@ function renderAttendance() {
 
                   {record && (
                     <div style={styles.attendanceCurrent}>
-                      Statut actuel :{" "}
-                      <strong>
-                        {STATUS_ICONS[
-                          record.status
-                        ] || "•"}{" "}
-                        {STATUS_LABELS[
-                          record.status
-                        ] || record.status}
-                      </strong>
+                      <div>
+                        Statut actuel :{" "}
+                        <strong>
+                          {STATUS_ICONS[
+                            record.status
+                          ] || "•"}{" "}
+                          {STATUS_LABELS[
+                            record.status
+                          ] || record.status}
+                        </strong>
+                      </div>
+
+                      {(record.entry_at ||
+                        record.exit_at) && (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 13,
+                            lineHeight: 1.6,
+                          }}
+                        >
+                          {record.entry_at && (
+                            <div>
+                              🕘 Entrée :{" "}
+                              <strong>
+                                {formatDateTime(
+                                  record.entry_at
+                                )}
+                              </strong>
+                            </div>
+                          )}
+
+                          {record.exit_at && (
+                            <div>
+                              🚪 Sortie :{" "}
+                              <strong>
+                                {formatDateTime(
+                                  record.exit_at
+                                )}
+                              </strong>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {(record.status === "late" ||
+                        record.status === "excluded") &&
+                        record.justification && (
+                          <div
+                            style={{
+                              marginTop: 8,
+                            }}
+                          >
+                            📝 Motif :{" "}
+                            <strong>
+                              {record.justification}
+                            </strong>
+                          </div>
+                        )}
                     </div>
                   )}
 
