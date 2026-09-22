@@ -3646,7 +3646,33 @@ async function sendCommunicationMessage() {
     if (error) {
       throw error;
     }
+    const adminId =
+  conversation?.admin_profile_id;
 
+if (adminId) {
+  const {
+    error: notificationError,
+  } = await supabase
+    .from("global_notifications")
+    .insert({
+      school_id: schoolId,
+      recipient_id: adminId,
+      sender_id: connectedUserId,
+      type: "message",
+      title: "Nouveau message",
+      message:
+        "Un élève vous a envoyé un nouveau message.",
+      target: "communication",
+      target_id: conversation.id,
+    });
+
+  if (notificationError) {
+    console.error(
+      "Erreur création notification Admin École :",
+      notificationError
+    );
+  }
+}  
     setCommunicationNewMessage("");
 
     /*
