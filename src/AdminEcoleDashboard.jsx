@@ -1090,6 +1090,86 @@ teachers={teachers}
 />
 );
 
+case "notifications":
+return (
+  <div>
+    <h2 style={{ marginTop: 0 }}>
+      🔔 Notifications
+    </h2>
+
+    {notifications.length === 0 ? (
+      <p>
+        Aucune notification pour le moment.
+      </p>
+    ) : (
+      <div
+        style={{
+          display: "grid",
+          gap: "12px",
+        }}
+      >
+        {notifications.map((item) => (
+          <div
+            key={item.id}
+            style={{
+              padding: "16px",
+              borderRadius: "12px",
+              border: "1px solid #e5e7eb",
+              background: item.read_at
+                ? "#fff"
+                : "#f8fafc",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: "12px",
+                alignItems: "flex-start",
+              }}
+            >
+              <div>
+                <strong>
+                  {item.title}
+                </strong>
+
+                {!item.read_at && (
+                  <span
+                    style={{
+                      marginLeft: "8px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      color: "#dc2626",
+                    }}
+                  >
+                    Nouveau
+                  </span>
+                )}
+              </div>
+
+              <small>
+                {item.created_at
+                  ? new Date(
+                      item.created_at
+                    ).toLocaleString("fr-FR")
+                  : ""}
+              </small>
+            </div>
+
+            <p
+              style={{
+                margin: "8px 0 0",
+              }}
+            >
+              {item.message}
+            </p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+  
  case "certificats":
 return (
 <AdminEcoleCertificats
