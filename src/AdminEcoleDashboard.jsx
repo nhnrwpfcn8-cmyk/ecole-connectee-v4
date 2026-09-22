@@ -737,6 +737,13 @@ return;
 }
 setGrades(data || []);
 }
+console.log("DEBUG ADMIN NOTIFICATIONS", {
+  currentProfileId: currentProfile?.id,
+  profileId: profile?.id,
+  currentProfileSchoolId: currentProfile?.school_id,
+  profileSchoolId: profile?.school_id,
+});
+ 
 async function loadNotifications(schoolId) {
  const adminId =
   currentProfile?.id || profile?.id; 
