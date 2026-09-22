@@ -398,6 +398,58 @@ function SecretaryParentCommunicationPage({
     );
   }
 }
+async function deleteMessage(messageId) {
+  if (!messageId || !schoolId || !secretaryId) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Voulez-vous vraiment supprimer ce message ?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setError("");
+  setSuccess("");
+
+  try {
+    const { error: deleteError } = await supabase
+      .from("secretary_parent_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("school_id", schoolId)
+      .eq("secretary_id", secretaryId)
+      .eq("sender_type", "secretary");
+
+    if (deleteError) {
+      console.error(
+        "Erreur suppression message :",
+        deleteError
+      );
+      throw deleteError;
+    }
+
+    setMessages((current) =>
+      current.filter(
+        (item) => item.id !== messageId
+      )
+    );
+
+    setSuccess("Message supprimé avec succès.");
+  } catch (deleteError) {
+    console.error(
+      "Erreur suppression communication parent :",
+      deleteError
+    );
+
+    setError(
+      deleteError?.message ||
+        "Impossible de supprimer le message."
+    );
+  }
+}  
   async function markAsRead(messageId) {
     if (!schoolId || !messageId) {
       return;
@@ -698,8 +750,28 @@ function SecretaryParentCommunicationPage({
     >
       ✏️ Modifier
     </button>
+
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        deleteMessage(item.id);
+      }}
+      style={{
+        border: "none",
+        background: "transparent",
+        color: "#000000",
+        padding: "2px 0",
+        cursor: "pointer",
+        fontSize: "12px",
+        fontWeight: "600",
+      }}
+    >
+      🗑️ Supprimer
+    </button>
   </div>
 )}
+                          
                           <div
                             style={styles.messageDate}
                           >
