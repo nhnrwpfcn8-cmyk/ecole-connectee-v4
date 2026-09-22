@@ -28,6 +28,11 @@ const MENU = [
   icon: "📢",
   label: "Secrétariat",
 },
+   {
+  id: "notifications",
+  icon: "🔔",
+  label: "Notifications",
+},
   { id: "profile", icon: "👤", label: "Mon profil" },
 ];
 
@@ -5939,6 +5944,205 @@ function InfoBox({ label, value }) {
 }
 
 /* =========================================================
+   PAGE NOTIFICATIONS
+   ========================================================= */
+
+function TeacherNotificationsPage({
+  notifications,
+  unreadCount,
+  onMarkRead,
+  onOpen,
+}) {
+  return (
+    <>
+      <PageHeader
+        icon="🔔"
+        title="Notifications"
+        description="Retrouvez ici les alertes et messages importants qui vous concernent."
+      />
+
+      <div
+        className="ec-card"
+        style={{
+          padding: 22,
+        }}
+      >
+        <div
+          style={{
+            marginBottom: 18,
+          }}
+        >
+          <strong
+            style={{
+              color: "#0f172a",
+              fontSize: 18,
+            }}
+          >
+            Vos notifications
+          </strong>
+
+          <div
+            style={{
+              marginTop: 5,
+              color: "#64748b",
+              fontSize: 13,
+            }}
+          >
+            {unreadCount > 0
+              ? `${unreadCount} notification${
+                  unreadCount > 1 ? "s" : ""
+                } non lue${
+                  unreadCount > 1 ? "s" : ""
+                }`
+              : "Toutes les notifications sont lues."}
+          </div>
+        </div>
+
+        {!notifications.length ? (
+          <EmptyState
+            text="Aucune notification pour le moment."
+          />
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {notifications.map((item) => {
+              const unread = !item.read_at;
+
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    padding: 16,
+                    borderRadius: 12,
+                    border: unread
+                      ? "1px solid #bfdbfe"
+                      : "1px solid #e2e8f0",
+                    background: unread
+                      ? "#eff6ff"
+                      : "#fff",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <strong
+                          style={{
+                            color: "#0f172a",
+                          }}
+                        >
+                          {item.title}
+                        </strong>
+
+                        {unread && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#991b1b",
+                              background: "#fee2e2",
+                              borderRadius: 999,
+                              padding: "3px 8px",
+                            }}
+                          >
+                            Nouveau
+                          </span>
+                        )}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 7,
+                          color: "#475569",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {item.message}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 8,
+                          color: "#94a3b8",
+                          fontSize: 12,
+                        }}
+                      >
+                        {item.created_at
+                          ? new Date(
+                              item.created_at
+                            ).toLocaleString(
+                              "fr-FR"
+                            )
+                          : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      marginTop: 12,
+                    }}
+                  >
+                    {unread && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onMarkRead(item.id)
+                        }
+                        className="ec-btn ec-btn-secondary"
+                      >
+                        ✓ Marquer comme lue
+                      </button>
+                    )}
+
+                    {item.target ===
+                      "communication" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOpen(item)
+                        }
+                        className="ec-btn ec-btn-primary"
+                      >
+                        💬 Voir la communication
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+/* =========================================================
    ÉTATS
    ========================================================= */
 
@@ -6276,6 +6480,146 @@ export default function TeacherDashboard({
     loadTeacherSpace();
   }, [teacherId, schoolId]);
 
+   /* ---------------------------------------------------------
+   NOTIFICATIONS
+   --------------------------------------------------------- */
+
+async function loadNotifications() {
+  if (!teacherId || !schoolId) {
+    setNotifications([]);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("global_notifications")
+    .select(
+      "id, school_id, recipient_id, sender_id, type, title, message, target, target_id, read_at, created_at"
+    )
+    .eq("recipient_id", teacherId)
+    .eq("school_id", schoolId)
+    .order("created_at", {
+      ascending: false,
+    })
+    .limit(50);
+
+  if (error) {
+    console.error(
+      "Erreur chargement notifications enseignant :",
+      error
+    );
+    return;
+  }
+
+  setNotifications(data || []);
+}
+
+useEffect(() => {
+  loadNotifications();
+
+  if (!teacherId || !schoolId) {
+    return undefined;
+  }
+
+  const channel = supabase
+    .channel(`teacher-global-notifications-${teacherId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "global_notifications",
+        filter: `recipient_id=eq.${teacherId}`,
+      },
+      (payload) => {
+        const item = payload.new;
+
+        if (
+          item?.school_id !== schoolId ||
+          item?.recipient_id !== teacherId
+        ) {
+          return;
+        }
+
+        setNotifications((current) => {
+          if (
+            current.some(
+              (notification) =>
+                notification.id === item.id
+            )
+          ) {
+            return current;
+          }
+
+          return [item, ...current];
+        });
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [teacherId, schoolId]);
+
+async function markTeacherNotificationRead(
+  notificationId
+) {
+  if (!notificationId || !teacherId || !schoolId) {
+    return;
+  }
+
+  const readAt = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("global_notifications")
+    .update({
+      read_at: readAt,
+    })
+    .eq("id", notificationId)
+    .eq("recipient_id", teacherId)
+    .eq("school_id", schoolId);
+
+  if (error) {
+    console.error(
+      "Erreur marquage notification enseignant :",
+      error
+    );
+    return;
+  }
+
+  setNotifications((current) =>
+    current.map((item) =>
+      item.id === notificationId
+        ? {
+            ...item,
+            read_at: item.read_at || readAt,
+          }
+        : item
+    )
+  );
+}
+
+const unreadTeacherNotifications = useMemo(
+  () =>
+    notifications.filter(
+      (item) => !item.read_at
+    ).length,
+  [notifications]
+);
+
+function openTeacherNotification(item) {
+  if (!item) return;
+
+  if (!item.read_at) {
+    markTeacherNotificationRead(item.id);
+  }
+
+  if (item.target === "communication") {
+    setActivePage(
+      "teacher_secretary_communication"
+    );
+  }
+}
   /* ---------------------------------------------------------
      REFRESH CONTENUS
      --------------------------------------------------------- */
@@ -6467,6 +6811,15 @@ case "teacher_secretary_communication":
       teacherId={teacherId}
     />
   );
+     case "notifications":
+  return (
+    <TeacherNotificationsPage
+      notifications={notifications}
+      unreadCount={unreadTeacherNotifications}
+      onMarkRead={markTeacherNotificationRead}
+      onOpen={openTeacherNotification}
+    />
+  );     
       case "profile":
         return (
           <ProfilePage
