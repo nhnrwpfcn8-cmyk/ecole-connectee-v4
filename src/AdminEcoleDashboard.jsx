@@ -1244,6 +1244,27 @@ setActivePage(item.id)
 <span>
 {item.label}
 </span>
+{item.id === "notifications" &&
+  unreadNotifications > 0 && (
+    <span
+      style={{
+        marginLeft: "auto",
+        minWidth: 20,
+        height: 20,
+        padding: "0 6px",
+        borderRadius: 999,
+        background: "#dc2626",
+        color: "#fff",
+        fontSize: 11,
+        fontWeight: 800,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {unreadNotifications}
+    </span>
+  )} 
 </button>
 ))}
 
