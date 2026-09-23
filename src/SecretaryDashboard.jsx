@@ -1250,6 +1250,11 @@ async function shareAttendance(record) {
         (admin) => admin.id === messageForm.recipient_id
       );
 
+      console.log("DEBUG DESTINATAIRE ADMIN", {
+  recipientId: messageForm.recipient_id,
+  schoolAdmins,
+});
+
       if (!isAdmin) {
         throw new Error(
           "Le destinataire n'appartient pas à votre école."
