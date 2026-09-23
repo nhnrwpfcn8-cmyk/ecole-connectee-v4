@@ -1368,6 +1368,83 @@ if (adminProfileId) {
     );
   }
 
+  async function editMessage(messageId, currentSubject, currentMessage) {
+  if (!messageId || !session?.user?.id) {
+    return;
+  }
+
+  const newSubject = window.prompt(
+    "Modifier le sujet :",
+    currentSubject || ""
+  );
+
+  if (newSubject === null) {
+    return;
+  }
+
+  const trimmedSubject = newSubject.trim();
+
+  if (!trimmedSubject) {
+    setError("Le sujet ne peut pas être vide.");
+    return;
+  }
+
+  const newMessage = window.prompt(
+    "Modifier le message :",
+    currentMessage || ""
+  );
+
+  if (newMessage === null) {
+    return;
+  }
+
+  const trimmedMessage = newMessage.trim();
+
+  if (!trimmedMessage) {
+    setError("Le message ne peut pas être vide.");
+    return;
+  }
+
+  setError("");
+  setSuccess("");
+
+  try {
+    const { data, error: updateError } = await supabase
+      .from("admin_secretary_messages")
+      .update({
+        subject: trimmedSubject,
+        message: trimmedMessage,
+      })
+      .eq("id", messageId)
+      .eq("sender_id", session.user.id)
+      .select(
+        "id, school_id, sender_id, recipient_id, subject, message, read_at, created_at"
+      )
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === messageId ? data : item
+      )
+    );
+
+    setSuccess("Message modifié avec succès.");
+  } catch (editError) {
+    console.error(
+      "Erreur modification message Admin École :",
+      editError
+    );
+
+    setError(
+      editError?.message ||
+        "Impossible de modifier le message."
+    );
+  }
+}
   /* ============================================================
      PROFIL
      ============================================================ */
