@@ -1445,6 +1445,53 @@ if (adminProfileId) {
     );
   }
 }
+
+  async function deleteMessage(messageId) {
+  if (!messageId || !session?.user?.id) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Voulez-vous vraiment supprimer ce message ?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  setError("");
+  setSuccess("");
+
+  try {
+    const { error: deleteError } = await supabase
+      .from("admin_secretary_messages")
+      .delete()
+      .eq("id", messageId)
+      .eq("sender_id", session.user.id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    setMessages((current) =>
+      current.filter(
+        (item) => item.id !== messageId
+      )
+    );
+
+    setSuccess("Message supprimé avec succès.");
+  } catch (deleteError) {
+    console.error(
+      "Erreur suppression message Admin École :",
+      deleteError
+    );
+
+    setError(
+      deleteError?.message ||
+        "Impossible de supprimer le message."
+    );
+  }
+}
   /* ============================================================
      PROFIL
      ============================================================ */
@@ -3741,6 +3788,60 @@ function renderCommunication() {
                               message.created_at
                             )}
                           </div>
+                          {sent && (
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: 6,
+      marginTop: 8,
+    }}
+  >
+    <button
+      type="button"
+      onClick={() =>
+        editMessage(
+          message.id,
+          message.subject,
+          message.message
+        )
+      }
+      style={{
+        border: "none",
+        background: "rgba(255,255,255,0.15)",
+        color: sent
+          ? "#ffffff"
+          : "#2563eb",
+        borderRadius: 8,
+        padding: "4px 8px",
+        fontSize: 11,
+        cursor: "pointer",
+      }}
+    >
+      ✏️ Modifier
+    </button>
+
+    <button
+      type="button"
+      onClick={() =>
+        deleteMessage(message.id)
+      }
+      style={{
+        border: "none",
+        background: "rgba(255,255,255,0.15)",
+        color: sent
+          ? "#ffffff"
+          : "#dc2626",
+        borderRadius: 8,
+        padding: "4px 8px",
+        fontSize: 11,
+        cursor: "pointer",
+      }}
+    >
+      🗑️ Supprimer
+    </button>
+  </div>
+)}
                         </div>
                       </div>
                     );
