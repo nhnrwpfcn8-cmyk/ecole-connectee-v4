@@ -214,36 +214,37 @@ export default function TeacherSecretaryCommunicationPage({
       setSuccess("Message envoyé.");
 
       // Notification globale pour le secrétaire destinataire
-      if (selectedSecretaryId) {
-        const { error: notificationError } = await supabase
-          .from("global_notifications")
-          .insert({
-            school_id: schoolId,
-            recipient_id: selectedSecretaryId,
-            sender_id: teacherId,
-            type: "message",
-            title: "Nouveau message d'un professeur",
-            message: "Un professeur vous a envoyé un nouveau message.",
-            target: "teacher_communication",
-            target_id: currentConversation.id,
-          });
+if (selectedSecretaryId) {
+  const { error: notificationError } = await supabase
+    .from("global_notifications")
+    .insert({
+      school_id: schoolId,
+      recipient_id: selectedSecretaryId,
+      sender_id: teacherId,
+      type: "message",
+      title: "Nouveau message d'un professeur",
+      message:
+        "Un professeur vous a envoyé un nouveau message.",
+      target: "communication",
+      target_id: currentConversation.id,
+    });
 
-        if (notificationError) {
-  console.error(
-    "Erreur création notification globale secrétaire :",
-    notificationError
-  );
+  if (notificationError) {
+    console.error(
+      "Erreur création notification globale secrétaire :",
+      notificationError
+    );
 
-  setError(
-    `Notification secrétaire impossible : ${
-      notificationError?.message ||
-      notificationError?.details ||
-      notificationError?.hint ||
-      "Erreur inconnue"
-    }`
-  );
-}
-}       
+    setError(
+      `Notification secrétaire impossible : ${
+        notificationError?.message ||
+        notificationError?.details ||
+        notificationError?.hint ||
+        "Erreur inconnue"
+      }`
+    );
+  }
+}     
     } catch (err) {
       console.error(err);
       setError(
