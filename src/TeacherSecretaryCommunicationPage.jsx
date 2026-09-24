@@ -272,8 +272,6 @@ if (selectedSecretaryId) {
         "Erreur inconnue"
       }`
     );
-  }
-}
   }    
     } catch (err) {
       console.error(err);
