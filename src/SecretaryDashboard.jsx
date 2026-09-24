@@ -330,7 +330,59 @@ export default function SecretaryDashboard({
 
     return () => clearTimeout(timer);
   }, [success]);
+  useEffect(() => {
+  if (
+    activeSection !== "notifications" ||
+    !session?.user?.id
+  ) {
+    return;
+  }
 
+  async function markNotificationsAsRead() {
+    const unreadIds = notifications
+      .filter(
+        (notification) =>
+          notification.recipient_id === session.user.id &&
+          !notification.read_at
+      )
+      .map((notification) => notification.id);
+
+    if (!unreadIds.length) return;
+
+    const { error: readError } = await supabase
+      .from("global_notifications")
+      .update({
+        read_at: new Date().toISOString(),
+      })
+      .in("id", unreadIds)
+      .eq("recipient_id", session.user.id);
+
+    if (readError) {
+      console.error(
+        "Erreur marquage notifications comme lues :",
+        readError
+      );
+      return;
+    }
+
+    setNotifications((current) =>
+      current.map((notification) =>
+        unreadIds.includes(notification.id)
+          ? {
+              ...notification,
+              read_at: new Date().toISOString(),
+            }
+          : notification
+      )
+    );
+  }
+
+  markNotificationsAsRead();
+}, [
+  activeSection,
+  session?.user?.id,
+  notifications,
+]);
   async function loadDashboard() {
     if (!session?.user?.id) return;
 
