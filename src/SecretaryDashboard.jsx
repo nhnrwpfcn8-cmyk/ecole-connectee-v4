@@ -387,17 +387,18 @@ export default function SecretaryDashboard({
       -------------------------------------------------------- */
 
       const [
-        schoolResult,
-        secretaryResult,
-        classesResult,
-        studentsResult,
-        parentsResult,
-        parentStudentsResult,
-        teachersResult,
-        messagesResult,
-        activitiesResult,
-        schoolAdminsResult,
-      ] = await Promise.all([
+  schoolResult,
+  secretaryResult,
+  classesResult,
+  studentsResult,
+  parentsResult,
+  parentStudentsResult,
+  teachersResult,
+  messagesResult,
+  notificationsResult,
+  activitiesResult,
+  schoolAdminsResult,
+] = await Promise.all([
         supabase
           .from("schools")
           .select(
