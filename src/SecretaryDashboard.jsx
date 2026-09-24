@@ -3878,28 +3878,38 @@ function renderCommunication() {
 
                 try {
                   const {
-                    error: insertError,
-                  } = await supabase
-                    .from(
-                      "admin_secretary_messages"
-                    )
-                    .insert({
-                      school_id:
-                        profile.school_id,
-                      sender_id:
-                        session.user.id,
-                      recipient_id:
-                        admin.id,
-                      subject:
-                        messageForm.subject
-                          .trim() ||
-                        "Message",
-                      message: text,
-                    });
+  data,
+  error: insertError,
+} = await supabase
+  .from(
+    "admin_secretary_messages"
+  )
+  .insert({
+    school_id:
+      profile.school_id,
+    sender_id:
+      session.user.id,
+    recipient_id:
+      admin.id,
+    subject:
+      messageForm.subject
+        .trim() ||
+      "Message",
+    message: text,
+  })
+  .select(
+    "id, school_id, sender_id, recipient_id, subject, message, read_at, created_at"
+  )
+  .single();
 
-                  if (insertError) {
-                    throw insertError;
-                  }
+if (insertError) {
+  throw insertError;
+}
+
+setMessages((current) => [
+  data,
+  ...current,
+]);
 
                   setMessageForm({
                     recipient_id: admin.id,
