@@ -541,7 +541,7 @@ async function deleteMessage(messageId) {
                   key={item.id}
                   value={item.id}
                 >
-                  Professeur
+                  {item.display_name || "Professeur"}
                 </option>
               ))}
             </select>
