@@ -4062,11 +4062,10 @@ setMessages((current) => [
      ============================================================ */
 
   function renderNotifications() {
-  const unreadNotifications = notifications.filter(
-    (notification) =>
-      notification.recipient_id === session.user.id &&
-      !notification.read_at
-  );
+  const displayedNotifications = notifications.filter(
+  (notification) =>
+    notification.recipient_id === session.user.id
+);
 
   return (
     <section style={styles.card}>
@@ -4082,7 +4081,7 @@ setMessages((current) => [
         </div>
       </div>
 
-      {unreadNotifications.length === 0 ? (
+      {displayedNotifications.length === 0 ? (
         <EmptyState
           icon="🔔"
           title="Aucune nouvelle notification"
@@ -4090,7 +4089,7 @@ setMessages((current) => [
         />
       ) : (
         <div>
-          {unreadNotifications.map((notification) => (
+          {displayedNotifications.map((notification) => (
             <div
               key={notification.id}
               style={styles.notificationItem}
