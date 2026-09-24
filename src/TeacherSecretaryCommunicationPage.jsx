@@ -210,8 +210,31 @@ export default function TeacherSecretaryCommunicationPage({
         return [...current, data];
       });
 
-      setMessage("");
+            setMessage("");
       setSuccess("Message envoyé.");
+
+      // Notification globale pour le secrétaire destinataire
+      if (selectedSecretaryId) {
+        const { error: notificationError } = await supabase
+          .from("global_notifications")
+          .insert({
+            school_id: schoolId,
+            recipient_id: selectedSecretaryId,
+            sender_id: teacherId,
+            type: "message",
+            title: "Nouveau message d'un professeur",
+            message: "Un professeur vous a envoyé un nouveau message.",
+            target: "teacher_communication",
+            target_id: currentConversation.id,
+          });
+
+        if (notificationError) {
+          console.error(
+            "Erreur création notification globale secrétaire :",
+            notificationError
+          );
+        }
+      }
     } catch (err) {
       console.error(err);
       setError(
