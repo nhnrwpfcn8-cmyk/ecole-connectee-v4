@@ -465,6 +465,15 @@ export default function SecretaryDashboard({
           .order("created_at", { ascending: false }),
 
         supabase
+  .from("global_notifications")
+  .select(
+    "id, school_id, recipient_id, sender_id, type, title, message, target, target_id, read_at, created_at"
+  )
+  .eq("school_id", schoolId)
+  .eq("recipient_id", session.user.id)
+  .order("created_at", { ascending: false }),
+
+        supabase
           .from("secretary_activity_logs")
           .select(
             "id, school_id, secretary_id, module, action_type, description, target_type, target_id, metadata, created_at"
@@ -506,6 +515,7 @@ export default function SecretaryDashboard({
       setParents(parentsResult.data || []);
       setTeachers(teachersResult.data || []);
       setMessages(messagesResult.data || []);
+      setNotifications(notificationsResult.data || []);
       setActivities(activitiesResult.data || []);
 
       /* --------------------------------------------------------
