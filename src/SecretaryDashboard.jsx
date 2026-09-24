@@ -1228,8 +1228,9 @@ async function shareAttendance(record) {
      ============================================================ */
 
   async function sendMessage(event) {
-    console.log("DEBUG AVANT ENVOI SESSION", session?.user?.id);
     event.preventDefault();
+
+    alert("DEBUG : sendMessage est bien appelé");
 
     if (!profile?.school_id) return;
 
