@@ -3911,7 +3911,6 @@ function renderCommunication() {
                     "Message envoyé avec succès."
                   );
 
-                  await loadDashboard();
                 } catch (err) {
                   console.error(
                     "Erreur envoi message :",
