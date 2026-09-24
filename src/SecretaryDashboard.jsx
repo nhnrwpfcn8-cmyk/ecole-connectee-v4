@@ -4275,6 +4275,11 @@ setMessages((current) => [
               key={item.id}
               type="button"
               onClick={() => {
+  if (item.id === "teacher_communication") {
+    setActiveSection("teacher_communication");
+    return;
+  }
+
   if (item.id === "services") {
     if (typeof onOpenServices === "function") {
       onOpenServices();
