@@ -4306,14 +4306,26 @@ setMessages((current) => [
               <span>{item.label}</span>
 
               {item.id ===
-                "notifications" &&
-                unreadMessages > 0 && (
-                  <span
-                    style={styles.menuBadge}
-                  >
-                    {unreadMessages}
-                  </span>
-                )}
+  "notifications" &&
+  notifications.filter(
+    (notification) =>
+      notification.recipient_id ===
+        session?.user?.id &&
+      !notification.read_at
+  ).length > 0 && (
+    <span
+      style={styles.menuBadge}
+    >
+      {
+        notifications.filter(
+          (notification) =>
+            notification.recipient_id ===
+              session?.user?.id &&
+            !notification.read_at
+        ).length
+      }
+    </span>
+  )}
             </button>
           ))}
         </nav>
