@@ -4348,13 +4348,24 @@ setMessages((current) => [
           )}
 
           {success && (
-            <div style={styles.success}>
-              <strong>✅</strong>{" "}
-              {success}
-            </div>
-          )}
+  <div style={styles.success}>
+    <strong>✅</strong>{" "}
+    {success}
+  </div>
+)}
 
-          {renderContent()}
+{activeSection !== "overview" && (
+  <div style={{ marginBottom: 16 }}>
+    <Button
+      secondary
+      onClick={() => setActiveSection("overview")}
+    >
+      ← Retour au tableau de bord
+    </Button>
+  </div>
+)}
+
+{renderContent()}
         </div>
       </main>
 
