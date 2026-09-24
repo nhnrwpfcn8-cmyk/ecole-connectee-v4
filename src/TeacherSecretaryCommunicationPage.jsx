@@ -229,12 +229,20 @@ export default function TeacherSecretaryCommunicationPage({
           });
 
         if (notificationError) {
-          console.error(
-            "Erreur création notification globale secrétaire :",
-            notificationError
-          );
-        }
-      }
+  console.error(
+    "Erreur création notification globale secrétaire :",
+    notificationError
+  );
+
+  setError(
+    `Notification secrétaire impossible : ${
+      notificationError?.message ||
+      notificationError?.details ||
+      notificationError?.hint ||
+      "Erreur inconnue"
+    }`
+  );
+}
     } catch (err) {
       console.error(err);
       setError(
