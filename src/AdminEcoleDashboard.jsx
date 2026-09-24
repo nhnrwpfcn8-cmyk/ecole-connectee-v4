@@ -7337,6 +7337,31 @@ function CommunicationPage({
       if (sendError) {
         throw sendError;
       }
+     // Notification globale pour chaque secrétaire actif
+for (const secretary of activeSecretaries) {
+  const {
+    error: notificationError,
+  } = await supabase
+    .from("global_notifications")
+    .insert({
+      school_id: schoolId,
+      recipient_id: secretary.id,
+      sender_id: user.id,
+      type: "message",
+      title: "Nouveau message de l'Admin École",
+      message:
+        "L'Admin École vous a envoyé un nouveau message.",
+      target: "communication",
+      target_id: null,
+    });
+
+  if (notificationError) {
+    console.error(
+      "Erreur création notification secrétaire :",
+      notificationError
+    );
+  }
+}
 
       // On vide uniquement le message.
       // Le sujet reste disponible pour la conversation.
