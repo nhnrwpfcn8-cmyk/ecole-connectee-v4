@@ -316,8 +316,9 @@ export default function SecretaryDashboard({
      ============================================================ */
 
   useEffect(() => {
-    loadDashboard();
-  }, [session?.user?.id]);
+  console.log("DEBUG EFFECT SESSION", session?.user?.id);
+  loadDashboard();
+}, [session?.user?.id]);
 
   useEffect(() => {
     if (!success) return;
@@ -1227,6 +1228,7 @@ async function shareAttendance(record) {
      ============================================================ */
 
   async function sendMessage(event) {
+    console.log("DEBUG AVANT ENVOI SESSION", session?.user?.id);
     event.preventDefault();
 
     if (!profile?.school_id) return;
