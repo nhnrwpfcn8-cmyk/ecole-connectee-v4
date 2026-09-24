@@ -5032,16 +5032,17 @@ const styles = {
   },
 
   sidebar: {
-    width: 270,
-    minHeight: "100vh",
-    background: "#0f172a",
-    color: "#ffffff",
-    display: "flex",
-    flexDirection: "column",
-    position: "sticky",
-    top: 0,
-    height: "100vh",
-  },
+  width: 270,
+  minHeight: "100vh",
+  background: "#0f172a",
+  color: "#ffffff",
+  display: "flex",
+  flexDirection: "column",
+  position: "sticky",
+  top: 0,
+  height: "100vh",
+  zIndex: 2000,
+},
 
   brand: {
     display: "flex",
