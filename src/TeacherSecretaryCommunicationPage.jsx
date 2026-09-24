@@ -215,19 +215,48 @@ export default function TeacherSecretaryCommunicationPage({
 
       // Notification globale pour le secrétaire destinataire
 if (selectedSecretaryId) {
-  const { error: notificationError } = await supabase
-    .from("global_notifications")
-    .insert({
-      school_id: schoolId,
-      recipient_id: selectedSecretaryId,
-      sender_id: teacherId,
-      type: "message",
-      title: "Nouveau message d'un professeur",
-      message:
-        "Un professeur vous a envoyé un nouveau message.",
-      target: "communication",
-      target_id: currentConversation.id,
-    });
+  const {
+    data: authData,
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !authData?.user?.id) {
+    console.error(
+      "Impossible de récupérer l'utilisateur connecté pour la notification :",
+      authError
+    );
+  } else {
+    const { error: notificationError } = await supabase
+      .from("global_notifications")
+      .insert({
+        school_id: schoolId,
+        recipient_id: selectedSecretaryId,
+        sender_id: authData.user.id,
+        type: "message",
+        title: "Nouveau message d'un professeur",
+        message:
+          "Un professeur vous a envoyé un nouveau message.",
+        target: "communication",
+        target_id: currentConversation.id,
+      });
+
+    if (notificationError) {
+      console.error(
+        "Erreur création notification globale secrétaire :",
+        notificationError
+      );
+
+      setError(
+        `Notification secrétaire impossible : ${
+          notificationError?.message ||
+          notificationError?.details ||
+          notificationError?.hint ||
+          "Erreur inconnue"
+        }`
+      );
+    }
+  }
+}
 
   if (notificationError) {
     console.error(
