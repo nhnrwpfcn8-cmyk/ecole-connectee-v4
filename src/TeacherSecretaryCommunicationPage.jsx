@@ -243,6 +243,7 @@ export default function TeacherSecretaryCommunicationPage({
     }`
   );
 }
+}       
     } catch (err) {
       console.error(err);
       setError(
