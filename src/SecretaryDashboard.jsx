@@ -238,6 +238,7 @@ export default function SecretaryDashboard({
   const [attendance, setAttendance] = useState([]);
 
   const [messages, setMessages] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [schoolAdmins, setSchoolAdmins] = useState([]);
   const [activities, setActivities] = useState([]);
 
