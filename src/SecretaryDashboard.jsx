@@ -4010,79 +4010,70 @@ setMessages((current) => [
      ============================================================ */
 
   function renderNotifications() {
-    return (
-      <section style={styles.card}>
-        <div style={styles.sectionTop}>
-          <div>
-            <h2 style={styles.sectionTitle}>
-              🔔 Notifications
-            </h2>
+  const unreadNotifications = notifications.filter(
+    (notification) =>
+      notification.recipient_id === session.user.id &&
+      !notification.read_at
+  );
 
-            <p style={styles.sectionSubtitle}>
-              Informations importantes pour votre
-              activité.
-            </p>
-          </div>
+  return (
+    <section style={styles.card}>
+      <div style={styles.sectionTop}>
+        <div>
+          <h2 style={styles.sectionTitle}>
+            🔔 Notifications
+          </h2>
+
+          <p style={styles.sectionSubtitle}>
+            Informations importantes pour votre activité.
+          </p>
         </div>
+      </div>
 
-        {messages.filter(
-          (message) =>
-            message.recipient_id ===
-              session.user.id &&
-            !message.read_at
-        ).length === 0 ? (
-          <EmptyState
-            icon="🔔"
-            title="Aucune nouvelle notification"
-            text="Vous êtes à jour."
-          />
-        ) : (
-          <div>
-            {messages
-              .filter(
-                (message) =>
-                  message.recipient_id ===
-                    session.user.id &&
-                  !message.read_at
-              )
-              .map((message) => (
-                <div
-                  key={message.id}
-                  style={styles.notificationItem}
+      {unreadNotifications.length === 0 ? (
+        <EmptyState
+          icon="🔔"
+          title="Aucune nouvelle notification"
+          text="Vous êtes à jour."
+        />
+      ) : (
+        <div>
+          {unreadNotifications.map((notification) => (
+            <div
+              key={notification.id}
+              style={styles.notificationItem}
+            >
+              <div style={styles.notificationIcon}>
+                🔔
+              </div>
+
+              <div>
+                <strong>
+                  {notification.title}
+                </strong>
+
+                <p
+                  style={{
+                    margin: "5px 0 0",
+                    color: "#475569",
+                  }}
                 >
-                  <div style={styles.notificationIcon}>
-                    🔔
-                  </div>
+                  {notification.message}
+                </p>
 
-                  <div>
-                    <strong>
-                      {message.subject}
-                    </strong>
-
-                    <p
-                      style={{
-                        margin:
-                          "5px 0 0",
-                        color:
-                          "#475569",
-                      }}
-                    >
-                      {message.message}
-                    </p>
-
-                    <div style={styles.muted}>
-                      {formatDateTime(
-                        message.created_at
-                      )}
-                    </div>
-                  </div>
+                <div style={styles.muted}>
+                  {formatDateTime(
+                    notification.created_at
+                  )}
                 </div>
-              ))}
-          </div>
-        )}
-      </section>
-    );
-  }
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
   /* ============================================================
      PROFIL
